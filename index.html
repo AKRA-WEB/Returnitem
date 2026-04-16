@@ -492,7 +492,7 @@
                         li.onclick = () => {
                             els.search.value = p.name;
                             els.sku.value = p.sku;
-                            els.unit.value = p.unit || 'ชิ้น'; // ใส่หน่วยนับลงช่องให้อัตโนมัติ (ถ้าไม่มีข้อมูลให้เป็น "ชิ้น" ไว้ก่อน)
+                            els.unit.value = p.unit || 'ชิ้น'; 
                             els.list.classList.add('hidden');
                         };
                         els.list.appendChild(li);
@@ -517,7 +517,6 @@
                 els.source1F.classList.toggle('hidden', val !== 'หน้าร้าน/ลูกค้า');
                 els.source23F.classList.toggle('hidden', val !== 'ออนไลน์ (Shopee)' && val !== 'ปรับสต็อคสินค้า');
                 
-                // Set required flags properly
                 if(val === 'หน้าร้าน/ลูกค้า') {
                     els.mainReason.required = true;
                     document.getElementById('billStatus').required = true;
@@ -589,17 +588,20 @@
             const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`;
             const timeStr = now.toLocaleTimeString('th-TH', { hour12: false });
 
-            // ใช้ชื่อสถานะใหม่ให้ชัดเจน ("รอตัดรอบ" หรือ "รอ QC")
             const isAdjustStock = sourceVal === 'ปรับสต็อคสินค้า';
             const targetStatus = isAdjustStock ? 'รอตัดรอบ' : 'รอ QC';
             const targetQcCondition = isAdjustStock ? 'ปรับสต็อคสินค้า' : '-';
 
+            // สร้าง Unique ID ขึ้นมาใหม่ ป้องกันปัญหาอ้างอิงบรรทัดผิดพลาด
+            const generatedId = 'UID-' + Date.now().toString() + '-' + Math.floor(Math.random() * 1000).toString();
+
             const payload = {
+                id: generatedId, // ใช้รหัสเฉพาะนี้ในการอ้างอิงเสมอ
                 dateStr, timeStr,
                 sku: els.sku.value,
                 name: els.search.value,
                 qty: parseInt(els.qty.value),
-                unit: els.unit.value, // ดึงค่าหน่วยนับจากช่อง
+                unit: els.unit.value, 
                 source: sourceVal,
                 reason: finalReason,
                 billStatus: billStatusVal,
@@ -618,16 +620,14 @@
                     body: JSON.stringify(payload)
                 });
 
-                // คำนวณ ID แถวถัดไปเอง (Max ID ปัจจุบัน + 1)
-                const nextId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
-                const newItem = { id: nextId, ...payload };
+                const newItem = { ...payload };
                 
                 // เพิ่มข้อมูลลง State แล้วแสดงผลเลย
                 items.unshift(newItem); 
                 
                 els.addForm.reset();
                 els.sku.value = '';
-                els.unit.value = ''; // รีเซ็ตหน่วยนับให้ว่าง
+                els.unit.value = ''; 
                 els.source.dispatchEvent(new Event('change'));
                 
                 renderAllTabs();
@@ -679,7 +679,6 @@
             pendingItems.forEach(item => {
                 const unitLabel = item.unit || 'ชิ้น';
                 const isBox = unitLabel === 'ลัง';
-                // ถ้าเป็นลัง ให้ใช้สีม่วง (Fuchsia) เพื่อให้มองเห็นความแตกต่างชัดเจน
                 const badgeColor = isBox ? 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300' : 'bg-rose-100 text-rose-700 border-rose-200';
 
                 html += `
@@ -705,19 +704,20 @@
                         </div>
                     </div>
                     <div class="bg-slate-50 p-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <button onclick="handleQC(${item.id}, 'A')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 hover:border-emerald-500 transition">
+                        <!-- เราส่ง ID ที่เป็นข้อความไป ต้องมีเครื่องหมายคำพูดครอบไว้ -->
+                        <button onclick="handleQC('${item.id}', 'A')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 hover:border-emerald-500 transition">
                             <span class="font-bold text-lg">A</span>
                             <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">สภาพดี<br/>ปกติ</span>
                         </button>
-                        <button onclick="handleQC(${item.id}, 'B')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50 hover:border-amber-500 transition">
+                        <button onclick="handleQC('${item.id}', 'B')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50 hover:border-amber-500 transition">
                             <span class="font-bold text-lg">B</span>
                             <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">เสียหายเล็กน้อย<br/>รีแพค</span>
                         </button>
-                        <button onclick="handleQC(${item.id}, 'C')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-rose-200 text-rose-600 rounded-lg hover:bg-rose-50 hover:border-rose-500 transition">
+                        <button onclick="handleQC('${item.id}', 'C')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-rose-200 text-rose-600 rounded-lg hover:bg-rose-50 hover:border-rose-500 transition">
                             <span class="font-bold text-lg">C</span>
                             <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">เสียหาย<br/>ขายไม่ได้</span>
                         </button>
-                        <button onclick="handleQC(${item.id}, 'D')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition">
+                        <button onclick="handleQC('${item.id}', 'D')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition">
                             <span class="font-bold text-lg">D</span>
                             <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">ปรับสต๊อค<br/>สินค้า</span>
                         </button>
@@ -738,7 +738,6 @@
                 return;
             }
 
-            // คำนวณสถิติสำหรับ Dashboard โดยแยกจำนวน ชิ้น และ ลัง
             const totalItems = batchItems.length;
             let totalPieces = 0, totalBoxes = 0;
             let countA = 0, countB = 0, countC = 0, countD = 0;
@@ -748,14 +747,12 @@
                 if (isBox) totalBoxes += item.qty;
                 else totalPieces += item.qty;
 
-                // นับชิ้นรวมๆ เพื่อประเมินเกรดคร่าวๆ (โชว์รวม)
                 if (item.qcCondition && item.qcCondition.includes('A')) countA += item.qty;
                 else if (item.qcCondition && item.qcCondition.includes('B')) countB += item.qty;
                 else if (item.qcCondition && item.qcCondition.includes('C')) countC += item.qty;
                 else if (item.qcCondition && (item.qcCondition.includes('D') || item.qcCondition === 'ปรับสต๊อคสินค้า')) countD += item.qty;
             });
 
-            // สร้าง Dashboard HTML
             dashboard.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
                     <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center shadow-sm">
@@ -784,7 +781,6 @@
                 </div>
             `;
 
-            // จัดกลุ่มข้อมูลตามแหล่งที่มา (Source)
             const grouped = {
                 'ปรับสต็อคสินค้า': [],
                 'ออนไลน์ (Shopee)': [],
@@ -853,7 +849,7 @@
                         html += `
                         <tr class="hover:bg-slate-50 transition border-b border-slate-100">
                             <td class="p-4 text-center align-top pt-5">
-                                <button onclick="handleBatchSingle(${item.id})" title="นำเข้าระบบ" class="text-slate-300 hover:text-emerald-500 transition">
+                                <button onclick="handleBatchSingle('${item.id}')" title="นำเข้าระบบ" class="text-slate-300 hover:text-emerald-500 transition">
                                     <i data-lucide="check-circle" class="w-6 h-6"></i>
                                 </button>
                             </td>
@@ -946,7 +942,7 @@
             if (grade === 'D') { conditionDesc = 'Condition D (ปรับสต๊อคสินค้า)'; }
 
             showConfirm(`ยืนยันการประเมินเป็นเกรด ${grade}?`, conditionDesc, grade === 'C' ? 'warning' : 'question', async () => {
-                const itemIndex = items.findIndex(i => i.id === id);
+                const itemIndex = items.findIndex(i => String(i.id) === String(id));
                 if(itemIndex > -1) {
                     items[itemIndex].status = newStatus;
                     items[itemIndex].qcCondition = conditionDesc;
@@ -960,7 +956,7 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 action: 'update',
-                                rowId: id,
+                                id: id, // ส่งรหัส UID ไปให้ Backend หา
                                 status: newStatus,
                                 qcCondition: conditionDesc
                             })
@@ -971,7 +967,7 @@
         };
 
         window.handleBatchSingle = async function(id) {
-            const itemIndex = items.findIndex(i => i.id === id);
+            const itemIndex = items.findIndex(i => String(i.id) === String(id));
             if(itemIndex > -1) {
                 items[itemIndex].status = 'ตัดรอบแล้ว';
                 renderAllTabs();
@@ -983,7 +979,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'update',
-                            rowId: id,
+                            id: id,
                             status: 'ตัดรอบแล้ว',
                             qcCondition: items[itemIndex].qcCondition
                         })
@@ -1001,7 +997,6 @@
 
             showConfirm('ยืนยันการ Export CSV', `มีรายการรอตัดรอบทั้งหมด ${batchedItems.length} รายการ`, 'info', async () => {
                 const bom = "\uFEFF";
-                // เพิ่มคอลัมน์ "Unit" ในไฟล์ CSV ให้ด้วย
                 let csvContent = `"Date","Time","Bill No","SKU","Product Name","Quantity","Unit","Condition","Source"\n`;
                 const rowIdsToUpdate = [];
                 
@@ -1032,7 +1027,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             action: 'updateBatch',
-                            rowIds: rowIdsToUpdate
+                            ids: rowIdsToUpdate // ส่ง List ของ UID ไป
                         })
                     });
                 } catch (error) { console.error('Failed to sync export batch:', error); }
