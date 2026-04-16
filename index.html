@@ -97,11 +97,17 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-1">จำนวน (ชิ้น)</label>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">จำนวน</label>
                         <input type="number" id="qty" min="1" value="1" required
                             class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">หน่วยนับ</label>
+                        <input type="text" id="unit" readonly required
+                            class="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-slate-500 font-medium"
+                            placeholder="Auto-fill">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-600 mb-1">แหล่งที่มา</label>
@@ -118,6 +124,14 @@
                 <div id="source1-fields" class="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4 hidden">
                     <h3 class="text-sm font-semibold text-slate-700 border-b pb-2">รายละเอียดการรับคืนจากหน้าร้าน</h3>
                     
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">ชื่อลูกค้า (ถ้ามี)</label>
+                        <div class="relative">
+                            <i data-lucide="user" class="absolute left-3 top-2.5 text-slate-400 w-4 h-4"></i>
+                            <input type="text" id="customerName" class="w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" placeholder="ระบุชื่อหรือเบอร์ติดต่อลูกค้า...">
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-600 mb-1">สาเหตุหลัก</label>
@@ -156,7 +170,8 @@
                                 <option value="ลูกค้าสั่งสินค้าผิด">4. ลูกค้าสั่งสินค้าผิด</option>
                                 <option value="สินค้าขายไม่ได้">5. สินค้าขายไม่ได้</option>
                                 <option value="ลูกค้าเลิกผลิตสินค้านั้นๆ">6. ลูกค้าเลิกผลิตสินค้านั้นๆ</option>
-                                <option value="อื่นๆ">7. อื่นๆ (ระบุเอง)</option>
+                                <option value="ส่งสินค้าที่ถูกต้องให้ลูกค้า">7. ส่งสินค้าที่ถูกต้องให้ลูกค้า</option>
+                                <option value="อื่นๆ">8. อื่นๆ (ระบุเอง)</option>
                             </select>
                         </div>
                     </div>
@@ -206,13 +221,18 @@
         <!-- TAB 3: BATCH -->
         <div id="tab-BATCH" class="tab-content">
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50">
                     <h2 class="text-lg font-bold text-slate-700 flex items-center">
-                        <i data-lucide="arrow-right-left" class="mr-2 text-amber-500"></i> รอส่งออกตัดรอบ (Adjust In POS)
+                        <i data-lucide="layout-dashboard" class="mr-2 text-amber-500"></i> Dashboard ส่งออกตัดรอบ
                     </h2>
-                    <button id="btn-export" class="flex items-center justify-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-semibold">
+                    <button id="btn-export" class="flex items-center justify-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-semibold shadow-sm">
                         <i data-lucide="download" class="w-5 h-5 mr-2"></i> Export ทั้งหมด (.csv)
                     </button>
+                </div>
+
+                <!-- Dashboard Summary Cards -->
+                <div id="batch-dashboard" class="p-4 sm:p-6 pb-2 border-b border-slate-200 bg-white">
+                    <!-- JS Rendered Dashboard -->
                 </div>
                 
                 <div class="overflow-x-auto">
@@ -222,7 +242,7 @@
                                 <th class="p-4 font-semibold w-16 text-center">Action</th>
                                 <th class="p-4 font-semibold w-24">วันที่-เวลา</th>
                                 <th class="p-4 font-semibold">SKU / สินค้า / เลขบิล</th>
-                                <th class="p-4 font-semibold text-center">จำนวน</th>
+                                <th class="p-4 font-semibold text-center">จำนวน / หน่วย</th>
                                 <th class="p-4 font-semibold">สภาพ (Condition)</th>
                             </tr>
                         </thead>
@@ -249,7 +269,7 @@
                             <tr class="bg-slate-50 text-slate-500 text-sm border-b">
                                 <th class="p-4 font-semibold w-24">วันที่-เวลา</th>
                                 <th class="p-4 font-semibold">SKU / สินค้า / เลขบิล</th>
-                                <th class="p-4 font-semibold text-center">จำนวน</th>
+                                <th class="p-4 font-semibold text-center">จำนวน / หน่วย</th>
                                 <th class="p-4 font-semibold">สถานะสุดท้าย</th>
                             </tr>
                         </thead>
@@ -265,23 +285,8 @@
 
     <!-- JavaScript Logic -->
     <script>
-        // --- Mock Data & Config ---
+        // --- Config ---
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfIHbD47Wtej16VbKG894gfg1lcJBC1UpQFPGs2QuiOjqJD8pBawgGGIgukTu6E-I/exec';
-
-        const MOCK_PRODUCTS = [
-            { sku: 'SKU1001', name: 'แชมพูสูตรเย็น 500ml' },
-            { sku: 'SKU1002', name: 'สบู่เหลวอาบน้ำกลิ่นซากุระ' },
-            { sku: 'SKU1003', name: 'ครีมนวดผมบำรุงล้ำลึก' },
-            { sku: 'SKU1004', name: 'ยาสีฟันสูตรเกลือ 150g' },
-            { sku: 'SKU1005', name: 'น้ำยาบ้วนปาก 500ml' }
-        ];
-
-        let MOCK_ITEMS = [
-            { id: 1, dateStr: '16/04/26', timeStr: '10:30:00', sku: 'SKU1001', name: 'แชมพูสูตรเย็น 500ml', qty: 2, source: 'หน้าร้าน/ลูกค้า', reason: 'สินค้าส่งผิด', status: 'PENDING', qcCondition: null, billNo: 'INV-2604001' },
-            { id: 2, dateStr: '15/04/26', timeStr: '14:15:22', sku: 'SKU1004', name: 'ยาสีฟันสูตรเกลือ 150g', qty: 1, source: 'ออนไลน์ (Shopee)', reason: 'ลูกค้าปฏิเสธการรับ', status: 'QC_PASSED', qcCondition: 'Condition A (ปกติ)', billNo: '-' },
-            { id: 3, dateStr: '10/04/26', timeStr: '09:00:00', sku: 'SKU1005', name: 'น้ำยาบ้วนปาก 500ml', qty: 5, source: 'ปรับสต็อคสินค้า', reason: 'นับสต๊อกชนเดือน', status: 'BATCHED', qcCondition: 'Condition A (ปกติ)', billNo: '-' },
-            { id: 4, dateStr: '14/04/26', timeStr: '16:45:10', sku: 'SKU1002', name: 'สบู่เหลวอาบน้ำกลิ่นซากุระ', qty: 1, source: 'หน้าร้าน/ลูกค้า', reason: 'สินค้าชำรุด/เสียหาย', status: 'REJECTED', qcCondition: 'Condition C (ขายไม่ได้)', billNo: 'INV-2604002' }
-        ];
 
         let products = [];
         let items = [];
@@ -379,20 +384,21 @@
             showLoading('กำลังโหลดข้อมูลจาก Google Sheets...');
             
             try {
-                products = await fetchProductsJSONP();
-                items = [...MOCK_ITEMS]; 
+                const data = await fetchDataJSONP();
+                products = data.products || [];
+                items = data.items || []; 
                 closeDialog();
             } catch (error) {
-                showAlert('โหมดจำลองข้อมูล (Mock Mode)', 'เชื่อมต่อ Google Apps Script ไม่สำเร็จ ระบบจะใช้ข้อมูลจำลองเพื่อให้คุณทดสอบ UI ต่อได้', 'warning');
-                products = [...MOCK_PRODUCTS];
-                items = [...MOCK_ITEMS];
+                showAlert('ข้อผิดพลาดในการเชื่อมต่อ', 'เชื่อมต่อ Google Apps Script ไม่สำเร็จ กรุณาตรวจสอบการตั้งค่า URL หรืออินเทอร์เน็ต', 'error');
+                products = [];
+                items = [];
             }
             
             document.getElementById('main-content').style.display = 'block';
             renderAllTabs();
         }
 
-        function fetchProductsJSONP() {
+        function fetchDataJSONP() {
             return new Promise((resolve, reject) => {
                 const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
                 window[callbackName] = function(data) {
@@ -448,6 +454,7 @@
             list: document.getElementById('autocomplete-list'),
             source: document.getElementById('source'),
             qty: document.getElementById('qty'),
+            unit: document.getElementById('unit'),
             source1F: document.getElementById('source1-fields'),
             source23F: document.getElementById('source23-fields'),
             mainReason: document.getElementById('mainReason'),
@@ -456,7 +463,8 @@
             billDetailsC: document.getElementById('billDetailsContainer'),
             otherCompC: document.getElementById('otherCompensationContainer'),
             addForm: document.getElementById('addForm'),
-            remark: document.getElementById('remark')
+            remark: document.getElementById('remark'),
+            customerName: document.getElementById('customerName')
         };
 
         function setupEventListeners() {
@@ -464,6 +472,7 @@
             els.search.addEventListener('input', (e) => {
                 const val = e.target.value.toLowerCase();
                 els.sku.value = ''; // Reset SKU
+                els.unit.value = ''; // Reset Unit
                 els.list.innerHTML = '';
                 
                 if (!val) {
@@ -483,6 +492,7 @@
                         li.onclick = () => {
                             els.search.value = p.name;
                             els.sku.value = p.sku;
+                            els.unit.value = p.unit || 'ชิ้น'; // ใส่หน่วยนับลงช่องให้อัตโนมัติ (ถ้าไม่มีข้อมูลให้เป็น "ชิ้น" ไว้ก่อน)
                             els.list.classList.add('hidden');
                         };
                         els.list.appendChild(li);
@@ -553,7 +563,8 @@
                 return;
             }
 
-            showLoading('กำลังบันทึกข้อมูลไปที่ Google Sheets...');
+            // บล็อกหน้าจอทันทีเพื่อป้องกันการกดย้ำ (Double-click)
+            showLoading('กำลังบันทึกข้อมูล...');
 
             const sourceVal = els.source.value;
             let finalReason = '';
@@ -563,6 +574,10 @@
 
             if (sourceVal === 'หน้าร้าน/ลูกค้า') {
                 finalReason = els.mainReason.value === 'อื่นๆ' ? document.getElementById('otherReason').value : els.mainReason.value;
+                const custName = els.customerName.value.trim();
+                if (custName) {
+                    finalReason += ` (ลูกค้า: ${custName})`;
+                }
                 billStatusVal = document.getElementById('billStatus').value || '-';
                 compVal = els.comp.value === 'อื่นๆ' ? document.getElementById('otherCompensation').value : els.comp.value;
                 billNoVal = els.comp.value === 'หักลดหนี้ในบิลถัดไป' ? document.getElementById('billNo').value : '-';
@@ -574,15 +589,17 @@
             const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`;
             const timeStr = now.toLocaleTimeString('th-TH', { hour12: false });
 
+            // ใช้ชื่อสถานะใหม่ให้ชัดเจน ("รอตัดรอบ" หรือ "รอ QC")
             const isAdjustStock = sourceVal === 'ปรับสต็อคสินค้า';
-            const targetStatus = isAdjustStock ? 'QC_PASSED' : 'PENDING';
-            const targetQcCondition = isAdjustStock ? 'ปรับสต็อค (Auto)' : '-';
+            const targetStatus = isAdjustStock ? 'รอตัดรอบ' : 'รอ QC';
+            const targetQcCondition = isAdjustStock ? 'ปรับสต็อคสินค้า' : '-';
 
             const payload = {
                 dateStr, timeStr,
                 sku: els.sku.value,
                 name: els.search.value,
                 qty: parseInt(els.qty.value),
+                unit: els.unit.value, // ดึงค่าหน่วยนับจากช่อง
                 source: sourceVal,
                 reason: finalReason,
                 billStatus: billStatusVal,
@@ -593,6 +610,7 @@
             };
 
             try {
+                // ยิงคำสั่งบันทึกไปยัง Google Sheets
                 await fetch(GAS_URL, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -600,18 +618,23 @@
                     body: JSON.stringify(payload)
                 });
 
-                const newItem = { id: Date.now(), ...payload };
-                items.unshift(newItem); // Add to beginning
+                // คำนวณ ID แถวถัดไปเอง (Max ID ปัจจุบัน + 1)
+                const nextId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
+                const newItem = { id: nextId, ...payload };
                 
-                showAlert('รับเข้าสำเร็จ', 'บันทึกข้อมูลลง Google Sheets แล้ว', 'success', 1500);
+                // เพิ่มข้อมูลลง State แล้วแสดงผลเลย
+                items.unshift(newItem); 
                 
-                // Reset form
                 els.addForm.reset();
                 els.sku.value = '';
-                els.source.dispatchEvent(new Event('change')); // trigger reset of dynamic fields
+                els.unit.value = ''; // รีเซ็ตหน่วยนับให้ว่าง
+                els.source.dispatchEvent(new Event('change'));
                 
                 renderAllTabs();
                 switchTab(isAdjustStock ? 'BATCH' : 'PENDING');
+                
+                // แสดงสถานะสำเร็จ
+                showAlert('รับเข้าสำเร็จ', 'บันทึกข้อมูลเรียบร้อย', 'success', 1500);
 
             } catch (error) {
                 console.error(error);
@@ -621,8 +644,8 @@
 
         // --- Render Functions ---
         function updateBadges() {
-            const pendingCount = items.filter(i => i.status === 'PENDING').length;
-            const batchCount = items.filter(i => i.status === 'QC_PASSED').length;
+            const pendingCount = items.filter(i => i.status === 'PENDING' || i.status === 'รอ QC').length;
+            const batchCount = items.filter(i => i.status === 'QC_PASSED' || i.status === 'รอตัดรอบ').length;
 
             const bP = document.getElementById('badge-pending');
             const bB = document.getElementById('badge-batch');
@@ -641,7 +664,7 @@
 
         function renderPendingTab() {
             const container = document.getElementById('pending-container');
-            const pendingItems = items.filter(i => i.status === 'PENDING');
+            const pendingItems = items.filter(i => i.status === 'PENDING' || i.status === 'รอ QC');
 
             if (pendingItems.length === 0) {
                 container.innerHTML = `
@@ -654,6 +677,11 @@
 
             let html = '';
             pendingItems.forEach(item => {
+                const unitLabel = item.unit || 'ชิ้น';
+                const isBox = unitLabel === 'ลัง';
+                // ถ้าเป็นลัง ให้ใช้สีม่วง (Fuchsia) เพื่อให้มองเห็นความแตกต่างชัดเจน
+                const badgeColor = isBox ? 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300' : 'bg-rose-100 text-rose-700 border-rose-200';
+
                 html += `
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                     <div class="p-4 flex-grow">
@@ -664,8 +692,8 @@
                                     <i data-lucide="clock" class="w-3 h-3 mr-1"></i> รอตรวจสอบ
                                 </span>
                             </div>
-                            <span class="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-1 rounded-full">
-                                จำนวน: ${item.qty}
+                            <span class="border text-xs font-bold px-2.5 py-1 rounded-full shadow-sm ${badgeColor}">
+                                ${isBox ? '<i data-lucide="package" class="w-3 h-3 inline mr-1 -mt-0.5"></i>' : ''} จำนวน: ${item.qty} ${unitLabel}
                             </span>
                         </div>
                         <h3 class="font-bold text-slate-800 text-lg mb-1">${item.name}</h3>
@@ -676,7 +704,7 @@
                             ${item.billNo !== '-' ? `<p><span class="font-semibold text-slate-600">เลขที่บิล:</span> <span class="text-indigo-600 font-mono text-sm">${item.billNo}</span></p>` : ''}
                         </div>
                     </div>
-                    <div class="bg-slate-50 p-3 border-t border-slate-100 grid grid-cols-3 gap-2">
+                    <div class="bg-slate-50 p-3 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <button onclick="handleQC(${item.id}, 'A')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 hover:border-emerald-500 transition">
                             <span class="font-bold text-lg">A</span>
                             <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">สภาพดี<br/>ปกติ</span>
@@ -689,6 +717,10 @@
                             <span class="font-bold text-lg">C</span>
                             <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">เสียหาย<br/>ขายไม่ได้</span>
                         </button>
+                        <button onclick="handleQC(${item.id}, 'D')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 hover:border-blue-500 transition">
+                            <span class="font-bold text-lg">D</span>
+                            <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">ปรับสต๊อค<br/>สินค้า</span>
+                        </button>
                     </div>
                 </div>`;
             });
@@ -697,44 +729,172 @@
 
         function renderBatchTab() {
             const tbody = document.getElementById('batch-tbody');
-            const batchItems = items.filter(i => i.status === 'QC_PASSED');
+            const dashboard = document.getElementById('batch-dashboard');
+            const batchItems = items.filter(i => i.status === 'QC_PASSED' || i.status === 'รอตัดรอบ');
 
             if (batchItems.length === 0) {
+                dashboard.innerHTML = '';
                 tbody.innerHTML = `<tr><td colSpan="5" class="p-8 text-center text-slate-400">ไม่มีรายการรอตัดรอบ</td></tr>`;
                 return;
             }
 
-            let html = '';
+            // คำนวณสถิติสำหรับ Dashboard โดยแยกจำนวน ชิ้น และ ลัง
+            const totalItems = batchItems.length;
+            let totalPieces = 0, totalBoxes = 0;
+            let countA = 0, countB = 0, countC = 0, countD = 0;
+
             batchItems.forEach(item => {
-                const conditionColor = item.qcCondition.includes('A') ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700';
-                html += `
-                <tr class="hover:bg-slate-50 transition">
-                    <td class="p-4 text-center">
-                        <button onclick="handleBatchSingle(${item.id})" title="นำเข้าระบบ" class="text-slate-300 hover:text-emerald-500 transition">
-                            <i data-lucide="check-circle" class="w-6 h-6"></i>
-                        </button>
-                    </td>
-                    <td class="p-4 text-sm text-slate-600 whitespace-nowrap">
-                        <div class="font-medium">${item.dateStr}</div>
-                        <div class="text-xs text-slate-400">${item.timeStr}</div>
-                    </td>
-                    <td class="p-4">
-                        <div class="font-mono text-xs text-indigo-600">${item.sku}</div>
-                        <div class="font-medium text-slate-800">${item.name}</div>
-                        ${item.billNo !== '-' ? `<div class="text-xs text-indigo-500 mt-1">บิล: ${item.billNo}</div>` : ''}
-                    </td>
-                    <td class="p-4 text-center font-bold text-slate-700">+${item.qty}</td>
-                    <td class="p-4">
-                        <span class="text-xs px-2 py-1 rounded-full border ${conditionColor}">${item.qcCondition}</span>
-                    </td>
-                </tr>`;
+                const isBox = (item.unit === 'ลัง');
+                if (isBox) totalBoxes += item.qty;
+                else totalPieces += item.qty;
+
+                // นับชิ้นรวมๆ เพื่อประเมินเกรดคร่าวๆ (โชว์รวม)
+                if (item.qcCondition && item.qcCondition.includes('A')) countA += item.qty;
+                else if (item.qcCondition && item.qcCondition.includes('B')) countB += item.qty;
+                else if (item.qcCondition && item.qcCondition.includes('C')) countC += item.qty;
+                else if (item.qcCondition && (item.qcCondition.includes('D') || item.qcCondition === 'ปรับสต๊อคสินค้า')) countD += item.qty;
             });
+
+            // สร้าง Dashboard HTML
+            dashboard.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex items-center shadow-sm">
+                        <div class="bg-indigo-500 text-white p-2.5 rounded-lg mr-3"><i data-lucide="layers" class="w-5 h-5"></i></div>
+                        <div><p class="text-[11px] text-indigo-600 font-bold uppercase tracking-wide">รายการทั้งหมด</p><p class="text-xl font-black text-slate-800">${totalItems} <span class="text-sm font-normal text-slate-500">รายการ</span></p></div>
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex items-center shadow-sm">
+                        <div class="bg-emerald-500 text-white p-2.5 rounded-lg mr-3"><i data-lucide="package" class="w-5 h-5"></i></div>
+                        <div>
+                            <p class="text-[11px] text-emerald-600 font-bold uppercase tracking-wide">จำนวนรวม (แยกชิ้น/ลัง)</p>
+                            <p class="text-xl font-black text-slate-800">
+                                ${totalPieces} <span class="text-sm font-normal text-slate-500">ชิ้น</span> 
+                                ${totalBoxes > 0 ? `<span class="text-fuchsia-600 ml-1">/ ${totalBoxes} ลัง</span>` : ''}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="bg-amber-50 p-3 rounded-xl border border-amber-100 flex flex-col justify-center shadow-sm">
+                        <p class="text-[11px] text-amber-700 font-bold uppercase tracking-wide mb-1 border-b border-amber-200 pb-1">แยกตามสภาพ (รวมทุกหน่วย)</p>
+                        <div class="flex justify-between text-sm font-semibold text-slate-700 mt-1">
+                            <span class="text-emerald-600">A: ${countA}</span>
+                            <span class="text-amber-600">B: ${countB}</span>
+                            <span class="text-rose-600">C: ${countC}</span>
+                            <span class="text-blue-600">D: ${countD}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // จัดกลุ่มข้อมูลตามแหล่งที่มา (Source)
+            const grouped = {
+                'ปรับสต็อคสินค้า': [],
+                'ออนไลน์ (Shopee)': [],
+                'หน้าร้าน/ลูกค้า': [],
+                'อื่นๆ': []
+            };
+
+            batchItems.forEach(item => {
+                if (grouped[item.source]) {
+                    grouped[item.source].push(item);
+                } else {
+                    grouped['อื่นๆ'].push(item);
+                }
+            });
+
+            let html = '';
+
+            const groupConfig = [
+                { key: 'ปรับสต็อคสินค้า', label: 'ปรับสต็อคสินค้า', icon: 'package', color: 'bg-blue-50 text-blue-800 border-blue-200' },
+                { key: 'ออนไลน์ (Shopee)', label: 'ของคืนจากออนไลน์', icon: 'shopping-cart', color: 'bg-purple-50 text-purple-800 border-purple-200' },
+                { key: 'หน้าร้าน/ลูกค้า', label: 'ของคืนจากหน้าร้าน / ลูกค้า', icon: 'store', color: 'bg-orange-50 text-orange-800 border-orange-200' },
+                { key: 'อื่นๆ', label: 'อื่นๆ', icon: 'help-circle', color: 'bg-slate-100 text-slate-800 border-slate-200' }
+            ];
+
+            groupConfig.forEach(group => {
+                const groupItems = grouped[group.key];
+                if (groupItems && groupItems.length > 0) {
+                    html += `
+                    <tr class="${group.color} border-y">
+                        <td colspan="5" class="p-3 font-bold text-sm">
+                            <div class="flex items-center">
+                                <i data-lucide="${group.icon}" class="w-4 h-4 mr-2"></i>
+                                ${group.label}
+                                <span class="ml-2 px-2 py-0.5 bg-white/70 rounded-full text-xs shadow-sm">${groupItems.length} รายการ</span>
+                            </div>
+                        </td>
+                    </tr>
+                    `;
+
+                    groupItems.forEach(item => {
+                        let conditionColor = 'bg-slate-50 border-slate-200 text-slate-700';
+                        if (item.qcCondition && item.qcCondition.includes('A')) conditionColor = 'bg-emerald-50 border-emerald-200 text-emerald-700';
+                        else if (item.qcCondition && item.qcCondition.includes('B')) conditionColor = 'bg-amber-50 border-amber-200 text-amber-700';
+                        else if (item.qcCondition && item.qcCondition.includes('C')) conditionColor = 'bg-rose-50 border-rose-200 text-rose-700';
+                        else if (item.qcCondition && (item.qcCondition.includes('D') || item.qcCondition === 'ปรับสต๊อคสินค้า')) conditionColor = 'bg-blue-50 border-blue-200 text-blue-700';
+
+                        const unitLabel = item.unit || 'ชิ้น';
+                        const isBox = unitLabel === 'ลัง';
+
+                        let extraDetails = '';
+                        if (item.billStatus && item.billStatus !== '-') {
+                            extraDetails += `
+                            <div class="flex items-start text-[11px] text-blue-700 bg-blue-50 border border-blue-200 p-1.5 rounded w-fit max-w-full">
+                                <i data-lucide="receipt" class="w-3 h-3 mr-1 mt-0.5 text-blue-500 shrink-0"></i>
+                                <span class="break-words"><span class="font-semibold">สถานะบิล:</span> ${item.billStatus}</span>
+                            </div>`;
+                        }
+                        if (item.compensation && item.compensation !== '-') {
+                            extraDetails += `
+                            <div class="flex items-start text-[11px] text-orange-700 bg-orange-50 border border-orange-200 p-1.5 rounded w-fit max-w-full">
+                                <i data-lucide="refresh-ccw" class="w-3 h-3 mr-1 mt-0.5 text-orange-500 shrink-0"></i>
+                                <span class="break-words"><span class="font-semibold">การชดเชย:</span> ${item.compensation}</span>
+                            </div>`;
+                        }
+
+                        html += `
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                            <td class="p-4 text-center align-top pt-5">
+                                <button onclick="handleBatchSingle(${item.id})" title="นำเข้าระบบ" class="text-slate-300 hover:text-emerald-500 transition">
+                                    <i data-lucide="check-circle" class="w-6 h-6"></i>
+                                </button>
+                            </td>
+                            <td class="p-4 text-sm text-slate-600 whitespace-nowrap align-top pt-5">
+                                <div class="font-medium">${item.dateStr}</div>
+                                <div class="text-xs text-slate-400">${item.timeStr}</div>
+                            </td>
+                            <td class="p-4 align-top pt-5">
+                                <div class="font-mono text-xs text-indigo-600 font-semibold">${item.sku}</div>
+                                <div class="font-medium text-slate-800 text-base">${item.name}</div>
+                                
+                                <div class="flex flex-col gap-1.5 mt-2">
+                                    <div class="flex items-start text-[11px] text-slate-700 bg-slate-100 border border-slate-200 p-1.5 rounded w-fit max-w-full">
+                                        <i data-lucide="message-square" class="w-3 h-3 mr-1 mt-0.5 text-slate-500 shrink-0"></i>
+                                        <span class="break-words"><span class="font-semibold">สาเหตุ:</span> ${item.reason}</span>
+                                    </div>
+                                    ${extraDetails}
+                                </div>
+                                
+                                ${item.billNo !== '-' ? `<div class="inline-flex items-center text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded mt-2 font-mono shadow-sm"><i data-lucide="file-text" class="w-3 h-3 mr-1"></i> บิล: ${item.billNo}</div>` : ''}
+                            </td>
+                            <td class="p-4 text-center align-top pt-5">
+                                <div class="font-bold ${isBox ? 'text-fuchsia-700' : 'text-slate-700'} text-lg">+${item.qty}</div>
+                                <div class="inline-block mt-0.5 text-[10px] font-semibold px-2 py-0.5 rounded shadow-sm ${isBox ? 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
+                                    ${unitLabel}
+                                </div>
+                            </td>
+                            <td class="p-4 align-top pt-5">
+                                <span class="text-xs px-2.5 py-1 rounded-full border ${conditionColor} whitespace-nowrap font-medium shadow-sm">${item.qcCondition}</span>
+                            </td>
+                        </tr>`;
+                    });
+                }
+            });
+
             tbody.innerHTML = html;
         }
 
         function renderHistoryTab() {
             const tbody = document.getElementById('history-tbody');
-            const historyItems = items.filter(i => ['BATCHED', 'REJECTED'].includes(i.status));
+            const historyItems = items.filter(i => ['BATCHED', 'REJECTED', 'ตัดรอบแล้ว'].includes(i.status));
 
             if (historyItems.length === 0) {
                 tbody.innerHTML = `<tr><td colSpan="4" class="p-8 text-center text-slate-400">ไม่มีประวัติรายการ</td></tr>`;
@@ -743,11 +903,14 @@
 
             let html = '';
             historyItems.forEach(item => {
-                const isBatched = item.status === 'BATCHED';
-                const statusHtml = isBatched
+                const isClaim = (item.qcCondition && item.qcCondition.includes('C')) || item.status === 'REJECTED';
+                const statusHtml = !isClaim
                     ? `<span class="inline-flex items-center text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full font-medium"><i data-lucide="check" class="w-3 h-3 mr-1"></i> นำเข้าระบบแล้ว</span>`
                     : `<span class="inline-flex items-center text-xs px-2 py-1 bg-rose-100 text-rose-700 rounded-full font-medium"><i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i> แจ้งเคลม</span>`;
                 
+                const unitLabel = item.unit || 'ชิ้น';
+                const isBox = unitLabel === 'ลัง';
+
                 html += `
                 <tr class="hover:bg-slate-50">
                     <td class="p-4 text-sm text-slate-600 whitespace-nowrap">
@@ -759,7 +922,10 @@
                         <div class="font-medium text-slate-800 text-sm">${item.name}</div>
                         ${item.billNo !== '-' ? `<div class="text-xs text-indigo-500 mt-1">บิล: ${item.billNo}</div>` : ''}
                     </td>
-                    <td class="p-4 text-center text-sm text-slate-600">${item.qty}</td>
+                    <td class="p-4 text-center">
+                        <div class="text-sm font-semibold ${isBox ? 'text-fuchsia-700' : 'text-slate-600'}">${item.qty}</div>
+                        <div class="text-[10px] text-slate-400">${unitLabel}</div>
+                    </td>
                     <td class="p-4">
                         ${statusHtml}
                         <div class="text-[10px] text-slate-400 mt-1">${item.qcCondition}</div>
@@ -769,49 +935,82 @@
             tbody.innerHTML = html;
         }
 
-        // --- Action Handlers (Must be global for inline onclick) ---
+        // --- Action Handlers ---
         window.handleQC = function(id, grade) {
-            let newStatus = '';
+            let newStatus = 'รอตัดรอบ';
             let conditionDesc = '';
 
-            if (grade === 'A') { newStatus = 'QC_PASSED'; conditionDesc = 'Condition A (สภาพดี)'; }
-            if (grade === 'B') { newStatus = 'QC_PASSED'; conditionDesc = 'Condition B (รีแพคเกจ)'; }
-            if (grade === 'C') { newStatus = 'REJECTED'; conditionDesc = 'Condition C (ขายไม่ได้)'; }
+            if (grade === 'A') { conditionDesc = 'Condition A (สภาพดี)'; }
+            if (grade === 'B') { conditionDesc = 'Condition B (รีแพคเกจ)'; }
+            if (grade === 'C') { conditionDesc = 'Condition C (ขายไม่ได้)'; }
+            if (grade === 'D') { conditionDesc = 'Condition D (ปรับสต๊อคสินค้า)'; }
 
-            showConfirm(`ยืนยันการประเมินเป็นเกรด ${grade}?`, conditionDesc, grade === 'C' ? 'warning' : 'question', () => {
+            showConfirm(`ยืนยันการประเมินเป็นเกรด ${grade}?`, conditionDesc, grade === 'C' ? 'warning' : 'question', async () => {
                 const itemIndex = items.findIndex(i => i.id === id);
                 if(itemIndex > -1) {
                     items[itemIndex].status = newStatus;
                     items[itemIndex].qcCondition = conditionDesc;
                     renderAllTabs();
                     showAlert('ประเมินสำเร็จ!', '', 'success', 1500);
+
+                    try {
+                        await fetch(GAS_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                action: 'update',
+                                rowId: id,
+                                status: newStatus,
+                                qcCondition: conditionDesc
+                            })
+                        });
+                    } catch (error) { console.error('Failed to sync update:', error); }
                 }
             });
         };
 
-        window.handleBatchSingle = function(id) {
+        window.handleBatchSingle = async function(id) {
             const itemIndex = items.findIndex(i => i.id === id);
             if(itemIndex > -1) {
-                items[itemIndex].status = 'BATCHED';
+                items[itemIndex].status = 'ตัดรอบแล้ว';
                 renderAllTabs();
+
+                try {
+                    await fetch(GAS_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'update',
+                            rowId: id,
+                            status: 'ตัดรอบแล้ว',
+                            qcCondition: items[itemIndex].qcCondition
+                        })
+                    });
+                } catch (error) { console.error('Failed to sync batch:', error); }
             }
         };
 
         function handleExportBatch() {
-            const batchedItems = items.filter(i => i.status === 'QC_PASSED');
+            const batchedItems = items.filter(i => i.status === 'QC_PASSED' || i.status === 'รอตัดรอบ');
             if (batchedItems.length === 0) {
                 showAlert('ไม่มีรายการ', 'ไม่มีรายการที่รอตัดรอบ', 'info');
                 return;
             }
 
-            showConfirm('ยืนยันการ Export CSV', `มีรายการรอตัดรอบทั้งหมด ${batchedItems.length} รายการ`, 'info', () => {
+            showConfirm('ยืนยันการ Export CSV', `มีรายการรอตัดรอบทั้งหมด ${batchedItems.length} รายการ`, 'info', async () => {
                 const bom = "\uFEFF";
-                let csvContent = `"Date","Time","Bill No","SKU","Product Name","Quantity","Condition","Source"\n`;
+                // เพิ่มคอลัมน์ "Unit" ในไฟล์ CSV ให้ด้วย
+                let csvContent = `"Date","Time","Bill No","SKU","Product Name","Quantity","Unit","Condition","Source"\n`;
+                const rowIdsToUpdate = [];
                 
                 batchedItems.forEach(item => {
-                    csvContent += `"${item.dateStr}","${item.timeStr}","${item.billNo}","${item.sku}","${item.name}","${item.qty}","${item.qcCondition}","${item.source}"\n`;
-                    // Update status in array directly
-                    item.status = 'BATCHED'; 
+                    const unitLabel = item.unit || 'ชิ้น';
+                    csvContent += `"${item.dateStr}","${item.timeStr}","${item.billNo}","${item.sku}","${item.name}","${item.qty}","${unitLabel}","${item.qcCondition}","${item.source}"\n`;
+                    
+                    item.status = 'ตัดรอบแล้ว'; 
+                    rowIdsToUpdate.push(item.id);
                 });
 
                 const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -825,6 +1024,18 @@
 
                 renderAllTabs();
                 showAlert('Export สำเร็จ!', 'รายการถูกย้ายไปที่ประวัติแล้ว', 'success', 2000);
+
+                try {
+                    await fetch(GAS_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'updateBatch',
+                            rowIds: rowIdsToUpdate
+                        })
+                    });
+                } catch (error) { console.error('Failed to sync export batch:', error); }
             });
         }
 
