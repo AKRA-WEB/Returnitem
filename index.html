@@ -1,763 +1,833 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  PackagePlus, 
-  ClipboardCheck, 
-  ArrowRightLeft, 
-  History, 
-  Search, 
-  CheckCircle, 
-  XCircle, 
-  Download,
-  AlertTriangle,
-  Check,
-  Clock
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quarantine Zone</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
 
-// --- Mock Data (Graceful Degradation) ---
-const MOCK_PRODUCTS = [
-  { sku: 'SKU1001', name: 'แชมพูสูตรเย็น 500ml' },
-  { sku: 'SKU1002', name: 'สบู่เหลวอาบน้ำกลิ่นซากุระ' },
-  { sku: 'SKU1003', name: 'ครีมนวดผมบำรุงล้ำลึก' },
-  { sku: 'SKU1004', name: 'ยาสีฟันสูตรเกลือ 150g' },
-  { sku: 'SKU1005', name: 'น้ำยาบ้วนปาก 500ml' },
-];
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center">
+            <div id="modal-icon-container" class="mx-auto mb-4 flex justify-center"></div>
+            <h3 id="modal-title" class="text-lg font-bold text-slate-800 mb-2"></h3>
+            <p id="modal-text" class="text-sm text-slate-600 mb-6"></p>
+            <div id="modal-actions" class="flex justify-center gap-3 mt-4">
+                <button id="modal-btn-cancel" class="hidden px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition">ยกเลิก</button>
+                <button id="modal-btn-confirm" class="px-4 py-2 text-white font-medium rounded-lg transition bg-indigo-600 hover:bg-indigo-700">ตกลง</button>
+            </div>
+        </div>
+    </div>
 
-const MOCK_ITEMS = [
-  { id: 1, dateStr: '16/04/26', timeStr: '10:30:00', sku: 'SKU1001', name: 'แชมพูสูตรเย็น 500ml', qty: 2, source: 'หน้าร้าน/ลูกค้า', reason: 'สินค้าส่งผิด', status: 'PENDING', qcCondition: null, billNo: 'INV-2604001' },
-  { id: 2, dateStr: '15/04/26', timeStr: '14:15:22', sku: 'SKU1004', name: 'ยาสีฟันสูตรเกลือ 150g', qty: 1, source: 'ออนไลน์ (Shopee)', reason: 'ลูกค้าปฏิเสธการรับ', status: 'QC_PASSED', qcCondition: 'Condition A (ปกติ)', billNo: '-' },
-  { id: 3, dateStr: '10/04/26', timeStr: '09:00:00', sku: 'SKU1005', name: 'น้ำยาบ้วนปาก 500ml', qty: 5, source: 'ปรับสต็อคสินค้า', reason: 'นับสต๊อกชนเดือน', status: 'BATCHED', qcCondition: 'Condition A (ปกติ)', billNo: '-' },
-  { id: 4, dateStr: '14/04/26', timeStr: '16:45:10', sku: 'SKU1002', name: 'สบู่เหลวอาบน้ำกลิ่นซากุระ', qty: 1, source: 'หน้าร้าน/ลูกค้า', reason: 'สินค้าชำรุด/เสียหาย', status: 'REJECTED', qcCondition: 'Condition C (ขายไม่ได้)', billNo: 'INV-2604002' },
-];
-
-// 🔗 ตั้งค่า URL ของ Google Apps Script ของคุณ
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfIHbD47Wtej16VbKG894gfg1lcJBC1UpQFPGs2QuiOjqJD8pBawgGGIgukTu6E-I/exec';
-
-export default function QuarantineApp() {
-  const [activeTab, setActiveTab] = useState('ADD');
-  const [isReady, setIsReady] = useState(false);
-  
-  // State: Data
-  const [products, setProducts] = useState([]);
-  const [items, setItems] = useState([]);
-
-  // Custom Modal State (แทนที่ SweetAlert2)
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'info', title: '', text: '', showCancel: false, onConfirm: null, isProcessing: false });
-
-  const showAlert = (title, text, type = 'info', timer = null) => {
-    setModalConfig({ isOpen: true, type, title, text, showCancel: false, isProcessing: false, onConfirm: () => setModalConfig(prev => ({...prev, isOpen: false})) });
-    if(timer) {
-      setTimeout(() => setModalConfig(prev => ({...prev, isOpen: false})), timer);
-    }
-  };
-
-  const showConfirm = (title, text, type = 'question', onConfirmCb) => {
-    setModalConfig({ isOpen: true, type, title, text, showCancel: true, isProcessing: false, onConfirm: () => {
-      setModalConfig(prev => ({...prev, isOpen: false}));
-      if (onConfirmCb) onConfirmCb();
-    }});
-  };
-
-  const showLoading = (title) => {
-    setModalConfig({ isOpen: true, type: 'loading', title, text: '', showCancel: false, isProcessing: true, onConfirm: null });
-  };
-
-  const closeDialog = () => setModalConfig(prev => ({...prev, isOpen: false, isProcessing: false}));
-
-  // State: ADD Form
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSku, setSelectedSku] = useState('');
-  const [qty, setQty] = useState(1);
-  const [source, setSource] = useState('');
-  
-  // Sub-fields for Source = หน้าร้าน/ลูกค้า
-  const [mainReason, setMainReason] = useState('');
-  const [otherReason, setOtherReason] = useState('');
-  const [billStatus, setBillStatus] = useState('');
-  const [compensation, setCompensation] = useState('');
-  const [billDate, setBillDate] = useState('');
-  const [billNo, setBillNo] = useState('');
-  const [otherCompensation, setOtherCompensation] = useState('');
-  
-  // Note for Source = Online/Diff
-  const [remark, setRemark] = useState('');
-
-  // Initialization & Data Fetching (JSONP เพื่อหลีกเลี่ยง CORS)
-  useEffect(() => {
-    const fetchProductsJSONP = () => {
-      return new Promise((resolve, reject) => {
-        // สร้างชื่อ Callback สุ่มไม่ซ้ำกัน
-        const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+    <!-- Header -->
+    <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="alert-triangle" class="text-amber-400"></i>
+                <h1 class="text-xl font-bold tracking-wide">Quarantine Zone</h1>
+            </div>
+            <div class="text-sm text-indigo-200 hidden sm:block">ระบบจัดการสินค้าตีกลับ & สต๊อกดิฟ</div>
+        </div>
         
-        // กำหนดฟังก์ชัน Callback ในระดับ Global
-        window[callbackName] = function(data) {
-          delete window[callbackName];
-          document.body.removeChild(script);
-          resolve(data);
-        };
+        <!-- Tab Navigation -->
+        <div class="max-w-5xl mx-auto px-2 flex overflow-x-auto hide-scrollbar" id="tab-nav">
+            <button data-target="ADD" class="tab-btn active flex-1 min-w-[100px] flex flex-col sm:flex-row items-center justify-center py-3 px-2 sm:space-x-2 text-sm sm:text-base font-medium transition-colors border-b-4 border-white text-white bg-indigo-800">
+                <i data-lucide="package-plus" class="w-5 h-5"></i>
+                <span class="mt-1 sm:mt-0">รับเข้า</span>
+            </button>
+            <button data-target="PENDING" class="tab-btn flex-1 min-w-[100px] flex flex-col sm:flex-row items-center justify-center py-3 px-2 sm:space-x-2 text-sm sm:text-base font-medium transition-colors border-b-4 border-transparent text-indigo-300 hover:text-white hover:bg-indigo-600">
+                <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+                <span class="mt-1 sm:mt-0">รอ QC</span>
+                <span id="badge-pending" class="hidden ml-1 bg-rose-500 text-white text-xs rounded-full px-2 py-0.5">0</span>
+            </button>
+            <button data-target="BATCH" class="tab-btn flex-1 min-w-[100px] flex flex-col sm:flex-row items-center justify-center py-3 px-2 sm:space-x-2 text-sm sm:text-base font-medium transition-colors border-b-4 border-transparent text-indigo-300 hover:text-white hover:bg-indigo-600">
+                <i data-lucide="arrow-right-left" class="w-5 h-5"></i>
+                <span class="mt-1 sm:mt-0">ตัดรอบ</span>
+                <span id="badge-batch" class="hidden ml-1 bg-amber-500 text-white text-xs rounded-full px-2 py-0.5">0</span>
+            </button>
+            <button data-target="HISTORY" class="tab-btn flex-1 min-w-[100px] flex flex-col sm:flex-row items-center justify-center py-3 px-2 sm:space-x-2 text-sm sm:text-base font-medium transition-colors border-b-4 border-transparent text-indigo-300 hover:text-white hover:bg-indigo-600">
+                <i data-lucide="history" class="w-5 h-5"></i>
+                <span class="mt-1 sm:mt-0">ประวัติ</span>
+            </button>
+        </div>
+    </header>
 
-        // สร้าง Script tag ยิงไปที่ GAS URL พร้อมส่งชื่อ callback ไปด้วย
-        const script = document.createElement('script');
-        script.src = `${GAS_URL}?callback=${callbackName}`;
-        script.onerror = () => {
-          delete window[callbackName];
-          document.body.removeChild(script);
-          reject(new Error('JSONP fetch failed'));
-        };
+    <!-- Main Content Area -->
+    <main class="max-w-5xl mx-auto p-4 sm:p-6 pb-24" id="main-content" style="display: none;">
         
-        document.body.appendChild(script);
-      });
-    };
+        <!-- TAB 1: ADD -->
+        <div id="tab-ADD" class="tab-content active bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center border-b pb-2">
+                <i data-lucide="package-plus" class="mr-2 text-indigo-500"></i> ลงทะเบียนสินค้ารับเข้าพื้นที่กักกัน
+            </h2>
+            <form id="addForm" class="space-y-5">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2 relative">
+                        <label class="block text-sm font-medium text-slate-600 mb-1">ค้นหาสินค้า (ชื่อ หรือ SKU)</label>
+                        <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-2.5 text-slate-400 w-4 h-4"></i>
+                            <input type="text" id="searchQuery" required autocomplete="off"
+                                class="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="พิมพ์เพื่อค้นหา...">
+                        </div>
+                        <ul id="autocomplete-list" class="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto hidden">
+                            <!-- Items inserted here by JS -->
+                        </ul>
+                    </div>
 
-    const initializeData = async () => {
-      // เรียกใช้ Pop-up Loading ตอนเริ่มโหลดข้อมูล
-      showLoading('กำลังโหลดข้อมูลจาก Google Sheets...');
-      
-      try {
-        // ดึงข้อมูลสินค้าจาก Google Sheets
-        const data = await fetchProductsJSONP();
-        setProducts(data);
-        // แสดง Mock Data ให้เห็นประวัติเก่า แทนการเริ่มด้วยลิสต์ว่าง
-        setItems(MOCK_ITEMS); 
-        closeDialog(); // ปิด Pop-up เมื่อโหลดสำเร็จ
-        setIsReady(true);
-      } catch (error) {
-        // Fallback ไปใช้ข้อมูล Mock หากดึงข้อมูลล้มเหลว
-        showAlert(
-          'โหมดจำลองข้อมูล (Mock Mode)',
-          'เชื่อมต่อ Google Apps Script ไม่สำเร็จ ระบบจะใช้ข้อมูลจำลองเพื่อให้คุณทดสอบ UI ต่อได้',
-          'warning'
-        );
-        setProducts(MOCK_PRODUCTS);
-        setItems(MOCK_ITEMS);
-        setIsReady(true);
-      }
-    };
-    
-    initializeData();
-  }, []);
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">รหัสสินค้า (SKU)</label>
+                        <input type="text" id="selectedSku" readonly required
+                            class="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-slate-500"
+                            placeholder="Auto-fill">
+                    </div>
+                </div>
 
-  // --- Logic: ADD Form ---
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery) return [];
-    return products
-      .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
-      .slice(0, 20); // Limit Render 20 รายการ
-  }, [searchQuery, products]);
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">จำนวน (ชิ้น)</label>
+                        <input type="number" id="qty" min="1" value="1" required
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1">แหล่งที่มา</label>
+                        <select id="source" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="" disabled selected>-- เลือกแหล่งที่มา --</option>
+                            <option value="หน้าร้าน/ลูกค้า">1. หน้าร้าน/ลูกค้า</option>
+                            <option value="ออนไลน์ (Shopee)">2. ออนไลน์ (Shopee, Lazada ฯลฯ)</option>
+                            <option value="ปรับสต็อคสินค้า">3. ปรับสต็อคสินค้า</option>
+                        </select>
+                    </div>
+                </div>
 
-  const handleSelectProduct = (product) => {
-    setSearchQuery(product.name);
-    setSelectedSku(product.sku);
-  };
+                <!-- Dynamic Fields for Source 1 -->
+                <div id="source1-fields" class="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4 hidden">
+                    <h3 class="text-sm font-semibold text-slate-700 border-b pb-2">รายละเอียดการรับคืนจากหน้าร้าน</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">สาเหตุหลัก</label>
+                            <select id="mainReason" class="w-full px-3 py-2 border rounded-lg bg-white">
+                                <option value="" disabled selected>-- เลือกสาเหตุ --</option>
+                                <option value="สินค้าชำรุด/เสียหาย">1. สินค้าชำรุด/เสียหาย</option>
+                                <option value="สินค้าหมดอายุ">2. สินค้าหมดอายุ</option>
+                                <option value="สินค้าส่งผิด">3. สินค้าส่งผิด</option>
+                                <option value="คุณภาพผิดปกติ">4. คุณภาพผิดปกติ</option>
+                                <option value="สั่งสินค้าผิด">5. สั่งสินค้าผิด</option>
+                                <option value="อื่นๆ">6. อื่นๆ (ระบุเอง)</option>
+                            </select>
+                        </div>
+                        <div id="otherReasonContainer" class="hidden">
+                            <label class="block text-sm font-medium text-slate-600 mb-1">ระบุสาเหตุอื่นๆ</label>
+                            <input type="text" id="otherReason" class="w-full px-3 py-2 border rounded-lg">
+                        </div>
+                    </div>
 
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    if (selectedSku) setSelectedSku(''); // Reset SKU if user types manually
-  };
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">สถานะบิล</label>
+                            <select id="billStatus" class="w-full px-3 py-2 border rounded-lg bg-white">
+                                <option value="" disabled selected>-- เลือกสถานะบิล --</option>
+                                <option value="รับสินค้ากลับ - ยังไม่ยกเลิกบิล">1. รับสินค้ากลับ - ยังไม่ยกเลิกบิล</option>
+                                <option value="รับสินค้ากลับ - ยกเลิกบิลแล้ว">2. รับสินค้ากลับ - ยกเลิกบิลแล้ว</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-1">การชดเชย</label>
+                            <select id="compensation" class="w-full px-3 py-2 border rounded-lg bg-white">
+                                <option value="" disabled selected>-- เลือกการชดเชย --</option>
+                                <option value="หักลดหนี้ในบิลถัดไป">1. หักลดหนี้ในบิลถัดไป</option>
+                                <option value="เปลี่ยนสินค้าเดิมเป็นของใหม่">2. เปลี่ยนสินค้าเดิมเป็นของใหม่ (ไม่แก้บิล)</option>
+                                <option value="รับคืนเพื่อฝากขาย">3. รับคืนเพื่อฝากขาย</option>
+                                <option value="ลูกค้าสั่งสินค้าผิด">4. ลูกค้าสั่งสินค้าผิด</option>
+                                <option value="สินค้าขายไม่ได้">5. สินค้าขายไม่ได้</option>
+                                <option value="ลูกค้าเลิกผลิตสินค้านั้นๆ">6. ลูกค้าเลิกผลิตสินค้านั้นๆ</option>
+                                <option value="อื่นๆ">7. อื่นๆ (ระบุเอง)</option>
+                            </select>
+                        </div>
+                    </div>
 
-  const resetForm = () => {
-    setSearchQuery(''); setSelectedSku(''); setQty(1); setSource('');
-    setMainReason(''); setOtherReason(''); setBillStatus(''); setCompensation('');
-    setBillDate(''); setBillNo(''); setOtherCompensation(''); setRemark('');
-  };
+                    <div id="billDetailsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50 p-3 rounded border border-indigo-100 hidden">
+                        <div>
+                            <label class="block text-sm font-medium text-indigo-800 mb-1">วันที่บิล</label>
+                            <input type="date" id="billDate" class="w-full px-3 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-indigo-800 mb-1">เลขที่บิล</label>
+                            <input type="text" id="billNo" class="w-full px-3 py-2 border rounded-lg">
+                        </div>
+                    </div>
 
-  const handleSubmitForm = async (e) => {
-    e.preventDefault();
-    if (!selectedSku) {
-      showAlert('ข้อผิดพลาด', 'กรุณาเลือกสินค้าจากรายการ', 'error');
-      return;
-    }
+                    <div id="otherCompensationContainer" class="hidden">
+                        <label class="block text-sm font-medium text-slate-600 mb-1">ระบุการชดเชยอื่นๆ</label>
+                        <input type="text" id="otherCompensation" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                </div>
 
-    showLoading('กำลังบันทึกข้อมูลไปที่ Google Sheets...');
+                <!-- Dynamic Fields for Source 2, 3 -->
+                <div id="source23-fields" class="hidden">
+                    <label class="block text-sm font-medium text-slate-600 mb-1">หมายเหตุ / เหตุผล</label>
+                    <textarea id="remark" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        rows="3" placeholder="อธิบายสาเหตุสั้นๆ..."></textarea>
+                </div>
 
-    // สร้าง Object เพื่อเซฟ
-    let finalReason = '';
-    if (source === 'หน้าร้าน/ลูกค้า') {
-      finalReason = mainReason === 'อื่นๆ' ? otherReason : mainReason;
-    } else {
-      finalReason = remark;
-    }
+                <div class="pt-4 border-t border-slate-200">
+                    <button type="submit" class="w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all">
+                        บันทึกข้อมูลรับเข้า
+                    </button>
+                </div>
+            </form>
+        </div>
 
-    // จัดการ Date และ Time (เวลาไทย)
-    const now = new Date();
-    const dd = String(now.getDate()).padStart(2, '0');
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const yy = String(now.getFullYear()).slice(-2);
-    const dateStr = `${dd}/${mm}/${yy}`; // รูปแบบ DD/MM/YY
-    const timeStr = now.toLocaleTimeString('th-TH', { hour12: false, timeZone: 'Asia/Bangkok' }); // รูปแบบ HH:mm:ss เวลาไทย
+        <!-- TAB 2: PENDING (QC) -->
+        <div id="tab-PENDING" class="tab-content">
+            <h2 class="text-lg font-bold text-slate-700 mb-4 flex items-center">
+                <i data-lucide="clipboard-check" class="mr-2 text-rose-500"></i> รายการรอตรวจสอบสภาพ (QC)
+            </h2>
+            <div id="pending-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- JS Rendered Content -->
+            </div>
+        </div>
 
-    // ตรวจสอบว่าเป็นเคส "ปรับสต็อคสินค้า" หรือไม่ (เพื่อข้ามไปหน้า BATCH)
-    const isAdjustStock = source === 'ปรับสต็อคสินค้า';
-    const targetStatus = isAdjustStock ? 'QC_PASSED' : 'PENDING';
-    const targetQcCondition = isAdjustStock ? 'ปรับสต็อค (Auto)' : null;
+        <!-- TAB 3: BATCH -->
+        <div id="tab-BATCH" class="tab-content">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 class="text-lg font-bold text-slate-700 flex items-center">
+                        <i data-lucide="arrow-right-left" class="mr-2 text-amber-500"></i> รอส่งออกตัดรอบ (Adjust In POS)
+                    </h2>
+                    <button id="btn-export" class="flex items-center justify-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-semibold">
+                        <i data-lucide="download" class="w-5 h-5 mr-2"></i> Export ทั้งหมด (.csv)
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 text-sm border-b">
+                                <th class="p-4 font-semibold w-16 text-center">Action</th>
+                                <th class="p-4 font-semibold w-24">วันที่-เวลา</th>
+                                <th class="p-4 font-semibold">SKU / สินค้า / เลขบิล</th>
+                                <th class="p-4 font-semibold text-center">จำนวน</th>
+                                <th class="p-4 font-semibold">สภาพ (Condition)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batch-tbody" class="divide-y divide-slate-100">
+                            <!-- JS Rendered Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-    const payload = {
-      dateStr: dateStr,
-      timeStr: timeStr,
-      sku: selectedSku,
-      name: searchQuery,
-      qty: parseInt(qty),
-      source: source,
-      reason: finalReason,
-      billStatus: billStatus || '-',
-      compensation: compensation === 'อื่นๆ' ? otherCompensation : compensation || '-',
-      billNo: billNo || '-',
-      status: targetStatus, // ส่งค่า status ไปเผื่อใช้ใน GAS ด้วย
-      qcCondition: targetQcCondition || '-'
-    };
+        <!-- TAB 4: HISTORY -->
+        <div id="tab-HISTORY" class="tab-content">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 sm:p-6 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-700 flex items-center">
+                        <i data-lucide="history" class="mr-2 text-slate-500"></i> ประวัติรายการกักกัน
+                    </h2>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 text-sm border-b">
+                                <th class="p-4 font-semibold w-24">วันที่-เวลา</th>
+                                <th class="p-4 font-semibold">SKU / สินค้า / เลขบิล</th>
+                                <th class="p-4 font-semibold text-center">จำนวน</th>
+                                <th class="p-4 font-semibold">สถานะสุดท้าย</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody" class="divide-y divide-slate-100">
+                            <!-- JS Rendered Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-    try {
-      // ยิง POST แบบ no-cors ไปยัง GAS (จะไม่สามารถรับ Response แบบ JSON กลับมาได้ แต่ยิงผ่านแน่นอน)
-      await fetch(GAS_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
+    </main>
 
-      // สมมติว่าสำเร็จ เพิ่มลงใน State
-      const newItem = {
-        id: Date.now(),
-        ...payload,
-        status: targetStatus,
-        qcCondition: targetQcCondition
-      };
+    <!-- JavaScript Logic -->
+    <script>
+        // --- Mock Data & Config ---
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfIHbD47Wtej16VbKG894gfg1lcJBC1UpQFPGs2QuiOjqJD8pBawgGGIgukTu6E-I/exec';
 
-      setItems(prevItems => [newItem, ...prevItems]);
-      showAlert('รับเข้าสำเร็จ', 'บันทึกข้อมูลลง Google Sheets แล้ว', 'success', 1500);
-      resetForm();
-      setActiveTab(isAdjustStock ? 'BATCH' : 'PENDING');
-      
-    } catch (error) {
-      console.error(error);
-      showAlert('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองอีกครั้ง', 'error');
-    }
-  };
+        const MOCK_PRODUCTS = [
+            { sku: 'SKU1001', name: 'แชมพูสูตรเย็น 500ml' },
+            { sku: 'SKU1002', name: 'สบู่เหลวอาบน้ำกลิ่นซากุระ' },
+            { sku: 'SKU1003', name: 'ครีมนวดผมบำรุงล้ำลึก' },
+            { sku: 'SKU1004', name: 'ยาสีฟันสูตรเกลือ 150g' },
+            { sku: 'SKU1005', name: 'น้ำยาบ้วนปาก 500ml' }
+        ];
 
-  // --- Logic: QC Actions ---
-  const handleQC = (id, grade) => {
-    let newStatus = '';
-    let conditionDesc = '';
+        let MOCK_ITEMS = [
+            { id: 1, dateStr: '16/04/26', timeStr: '10:30:00', sku: 'SKU1001', name: 'แชมพูสูตรเย็น 500ml', qty: 2, source: 'หน้าร้าน/ลูกค้า', reason: 'สินค้าส่งผิด', status: 'PENDING', qcCondition: null, billNo: 'INV-2604001' },
+            { id: 2, dateStr: '15/04/26', timeStr: '14:15:22', sku: 'SKU1004', name: 'ยาสีฟันสูตรเกลือ 150g', qty: 1, source: 'ออนไลน์ (Shopee)', reason: 'ลูกค้าปฏิเสธการรับ', status: 'QC_PASSED', qcCondition: 'Condition A (ปกติ)', billNo: '-' },
+            { id: 3, dateStr: '10/04/26', timeStr: '09:00:00', sku: 'SKU1005', name: 'น้ำยาบ้วนปาก 500ml', qty: 5, source: 'ปรับสต็อคสินค้า', reason: 'นับสต๊อกชนเดือน', status: 'BATCHED', qcCondition: 'Condition A (ปกติ)', billNo: '-' },
+            { id: 4, dateStr: '14/04/26', timeStr: '16:45:10', sku: 'SKU1002', name: 'สบู่เหลวอาบน้ำกลิ่นซากุระ', qty: 1, source: 'หน้าร้าน/ลูกค้า', reason: 'สินค้าชำรุด/เสียหาย', status: 'REJECTED', qcCondition: 'Condition C (ขายไม่ได้)', billNo: 'INV-2604002' }
+        ];
 
-    if (grade === 'A') { newStatus = 'QC_PASSED'; conditionDesc = 'Condition A (สภาพดี)'; }
-    if (grade === 'B') { newStatus = 'QC_PASSED'; conditionDesc = 'Condition B (รีแพคเกจ)'; }
-    if (grade === 'C') { newStatus = 'REJECTED'; conditionDesc = 'Condition C (ขายไม่ได้)'; }
+        let products = [];
+        let items = [];
 
-    showConfirm(
-      `ยืนยันการประเมินเป็นเกรด ${grade}?`,
-      conditionDesc,
-      grade === 'C' ? 'warning' : 'question',
-      () => {
-        setItems(prevItems => prevItems.map(item => 
-          item.id === id ? { ...item, status: newStatus, qcCondition: conditionDesc } : item
-        ));
-        showAlert('ประเมินสำเร็จ!', '', 'success');
-      }
-    );
-  };
+        // --- Custom Modal UI ---
+        const modal = document.getElementById('modal-overlay');
+        const mIcon = document.getElementById('modal-icon-container');
+        const mTitle = document.getElementById('modal-title');
+        const mText = document.getElementById('modal-text');
+        const mActions = document.getElementById('modal-actions');
+        const mBtnCancel = document.getElementById('modal-btn-cancel');
+        const mBtnConfirm = document.getElementById('modal-btn-confirm');
+        let confirmCallback = null;
 
-  // --- Logic: BATCH Actions ---
-  const handleBatchSingle = (id) => {
-    setItems(items.map(item => item.id === id ? { ...item, status: 'BATCHED' } : item));
-  };
+        function renderIcon(type) {
+            let svg = '';
+            if (type === 'loading') {
+                svg = `<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>`;
+            } else if (type === 'success') {
+                svg = `<i data-lucide="check-circle" class="w-12 h-12 text-emerald-500"></i>`;
+            } else if (type === 'error') {
+                svg = `<i data-lucide="x-circle" class="w-12 h-12 text-rose-500"></i>`;
+            } else if (type === 'warning' || type === 'info' || type === 'question') {
+                svg = `<i data-lucide="alert-triangle" class="w-12 h-12 ${type === 'warning' ? 'text-amber-500' : 'text-blue-500'}"></i>`;
+            }
+            mIcon.innerHTML = svg;
+            if(type !== 'loading') lucide.createIcons();
+        }
 
-  const handleExportBatch = () => {
-    const batchedItems = items.filter(i => i.status === 'QC_PASSED');
-    if (batchedItems.length === 0) {
-      showAlert('ไม่มีรายการ', 'ไม่มีรายการที่รอตัดรอบ', 'info');
-      return;
-    }
+        function showLoading(title) {
+            mTitle.textContent = title;
+            mText.textContent = '';
+            mActions.classList.add('hidden');
+            renderIcon('loading');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
 
-    showConfirm(
-      'ยืนยันการ Export CSV',
-      `มีรายการรอตัดรอบทั้งหมด ${batchedItems.length} รายการ`,
-      'info',
-      () => {
-        // สร้าง CSV Content
-        // เพิ่ม BOM (Byte Order Mark) เพื่อให้ Excel อ่านภาษาไทย (UTF-8) ได้ถูกต้อง
-        const bom = "\uFEFF";
-        let csvContent = `"Date","Time","Bill No","SKU","Product Name","Quantity","Condition","Source"\n`;
-        
-        batchedItems.forEach(item => {
-          // ใช้เครื่องหมาย "" ครอบ Text เสมอกันลูกน้ำ
-          csvContent += `"${item.dateStr}","${item.timeStr}","${item.billNo}","${item.sku}","${item.name}","${item.qty}","${item.qcCondition}","${item.source}"\n`;
+        function showAlert(title, text, type = 'info', timer = null) {
+            mTitle.textContent = title;
+            mText.textContent = text;
+            mActions.classList.remove('hidden');
+            mBtnCancel.classList.add('hidden');
+            
+            mBtnConfirm.className = `px-4 py-2 text-white font-medium rounded-lg transition ${['warning', 'error'].includes(type) ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'}`;
+            
+            renderIcon(type);
+            confirmCallback = closeDialog;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            if(timer) {
+                setTimeout(closeDialog, timer);
+            }
+        }
+
+        function showConfirm(title, text, type = 'question', onConfirmCb) {
+            mTitle.textContent = title;
+            mText.textContent = text;
+            mActions.classList.remove('hidden');
+            mBtnCancel.classList.remove('hidden');
+            
+            mBtnConfirm.className = `px-4 py-2 text-white font-medium rounded-lg transition ${type === 'warning' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'}`;
+            
+            renderIcon(type);
+            confirmCallback = () => {
+                closeDialog();
+                if(onConfirmCb) onConfirmCb();
+            };
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeDialog() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        mBtnCancel.addEventListener('click', closeDialog);
+        mBtnConfirm.addEventListener('click', () => {
+            if(confirmCallback) confirmCallback();
         });
 
-        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `Quarantine_Batch_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
 
-        // เปลี่ยนสถานะทั้งหมดเป็น BATCHED
-        setItems(prevItems => prevItems.map(item => item.status === 'QC_PASSED' ? { ...item, status: 'BATCHED' } : item));
-        
-        showAlert('Export สำเร็จ!', 'รายการถูกย้ายไปที่ประวัติแล้ว', 'success');
-      }
-    );
-  };
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            initApp();
+            setupEventListeners();
+        });
 
-
-  // --- Render Helpers ---
-  const renderTabIcon = (tabId) => {
-    switch(tabId) {
-      case 'ADD': return <PackagePlus size={20} />;
-      case 'PENDING': return <ClipboardCheck size={20} />;
-      case 'BATCH': return <ArrowRightLeft size={20} />;
-      case 'HISTORY': return <History size={20} />;
-      default: return null;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-100 font-sans text-slate-800">
-      
-      {/* Custom Modal UI */}
-      {modalConfig.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center">
-            {modalConfig.type === 'loading' && <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>}
-            {modalConfig.type === 'success' && <CheckCircle className="text-emerald-500 mx-auto mb-4" size={48} />}
-            {modalConfig.type === 'error' && <XCircle className="text-rose-500 mx-auto mb-4" size={48} />}
-            {modalConfig.type === 'warning' && <AlertTriangle className="text-amber-500 mx-auto mb-4" size={48} />}
-            {['info', 'question'].includes(modalConfig.type) && <AlertTriangle className="text-blue-500 mx-auto mb-4" size={48} />}
+        async function initApp() {
+            showLoading('กำลังโหลดข้อมูลจาก Google Sheets...');
             
-            <h3 className="text-lg font-bold text-slate-800 mb-2">{modalConfig.title}</h3>
-            {modalConfig.text && <p className="text-sm text-slate-600 mb-6">{modalConfig.text}</p>}
-
-            {!modalConfig.isProcessing && (
-              <div className="flex justify-center gap-3 mt-4">
-                {modalConfig.showCancel && (
-                  <button onClick={closeDialog} className="px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition">
-                    ยกเลิก
-                  </button>
-                )}
-                <button onClick={modalConfig.onConfirm} className={`px-4 py-2 text-white font-medium rounded-lg transition ${['warning', 'error'].includes(modalConfig.type) ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-                  ตกลง
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
-      <header className="bg-indigo-700 text-white shadow-md sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="text-amber-400" />
-            <h1 className="text-xl font-bold tracking-wide">Quarantine Zone</h1>
-          </div>
-          <div className="text-sm text-indigo-200 hidden sm:block">ระบบจัดการสินค้าตีกลับ & สต๊อกดิฟ</div>
-        </div>
-        
-        {/* Tab Navigation */}
-        <div className="max-w-5xl mx-auto px-2 flex overflow-x-auto hide-scrollbar">
-          {['ADD', 'PENDING', 'BATCH', 'HISTORY'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 min-w-[100px] flex flex-col sm:flex-row items-center justify-center py-3 px-2 sm:space-x-2 text-sm sm:text-base font-medium transition-colors border-b-4 ${
-                activeTab === tab 
-                  ? 'border-white text-white bg-indigo-800' 
-                  : 'border-transparent text-indigo-300 hover:text-white hover:bg-indigo-600'
-              }`}
-            >
-              {renderTabIcon(tab)}
-              <span className="mt-1 sm:mt-0">
-                {tab === 'ADD' && 'รับเข้า'}
-                {tab === 'PENDING' && 'รอ QC'}
-                {tab === 'BATCH' && 'ตัดรอบ'}
-                {tab === 'HISTORY' && 'ประวัติ'}
-              </span>
-              {/* Badges */}
-              {tab === 'PENDING' && items.filter(i=>i.status==='PENDING').length > 0 && (
-                <span className="ml-1 bg-rose-500 text-white text-xs rounded-full px-2 py-0.5">
-                  {items.filter(i=>i.status==='PENDING').length}
-                </span>
-              )}
-              {tab === 'BATCH' && items.filter(i=>i.status==='QC_PASSED').length > 0 && (
-                <span className="ml-1 bg-amber-500 text-white text-xs rounded-full px-2 py-0.5">
-                  {items.filter(i=>i.status==='QC_PASSED').length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="max-w-5xl mx-auto p-4 sm:p-6 pb-24">
-        
-        {/* TAB 1: ADD */}
-        {activeTab === 'ADD' && (
-          <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-200">
-            <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center border-b pb-2">
-              <PackagePlus className="mr-2 text-indigo-500"/> ลงทะเบียนสินค้ารับเข้าพื้นที่กักกัน
-            </h2>
-            <form onSubmit={handleSubmitForm} className="space-y-5">
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 relative">
-                  <label className="block text-sm font-medium text-slate-600 mb-1">ค้นหาสินค้า (ชื่อ หรือ SKU)</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                    <input 
-                      type="text" 
-                      required
-                      className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="พิมพ์เพื่อค้นหา..."
-                      value={searchQuery}
-                      onChange={handleSearchChange}
-                    />
-                  </div>
-                  {/* Autocomplete Dropdown */}
-                  {searchQuery && !selectedSku && filteredProducts.length > 0 && (
-                    <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-                      {filteredProducts.map((p, idx) => (
-                        <li 
-                          key={idx} 
-                          className="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm border-b last:border-0"
-                          onClick={() => handleSelectProduct(p)}
-                        >
-                          <span className="font-semibold text-indigo-700">{p.sku}</span> - {p.name}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">รหัสสินค้า (SKU)</label>
-                  <input 
-                    type="text" 
-                    readOnly 
-                    required
-                    className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-slate-500"
-                    value={selectedSku}
-                    placeholder="Auto-fill"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">จำนวน (ชิ้น)</label>
-                  <input 
-                    type="number" 
-                    min={source === 'ปรับสต็อคสินค้า' ? "0" : "1"}
-                    required
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    value={qty}
-                    onChange={e => setQty(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">แหล่งที่มา</label>
-                  <select 
-                    required
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
-                    value={source}
-                    onChange={e => setSource(e.target.value)}
-                  >
-                    <option value="" disabled>-- เลือกแหล่งที่มา --</option>
-                    <option value="หน้าร้าน/ลูกค้า">1. หน้าร้าน/ลูกค้า</option>
-                    <option value="ออนไลน์ (Shopee)">2. ออนไลน์ (Shopee, Lazada ฯลฯ)</option>
-                    <option value="ปรับสต็อคสินค้า">3. ปรับสต็อคสินค้า</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Dynamic Fields for Source 1 */}
-              {source === 'หน้าร้าน/ลูกค้า' && (
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4">
-                  <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">รายละเอียดการรับคืนจากหน้าร้าน</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 mb-1">สาเหตุหลัก</label>
-                      <select required className="w-full px-3 py-2 border rounded-lg bg-white" value={mainReason} onChange={e => setMainReason(e.target.value)}>
-                        <option value="" disabled>-- เลือกสาเหตุ --</option>
-                        <option value="สินค้าชำรุด/เสียหาย">1. สินค้าชำรุด/เสียหาย</option>
-                        <option value="สินค้าหมดอายุ">2. สินค้าหมดอายุ</option>
-                        <option value="สินค้าส่งผิด">3. สินค้าส่งผิด</option>
-                        <option value="คุณภาพผิดปกติ">4. คุณภาพผิดปกติ</option>
-                        <option value="สั่งสินค้าผิด">5. สั่งสินค้าผิด</option>
-                        <option value="อื่นๆ">6. อื่นๆ (ระบุเอง)</option>
-                      </select>
-                    </div>
-                    {mainReason === 'อื่นๆ' && (
-                      <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">ระบุสาเหตุอื่นๆ</label>
-                        <input type="text" required className="w-full px-3 py-2 border rounded-lg" value={otherReason} onChange={e => setOtherReason(e.target.value)} />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 mb-1">สถานะบิล</label>
-                      <select required className="w-full px-3 py-2 border rounded-lg bg-white" value={billStatus} onChange={e => setBillStatus(e.target.value)}>
-                        <option value="" disabled>-- เลือกสถานะบิล --</option>
-                        <option value="รับสินค้ากลับ - ยังไม่ยกเลิกบิล">1. รับสินค้ากลับ - ยังไม่ยกเลิกบิล</option>
-                        <option value="รับสินค้ากลับ - ยกเลิกบิลแล้ว">2. รับสินค้ากลับ - ยกเลิกบิลแล้ว</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 mb-1">การชดเชย</label>
-                      <select required className="w-full px-3 py-2 border rounded-lg bg-white" value={compensation} onChange={e => setCompensation(e.target.value)}>
-                        <option value="" disabled>-- เลือกการชดเชย --</option>
-                        <option value="หักลดหนี้ในบิลถัดไป">1. หักลดหนี้ในบิลถัดไป</option>
-                        <option value="เปลี่ยนสินค้าเดิมเป็นของใหม่">2. เปลี่ยนสินค้าเดิมเป็นของใหม่ (ไม่แก้บิล)</option>
-                        <option value="รับคืนเพื่อฝากขาย">3. รับคืนเพื่อฝากขาย</option>
-                        <option value="ลูกค้าสั่งสินค้าผิด">4. ลูกค้าสั่งสินค้าผิด</option>
-                        <option value="สินค้าขายไม่ได้">5. สินค้าขายไม่ได้</option>
-                        <option value="ลูกค้าเลิกผลิตสินค้านั้นๆ">6. ลูกค้าเลิกผลิตสินค้านั้นๆ</option>
-                        <option value="อื่นๆ">7. อื่นๆ (ระบุเอง)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {compensation === 'หักลดหนี้ในบิลถัดไป' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-indigo-50 p-3 rounded border border-indigo-100">
-                      <div>
-                        <label className="block text-sm font-medium text-indigo-800 mb-1">วันที่บิล</label>
-                        <input type="date" required className="w-full px-3 py-2 border rounded-lg" value={billDate} onChange={e => setBillDate(e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-indigo-800 mb-1">เลขที่บิล</label>
-                        <input type="text" required className="w-full px-3 py-2 border rounded-lg" value={billNo} onChange={e => setBillNo(e.target.value)} />
-                      </div>
-                    </div>
-                  )}
-
-                  {compensation === 'อื่นๆ' && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 mb-1">ระบุการชดเชยอื่นๆ</label>
-                      <input type="text" required className="w-full px-3 py-2 border rounded-lg" value={otherCompensation} onChange={e => setOtherCompensation(e.target.value)} />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Dynamic Fields for Source 2, 3 */}
-              {(source === 'ออนไลน์ (Shopee)' || source === 'ปรับสต็อคสินค้า') && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">หมายเหตุ / เหตุผล</label>
-                  <textarea 
-                    required
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    rows="3"
-                    value={remark}
-                    onChange={e => setRemark(e.target.value)}
-                    placeholder="อธิบายสาเหตุสั้นๆ..."
-                  ></textarea>
-                </div>
-              )}
-
-              <div className="pt-4 border-t border-slate-200">
-                <button 
-                  type="submit" 
-                  className="w-full md:w-auto px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all"
-                >
-                  บันทึกข้อมูลรับเข้า
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* TAB 2: PENDING (QC) */}
-        {activeTab === 'PENDING' && (
-          <div>
-            <h2 className="text-lg font-bold text-slate-700 mb-4 flex items-center">
-              <ClipboardCheck className="mr-2 text-rose-500"/> รายการรอตรวจสอบสภาพ (QC)
-            </h2>
+            try {
+                products = await fetchProductsJSONP();
+                items = [...MOCK_ITEMS]; 
+                closeDialog();
+            } catch (error) {
+                showAlert('โหมดจำลองข้อมูล (Mock Mode)', 'เชื่อมต่อ Google Apps Script ไม่สำเร็จ ระบบจะใช้ข้อมูลจำลองเพื่อให้คุณทดสอบ UI ต่อได้', 'warning');
+                products = [...MOCK_PRODUCTS];
+                items = [...MOCK_ITEMS];
+            }
             
-            {items.filter(i => i.status === 'PENDING').length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm p-10 text-center border border-slate-200">
-                <CheckCircle className="mx-auto text-emerald-400 mb-3" size={48} />
-                <p className="text-slate-500 text-lg">ไม่มีรายการค้างตรวจสอบ</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-                {items.filter(i => i.status === 'PENDING').map(item => (
-                  <div key={item.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                    <div className="p-4 flex-grow">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-slate-100 text-slate-600 text-xs font-mono px-2 py-1 rounded border">
-                            {item.sku}
-                          </span>
-                          <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-full flex items-center">
-                            <Clock size={10} className="mr-1" /> รอตรวจสอบ
-                          </span>
+            document.getElementById('main-content').style.display = 'block';
+            renderAllTabs();
+        }
+
+        function fetchProductsJSONP() {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Math.round(100000 * Math.random());
+                window[callbackName] = function(data) {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    resolve(data);
+                };
+                const script = document.createElement('script');
+                script.src = `${GAS_URL}?callback=${callbackName}`;
+                script.onerror = () => {
+                    delete window[callbackName];
+                    document.body.removeChild(script);
+                    reject(new Error('JSONP fetch failed'));
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        // --- Navigation (Tabs) ---
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.target;
+                
+                // Update Buttons
+                tabBtns.forEach(b => {
+                    b.classList.remove('border-white', 'text-white', 'bg-indigo-800');
+                    b.classList.add('border-transparent', 'text-indigo-300');
+                });
+                btn.classList.add('border-white', 'text-white', 'bg-indigo-800');
+                btn.classList.remove('border-transparent', 'text-indigo-300');
+
+                // Update Content
+                tabContents.forEach(content => {
+                    content.classList.remove('active');
+                    if(content.id === `tab-${target}`) {
+                        content.classList.add('active');
+                    }
+                });
+            });
+        });
+
+        function switchTab(target) {
+            document.querySelector(`.tab-btn[data-target="${target}"]`).click();
+        }
+
+        // --- Dynamic Form Handlers ---
+        const els = {
+            search: document.getElementById('searchQuery'),
+            sku: document.getElementById('selectedSku'),
+            list: document.getElementById('autocomplete-list'),
+            source: document.getElementById('source'),
+            qty: document.getElementById('qty'),
+            source1F: document.getElementById('source1-fields'),
+            source23F: document.getElementById('source23-fields'),
+            mainReason: document.getElementById('mainReason'),
+            otherReasonC: document.getElementById('otherReasonContainer'),
+            comp: document.getElementById('compensation'),
+            billDetailsC: document.getElementById('billDetailsContainer'),
+            otherCompC: document.getElementById('otherCompensationContainer'),
+            addForm: document.getElementById('addForm'),
+            remark: document.getElementById('remark')
+        };
+
+        function setupEventListeners() {
+            // Autocomplete Search
+            els.search.addEventListener('input', (e) => {
+                const val = e.target.value.toLowerCase();
+                els.sku.value = ''; // Reset SKU
+                els.list.innerHTML = '';
+                
+                if (!val) {
+                    els.list.classList.add('hidden');
+                    return;
+                }
+
+                const filtered = products.filter(p => 
+                    p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val)
+                ).slice(0, 20);
+
+                if (filtered.length > 0) {
+                    filtered.forEach(p => {
+                        const li = document.createElement('li');
+                        li.className = 'px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm border-b last:border-0';
+                        li.innerHTML = `<span class="font-semibold text-indigo-700">${p.sku}</span> - ${p.name}`;
+                        li.onclick = () => {
+                            els.search.value = p.name;
+                            els.sku.value = p.sku;
+                            els.list.classList.add('hidden');
+                        };
+                        els.list.appendChild(li);
+                    });
+                    els.list.classList.remove('hidden');
+                } else {
+                    els.list.classList.add('hidden');
+                }
+            });
+
+            // Hide autocomplete on outside click
+            document.addEventListener('click', (e) => {
+                if(e.target !== els.search && e.target !== els.list) {
+                    els.list.classList.add('hidden');
+                }
+            });
+
+            // Dynamic Source Fields
+            els.source.addEventListener('change', () => {
+                const val = els.source.value;
+                els.qty.min = val === 'ปรับสต็อคสินค้า' ? "0" : "1";
+                els.source1F.classList.toggle('hidden', val !== 'หน้าร้าน/ลูกค้า');
+                els.source23F.classList.toggle('hidden', val !== 'ออนไลน์ (Shopee)' && val !== 'ปรับสต็อคสินค้า');
+                
+                // Set required flags properly
+                if(val === 'หน้าร้าน/ลูกค้า') {
+                    els.mainReason.required = true;
+                    document.getElementById('billStatus').required = true;
+                    els.comp.required = true;
+                    els.remark.required = false;
+                } else {
+                    els.mainReason.required = false;
+                    document.getElementById('billStatus').required = false;
+                    els.comp.required = false;
+                    els.remark.required = true;
+                }
+            });
+
+            // Dynamic Sub-fields
+            els.mainReason.addEventListener('change', () => {
+                const isOther = els.mainReason.value === 'อื่นๆ';
+                els.otherReasonC.classList.toggle('hidden', !isOther);
+                document.getElementById('otherReason').required = isOther;
+            });
+
+            els.comp.addEventListener('change', () => {
+                const val = els.comp.value;
+                els.billDetailsC.classList.toggle('hidden', val !== 'หักลดหนี้ในบิลถัดไป');
+                document.getElementById('billDate').required = (val === 'หักลดหนี้ในบิลถัดไป');
+                document.getElementById('billNo').required = (val === 'หักลดหนี้ในบิลถัดไป');
+                
+                els.otherCompC.classList.toggle('hidden', val !== 'อื่นๆ');
+                document.getElementById('otherCompensation').required = (val === 'อื่นๆ');
+            });
+
+            // Form Submit
+            els.addForm.addEventListener('submit', handleFormSubmit);
+
+            // Export BATCH
+            document.getElementById('btn-export').addEventListener('click', handleExportBatch);
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            if (!els.sku.value) {
+                showAlert('ข้อผิดพลาด', 'กรุณาเลือกสินค้าจากรายการ', 'error');
+                return;
+            }
+
+            showLoading('กำลังบันทึกข้อมูลไปที่ Google Sheets...');
+
+            const sourceVal = els.source.value;
+            let finalReason = '';
+            let billStatusVal = '-';
+            let compVal = '-';
+            let billNoVal = '-';
+
+            if (sourceVal === 'หน้าร้าน/ลูกค้า') {
+                finalReason = els.mainReason.value === 'อื่นๆ' ? document.getElementById('otherReason').value : els.mainReason.value;
+                billStatusVal = document.getElementById('billStatus').value || '-';
+                compVal = els.comp.value === 'อื่นๆ' ? document.getElementById('otherCompensation').value : els.comp.value;
+                billNoVal = els.comp.value === 'หักลดหนี้ในบิลถัดไป' ? document.getElementById('billNo').value : '-';
+            } else {
+                finalReason = els.remark.value;
+            }
+
+            const now = new Date();
+            const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getFullYear()).slice(-2)}`;
+            const timeStr = now.toLocaleTimeString('th-TH', { hour12: false });
+
+            const isAdjustStock = sourceVal === 'ปรับสต็อคสินค้า';
+            const targetStatus = isAdjustStock ? 'QC_PASSED' : 'PENDING';
+            const targetQcCondition = isAdjustStock ? 'ปรับสต็อค (Auto)' : '-';
+
+            const payload = {
+                dateStr, timeStr,
+                sku: els.sku.value,
+                name: els.search.value,
+                qty: parseInt(els.qty.value),
+                source: sourceVal,
+                reason: finalReason,
+                billStatus: billStatusVal,
+                compensation: compVal,
+                billNo: billNoVal,
+                status: targetStatus,
+                qcCondition: targetQcCondition
+            };
+
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const newItem = { id: Date.now(), ...payload };
+                items.unshift(newItem); // Add to beginning
+                
+                showAlert('รับเข้าสำเร็จ', 'บันทึกข้อมูลลง Google Sheets แล้ว', 'success', 1500);
+                
+                // Reset form
+                els.addForm.reset();
+                els.sku.value = '';
+                els.source.dispatchEvent(new Event('change')); // trigger reset of dynamic fields
+                
+                renderAllTabs();
+                switchTab(isAdjustStock ? 'BATCH' : 'PENDING');
+
+            } catch (error) {
+                console.error(error);
+                showAlert('ข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้ กรุณาลองอีกครั้ง', 'error');
+            }
+        }
+
+        // --- Render Functions ---
+        function updateBadges() {
+            const pendingCount = items.filter(i => i.status === 'PENDING').length;
+            const batchCount = items.filter(i => i.status === 'QC_PASSED').length;
+
+            const bP = document.getElementById('badge-pending');
+            const bB = document.getElementById('badge-batch');
+
+            if(pendingCount > 0) { bP.textContent = pendingCount; bP.classList.remove('hidden'); } else { bP.classList.add('hidden'); }
+            if(batchCount > 0) { bB.textContent = batchCount; bB.classList.remove('hidden'); } else { bB.classList.add('hidden'); }
+        }
+
+        function renderAllTabs() {
+            renderPendingTab();
+            renderBatchTab();
+            renderHistoryTab();
+            updateBadges();
+            lucide.createIcons();
+        }
+
+        function renderPendingTab() {
+            const container = document.getElementById('pending-container');
+            const pendingItems = items.filter(i => i.status === 'PENDING');
+
+            if (pendingItems.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-1 md:col-span-2 bg-white rounded-xl shadow-sm p-10 text-center border border-slate-200">
+                        <i data-lucide="check-circle" class="mx-auto text-emerald-400 mb-3 w-12 h-12"></i>
+                        <p class="text-slate-500 text-lg">ไม่มีรายการค้างตรวจสอบ</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            pendingItems.forEach(item => {
+                html += `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                    <div class="p-4 flex-grow">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-slate-100 text-slate-600 text-xs font-mono px-2 py-1 rounded border">${item.sku}</span>
+                                <span class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-full flex items-center">
+                                    <i data-lucide="clock" class="w-3 h-3 mr-1"></i> รอตรวจสอบ
+                                </span>
+                            </div>
+                            <span class="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-1 rounded-full">
+                                จำนวน: ${item.qty}
+                            </span>
                         </div>
-                        <span className="bg-rose-100 text-rose-700 text-xs font-bold px-2 py-1 rounded-full">
-                          จำนวน: {item.qty}
-                        </span>
-                      </div>
-                      <h3 className="font-bold text-slate-800 text-lg mb-1">{item.name}</h3>
-                      <div className="text-sm text-slate-500 space-y-1 mt-3">
-                        <p><span className="font-semibold text-slate-600">ที่มา:</span> {item.source}</p>
-                        <p><span className="font-semibold text-slate-600">เหตุผล:</span> {item.reason}</p>
-                        <p><span className="font-semibold text-slate-600">วันที่รับเข้า:</span> {item.dateStr} <span className="text-xs text-slate-400 ml-1">{item.timeStr}</span></p>
-                        {item.billNo !== '-' && (
-                          <p><span className="font-semibold text-slate-600">เลขที่บิล:</span> <span className="text-indigo-600 font-mono text-sm">{item.billNo}</span></p>
-                        )}
-                      </div>
+                        <h3 class="font-bold text-slate-800 text-lg mb-1">${item.name}</h3>
+                        <div class="text-sm text-slate-500 space-y-1 mt-3">
+                            <p><span class="font-semibold text-slate-600">ที่มา:</span> ${item.source}</p>
+                            <p><span class="font-semibold text-slate-600">เหตุผล:</span> ${item.reason}</p>
+                            <p><span class="font-semibold text-slate-600">วันที่รับเข้า:</span> ${item.dateStr} <span class="text-xs text-slate-400 ml-1">${item.timeStr}</span></p>
+                            ${item.billNo !== '-' ? `<p><span class="font-semibold text-slate-600">เลขที่บิล:</span> <span class="text-indigo-600 font-mono text-sm">${item.billNo}</span></p>` : ''}
+                        </div>
                     </div>
-                    <div className="bg-slate-50 p-3 border-t border-slate-100 grid grid-cols-3 gap-2">
-                      <button onClick={() => handleQC(item.id, 'A')} className="flex flex-col items-center justify-center p-2 bg-white border-2 border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 hover:border-emerald-500 transition">
-                        <span className="font-bold text-lg">A</span>
-                        <span className="text-[10px] sm:text-xs text-center leading-tight mt-1">สภาพดี<br/>ปกติ</span>
-                      </button>
-                      <button onClick={() => handleQC(item.id, 'B')} className="flex flex-col items-center justify-center p-2 bg-white border-2 border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50 hover:border-amber-500 transition">
-                        <span className="font-bold text-lg">B</span>
-                        <span className="text-[10px] sm:text-xs text-center leading-tight mt-1">เสียหายเล็กน้อย<br/>รีแพค</span>
-                      </button>
-                      <button onClick={() => handleQC(item.id, 'C')} className="flex flex-col items-center justify-center p-2 bg-white border-2 border-rose-200 text-rose-600 rounded-lg hover:bg-rose-50 hover:border-rose-500 transition">
-                        <span className="font-bold text-lg">C</span>
-                        <span className="text-[10px] sm:text-xs text-center leading-tight mt-1">เสียหาย<br/>ขายไม่ได้</span>
-                      </button>
+                    <div class="bg-slate-50 p-3 border-t border-slate-100 grid grid-cols-3 gap-2">
+                        <button onclick="handleQC(${item.id}, 'A')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 hover:border-emerald-500 transition">
+                            <span class="font-bold text-lg">A</span>
+                            <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">สภาพดี<br/>ปกติ</span>
+                        </button>
+                        <button onclick="handleQC(${item.id}, 'B')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-amber-200 text-amber-600 rounded-lg hover:bg-amber-50 hover:border-amber-500 transition">
+                            <span class="font-bold text-lg">B</span>
+                            <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">เสียหายเล็กน้อย<br/>รีแพค</span>
+                        </button>
+                        <button onclick="handleQC(${item.id}, 'C')" class="flex flex-col items-center justify-center p-2 bg-white border-2 border-rose-200 text-rose-600 rounded-lg hover:bg-rose-50 hover:border-rose-500 transition">
+                            <span class="font-bold text-lg">C</span>
+                            <span class="text-[10px] sm:text-xs text-center leading-tight mt-1">เสียหาย<br/>ขายไม่ได้</span>
+                        </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
 
-        {/* TAB 3: BATCH */}
-        {activeTab === 'BATCH' && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <h2 className="text-lg font-bold text-slate-700 flex items-center">
-                <ArrowRightLeft className="mr-2 text-amber-500"/> รอส่งออกตัดรอบ (Adjust In POS)
-              </h2>
-              <button 
-                onClick={handleExportBatch}
-                className="flex items-center justify-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-semibold"
-              >
-                <Download size={18} className="mr-2"/> Export ทั้งหมด (.csv)
-              </button>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-sm border-b">
-                    <th className="p-4 font-semibold w-16 text-center">Action</th>
-                    <th className="p-4 font-semibold w-24">วันที่-เวลา</th>
-                    <th className="p-4 font-semibold">SKU / สินค้า / เลขบิล</th>
-                    <th className="p-4 font-semibold text-center">จำนวน</th>
-                    <th className="p-4 font-semibold">สภาพ (Condition)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {items.filter(i => i.status === 'QC_PASSED').length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="p-8 text-center text-slate-400">ไม่มีรายการรอตัดรอบ</td>
-                    </tr>
-                  ) : (
-                    items.filter(i => i.status === 'QC_PASSED').map(item => (
-                      <tr key={item.id} className="hover:bg-slate-50 transition">
-                        <td className="p-4 text-center">
-                          <button 
-                            onClick={() => handleBatchSingle(item.id)}
-                            title="นำเข้าระบบ"
-                            className="text-slate-300 hover:text-emerald-500 transition"
-                          >
-                            <CheckCircle size={24} />
-                          </button>
-                        </td>
-                        <td className="p-4 text-sm text-slate-600 whitespace-nowrap">
-                          <div className="font-medium">{item.dateStr}</div>
-                          <div className="text-xs text-slate-400">{item.timeStr}</div>
-                        </td>
-                        <td className="p-4">
-                          <div className="font-mono text-xs text-indigo-600">{item.sku}</div>
-                          <div className="font-medium text-slate-800">{item.name}</div>
-                          {item.billNo !== '-' && (
-                            <div className="text-xs text-indigo-500 mt-1">บิล: {item.billNo}</div>
-                          )}
-                        </td>
-                        <td className="p-4 text-center font-bold text-slate-700">+{item.qty}</td>
-                        <td className="p-4">
-                          <span className={`text-xs px-2 py-1 rounded-full border ${
-                            item.qcCondition?.includes('A') ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'
-                          }`}>
-                            {item.qcCondition}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        function renderBatchTab() {
+            const tbody = document.getElementById('batch-tbody');
+            const batchItems = items.filter(i => i.status === 'QC_PASSED');
 
-        {/* TAB 4: HISTORY */}
-        {activeTab === 'HISTORY' && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-700 flex items-center">
-                <History className="mr-2 text-slate-500"/> ประวัติรายการกักกัน
-              </h2>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-sm border-b">
-                    <th className="p-4 font-semibold w-24">วันที่-เวลา</th>
-                    <th className="p-4 font-semibold">SKU / สินค้า / เลขบิล</th>
-                    <th className="p-4 font-semibold text-center">จำนวน</th>
-                    <th className="p-4 font-semibold">สถานะสุดท้าย</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {items.filter(i => ['BATCHED', 'REJECTED'].includes(i.status)).map(item => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="p-4 text-sm text-slate-600 whitespace-nowrap">
-                        <div className="font-medium">{item.dateStr}</div>
-                        <div className="text-xs text-slate-400">{item.timeStr}</div>
-                      </td>
-                      <td className="p-4">
-                        <div className="font-mono text-xs text-slate-500">{item.sku}</div>
-                        <div className="font-medium text-slate-800 text-sm">{item.name}</div>
-                        {item.billNo !== '-' && (
-                          <div className="text-xs text-indigo-500 mt-1">บิล: {item.billNo}</div>
-                        )}
-                      </td>
-                      <td className="p-4 text-center text-sm text-slate-600">{item.qty}</td>
-                      <td className="p-4">
-                        {item.status === 'BATCHED' ? (
-                          <span className="inline-flex items-center text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full font-medium">
-                            <Check size={12} className="mr-1"/> นำเข้าระบบแล้ว
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center text-xs px-2 py-1 bg-rose-100 text-rose-700 rounded-full font-medium">
-                            <AlertTriangle size={12} className="mr-1"/> แจ้งเคลม
-                          </span>
-                        )}
-                        <div className="text-[10px] text-slate-400 mt-1">{item.qcCondition}</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+            if (batchItems.length === 0) {
+                tbody.innerHTML = `<tr><td colSpan="5" class="p-8 text-center text-slate-400">ไม่มีรายการรอตัดรอบ</td></tr>`;
+                return;
+            }
 
-      </main>
-    </div>
-  );
-}
+            let html = '';
+            batchItems.forEach(item => {
+                const conditionColor = item.qcCondition.includes('A') ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700';
+                html += `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="p-4 text-center">
+                        <button onclick="handleBatchSingle(${item.id})" title="นำเข้าระบบ" class="text-slate-300 hover:text-emerald-500 transition">
+                            <i data-lucide="check-circle" class="w-6 h-6"></i>
+                        </button>
+                    </td>
+                    <td class="p-4 text-sm text-slate-600 whitespace-nowrap">
+                        <div class="font-medium">${item.dateStr}</div>
+                        <div class="text-xs text-slate-400">${item.timeStr}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-mono text-xs text-indigo-600">${item.sku}</div>
+                        <div class="font-medium text-slate-800">${item.name}</div>
+                        ${item.billNo !== '-' ? `<div class="text-xs text-indigo-500 mt-1">บิล: ${item.billNo}</div>` : ''}
+                    </td>
+                    <td class="p-4 text-center font-bold text-slate-700">+${item.qty}</td>
+                    <td class="p-4">
+                        <span class="text-xs px-2 py-1 rounded-full border ${conditionColor}">${item.qcCondition}</span>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function renderHistoryTab() {
+            const tbody = document.getElementById('history-tbody');
+            const historyItems = items.filter(i => ['BATCHED', 'REJECTED'].includes(i.status));
+
+            if (historyItems.length === 0) {
+                tbody.innerHTML = `<tr><td colSpan="4" class="p-8 text-center text-slate-400">ไม่มีประวัติรายการ</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            historyItems.forEach(item => {
+                const isBatched = item.status === 'BATCHED';
+                const statusHtml = isBatched
+                    ? `<span class="inline-flex items-center text-xs px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full font-medium"><i data-lucide="check" class="w-3 h-3 mr-1"></i> นำเข้าระบบแล้ว</span>`
+                    : `<span class="inline-flex items-center text-xs px-2 py-1 bg-rose-100 text-rose-700 rounded-full font-medium"><i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i> แจ้งเคลม</span>`;
+                
+                html += `
+                <tr class="hover:bg-slate-50">
+                    <td class="p-4 text-sm text-slate-600 whitespace-nowrap">
+                        <div class="font-medium">${item.dateStr}</div>
+                        <div class="text-xs text-slate-400">${item.timeStr}</div>
+                    </td>
+                    <td class="p-4">
+                        <div class="font-mono text-xs text-slate-500">${item.sku}</div>
+                        <div class="font-medium text-slate-800 text-sm">${item.name}</div>
+                        ${item.billNo !== '-' ? `<div class="text-xs text-indigo-500 mt-1">บิล: ${item.billNo}</div>` : ''}
+                    </td>
+                    <td class="p-4 text-center text-sm text-slate-600">${item.qty}</td>
+                    <td class="p-4">
+                        ${statusHtml}
+                        <div class="text-[10px] text-slate-400 mt-1">${item.qcCondition}</div>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // --- Action Handlers (Must be global for inline onclick) ---
+        window.handleQC = function(id, grade) {
+            let newStatus = '';
+            let conditionDesc = '';
+
+            if (grade === 'A') { newStatus = 'QC_PASSED'; conditionDesc = 'Condition A (สภาพดี)'; }
+            if (grade === 'B') { newStatus = 'QC_PASSED'; conditionDesc = 'Condition B (รีแพคเกจ)'; }
+            if (grade === 'C') { newStatus = 'REJECTED'; conditionDesc = 'Condition C (ขายไม่ได้)'; }
+
+            showConfirm(`ยืนยันการประเมินเป็นเกรด ${grade}?`, conditionDesc, grade === 'C' ? 'warning' : 'question', () => {
+                const itemIndex = items.findIndex(i => i.id === id);
+                if(itemIndex > -1) {
+                    items[itemIndex].status = newStatus;
+                    items[itemIndex].qcCondition = conditionDesc;
+                    renderAllTabs();
+                    showAlert('ประเมินสำเร็จ!', '', 'success', 1500);
+                }
+            });
+        };
+
+        window.handleBatchSingle = function(id) {
+            const itemIndex = items.findIndex(i => i.id === id);
+            if(itemIndex > -1) {
+                items[itemIndex].status = 'BATCHED';
+                renderAllTabs();
+            }
+        };
+
+        function handleExportBatch() {
+            const batchedItems = items.filter(i => i.status === 'QC_PASSED');
+            if (batchedItems.length === 0) {
+                showAlert('ไม่มีรายการ', 'ไม่มีรายการที่รอตัดรอบ', 'info');
+                return;
+            }
+
+            showConfirm('ยืนยันการ Export CSV', `มีรายการรอตัดรอบทั้งหมด ${batchedItems.length} รายการ`, 'info', () => {
+                const bom = "\uFEFF";
+                let csvContent = `"Date","Time","Bill No","SKU","Product Name","Quantity","Condition","Source"\n`;
+                
+                batchedItems.forEach(item => {
+                    csvContent += `"${item.dateStr}","${item.timeStr}","${item.billNo}","${item.sku}","${item.name}","${item.qty}","${item.qcCondition}","${item.source}"\n`;
+                    // Update status in array directly
+                    item.status = 'BATCHED'; 
+                });
+
+                const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `Quarantine_Batch_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                renderAllTabs();
+                showAlert('Export สำเร็จ!', 'รายการถูกย้ายไปที่ประวัติแล้ว', 'success', 2000);
+            });
+        }
+
+    </script>
+</body>
+</html>
