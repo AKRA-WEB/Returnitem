@@ -91,6 +91,18 @@
 </head>
 <body class="overflow-hidden selection:bg-indigo-500/30">
 
+    <!-- ⏳ Global Loader Overlay (ป้องกันการกดรัว) -->
+    <div id="global-loader" class="fixed inset-0 z-[9999] bg-[#09090b]/70 backdrop-blur-sm hidden flex-col items-center justify-center transition-opacity duration-200">
+        <div class="bg-zinc-900/90 border border-zinc-800/80 px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
+            <div class="relative w-12 h-12 mb-4">
+                <div class="absolute inset-0 rounded-full border-t-2 border-indigo-500 animate-spin"></div>
+                <div class="absolute inset-2 rounded-full border-t-2 border-rose-500 animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
+                <div class="absolute inset-4 rounded-full border-t-2 border-emerald-500 animate-spin" style="animation-duration: 2s;"></div>
+            </div>
+            <p id="global-loader-text" class="text-xs font-bold text-zinc-300 tracking-widest uppercase">กำลังประมวลผล...</p>
+        </div>
+    </div>
+
     <!-- 🖨️ Print Preview Overlay -->
     <div id="print-preview-overlay" class="fixed inset-0 z-[100] bg-zinc-900/90 backdrop-blur-sm hidden overflow-y-auto pt-10 pb-20 custom-scroll">
         <div class="max-w-4xl mx-auto bg-white shadow-2xl rounded-sm">
@@ -128,9 +140,12 @@
                     <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ภาพรวมระบบ</span>
                 </button>
 
-                <div class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบสินค้าคืน</div>
+                <div class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบสินค้าคืนและสต๊อก</div>
                 <button data-tab="ADD_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
-                    <i data-lucide="plus-circle" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">รับเข้าใหม่</span>
+                    <i data-lucide="plus-circle" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">รับเข้าสินค้าคืน</span>
+                </button>
+                <button data-tab="ADJ_STOCK" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
+                    <i data-lucide="calculator" class="w-5 h-5 mr-3 text-indigo-400/80"></i><span class="text-sm font-medium">แจ้งปรับสต๊อค</span>
                 </button>
                 <button data-tab="QC_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent relative group">
                     <i data-lucide="shield-check" class="w-5 h-5 mr-3 group-hover:text-indigo-400 transition-colors"></i><span class="text-sm font-medium">รอตรวจสภาพ</span>
@@ -173,6 +188,7 @@
         <!-- 📱 Mobile Nav -->
         <nav class="md:hidden bg-[#09090b] border-t border-zinc-800 flex overflow-x-auto hide-scrollbar p-1 pb-safe z-50 order-2 snap-x" id="mobile-nav">
             <button data-tab="ADD_RET" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-zinc-200"><i data-lucide="package-plus" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">รับคืน</span></button>
+            <button data-tab="ADJ_STOCK" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-zinc-200"><i data-lucide="calculator" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">ปรับสต๊อค</span></button>
             <button data-tab="QC_RET" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-zinc-200"><i data-lucide="shield-check" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">QC</span></button>
             <button data-tab="TRACK_CUST" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-zinc-200"><i data-lucide="users" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">ลูกค้า</span></button>
             <button data-tab="ADD_CLM" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-rose-400"><i data-lucide="alert-triangle" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">แจ้งเคลม</span></button>
@@ -199,12 +215,12 @@
                     
                     <!-- 📦 โซน: สินค้าคืน (Returns) -->
                     <div class="glass-card rounded-3xl p-6 border-t-2 border-t-indigo-500">
-                        <div class="flex items-center justify-between mb-6 border-b border-zinc-800/80 pb-4">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between mb-6 border-b border-zinc-800/80 pb-4 gap-4">
                             <div>
-                                <h3 class="text-xl font-bold text-indigo-400 flex items-center"><i data-lucide="package-search" class="w-6 h-6 mr-2"></i> ภาพรวมสินค้าคืน (Returns & Adjustments)</h3>
+                                <h3 class="text-xl font-bold text-indigo-400 flex items-center"><i data-lucide="package-search" class="w-6 h-6 mr-2"></i> ภาพรวมสินค้าคืน และ สต๊อก</h3>
                                 <p class="text-xs text-zinc-500 mt-1">ประวัติการรับคืนจากหน้าร้าน ลูกค้า และการปรับสต๊อก</p>
                             </div>
-                            <div class="flex gap-4 text-center">
+                            <div class="flex gap-4 text-center overflow-x-auto hide-scrollbar">
                                 <div class="bg-zinc-900/80 rounded-xl p-3 border border-zinc-800/50 min-w-[100px]">
                                     <p class="text-[10px] text-zinc-400 font-medium">รอตรวจ QC</p>
                                     <p class="text-xl font-bold text-amber-400 mt-1" id="dash-ret-qc">0</p>
@@ -240,12 +256,12 @@
 
                     <!-- 🚨 โซน: สินค้าเคลม (Claims) -->
                     <div class="glass-card rounded-3xl p-6 border-t-2 border-t-rose-500">
-                        <div class="flex items-center justify-between mb-6 border-b border-zinc-800/80 pb-4">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between mb-6 border-b border-zinc-800/80 pb-4 gap-4">
                             <div>
                                 <h3 class="text-xl font-bold text-rose-400 flex items-center"><i data-lucide="alert-triangle" class="w-6 h-6 mr-2"></i> ภาพรวมสินค้าเคลม (Damage & Claims)</h3>
                                 <p class="text-xs text-zinc-500 mt-1">ประวัติการแจ้งเคลมสินค้าชำรุด และการติดตาม Vendor</p>
                             </div>
-                            <div class="flex gap-4 text-center">
+                            <div class="flex gap-4 text-center overflow-x-auto hide-scrollbar">
                                 <div class="bg-zinc-900/80 rounded-xl p-3 border border-zinc-800/50 min-w-[100px]">
                                     <p class="text-[10px] text-zinc-400 font-medium">รอรับเข้า/รอส่ง</p>
                                     <p class="text-xl font-bold text-amber-400 mt-1" id="dash-clm-wait">0</p>
@@ -285,8 +301,8 @@
                 <div id="tab-ADD_RET" class="tab-content">
                     <div class="max-w-3xl mx-auto glass-card rounded-[24px] p-6 md:p-10">
                         <div class="mb-8">
-                            <h2 class="text-xl font-bold text-zinc-100 flex items-center"><i data-lucide="package-plus" class="mr-3 text-indigo-400"></i> ลงทะเบียนรับเข้าสินค้า</h2>
-                            <p class="text-xs text-zinc-500 mt-2">สแกนหรือค้นหาเพื่อนำสินค้าเข้าสู่พื้นที่กักกัน (Quarantine)</p>
+                            <h2 class="text-xl font-bold text-zinc-100 flex items-center"><i data-lucide="package-plus" class="mr-3 text-indigo-400"></i> ลงทะเบียนรับเข้าสินค้าคืน</h2>
+                            <p class="text-xs text-zinc-500 mt-2">สแกนหรือค้นหาสินค้าคืนจากหน้าร้าน ลูกค้า หรือออนไลน์</p>
                         </div>
                         
                         <form id="retForm" class="space-y-6">
@@ -321,7 +337,6 @@
                                         <option value="" disabled selected>-- เลือกแหล่งที่มา --</option>
                                         <option value="หน้าร้าน/ลูกค้า">1. รับคืนหน้าร้าน/ลูกค้า</option>
                                         <option value="ออนไลน์ (Shopee)">2. ตีกลับออนไลน์ (Shopee/Lazada)</option>
-                                        <option value="ปรับสต็อคสินค้า">3. ปรับสต็อก / นับดิฟ</option>
                                     </select>
                                 </div>
                             </div>
@@ -391,7 +406,7 @@
                                 </div>
                             </div>
 
-                            <!-- ส่วนขยายสำหรับ: ออนไลน์/ปรับสต็อค -->
+                            <!-- ส่วนขยายสำหรับ: ออนไลน์ -->
                             <div id="ret_src2_fields" class="hidden space-y-4 mt-6 pt-6 border-t border-zinc-800/50 animate-in fade-in duration-300">
                                 <div>
                                     <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">หมายเหตุ / เหตุผล</label>
@@ -402,6 +417,60 @@
                             <div class="pt-4 mt-6 border-t border-zinc-800/50">
                                 <button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-all">
                                     บันทึกเข้าคลังกักกัน
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ================== TAB: ADJ_STOCK (แจ้งปรับสต๊อค) ================== -->
+                <div id="tab-ADJ_STOCK" class="tab-content">
+                    <div class="max-w-3xl mx-auto glass-card rounded-[24px] p-6 md:p-10">
+                        <div class="mb-8">
+                            <h2 class="text-xl font-bold text-zinc-100 flex items-center"><i data-lucide="calculator" class="mr-3 text-indigo-400"></i> แจ้งปรับสต๊อค (Stock Adjustment)</h2>
+                            <p class="text-xs text-zinc-500 mt-2">บันทึกข้อมูลการนับสต๊อกดิฟ หรือสูญหาย เพื่อรอการปรับยอด POS</p>
+                        </div>
+                        
+                        <form id="adjForm" class="space-y-6">
+                            <div class="relative">
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ค้นหาสินค้า</label>
+                                <div class="relative group">
+                                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors"></i>
+                                    <input type="text" id="adj_search" class="w-full pl-11 pr-4 py-3.5 input-dark rounded-xl font-medium text-sm" placeholder="พิมพ์ชื่อสินค้าหรือ SKU...">
+                                    <ul id="adj_list" class="absolute z-50 w-full mt-2 bg-[#18181b] border border-zinc-800 rounded-xl shadow-2xl max-h-60 overflow-auto hidden"></ul>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">รหัส SKU</label>
+                                    <input type="text" id="adj_sku" readonly class="w-full px-4 py-3 bg-[#09090b] border border-zinc-800/50 rounded-xl font-mono text-zinc-500 text-sm cursor-not-allowed" placeholder="Auto">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">หน่วยนับ</label>
+                                    <input type="text" id="adj_unit" readonly class="w-full px-4 py-3 bg-[#09090b] border border-zinc-800/50 rounded-xl font-medium text-zinc-500 text-sm cursor-not-allowed" placeholder="Unit">
+                                </div>
+                            </div>
+
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">สต๊อคในระบบ (System)</label>
+                                    <input type="number" id="adj_sys_qty" min="0" required class="w-full px-4 py-3 input-dark rounded-xl font-bold text-zinc-300 text-base" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">สต๊อคสินค้าจริง (Actual)</label>
+                                    <input type="number" id="adj_act_qty" min="0" required class="w-full px-4 py-3 input-dark rounded-xl font-bold text-indigo-400 text-base" placeholder="0">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">หมายเหตุ (อธิบายสาเหตุที่สต๊อกดิฟ)</label>
+                                <input type="text" id="adj_remark" class="w-full px-4 py-3 input-dark rounded-xl text-sm" placeholder="เช่น สินค้าสูญหาย, ชำรุดนอกระบบ...">
+                            </div>
+
+                            <div class="pt-4 mt-6 border-t border-zinc-800/50">
+                                <button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-all">
+                                    ส่งข้อมูลรอตัดรอบ
                                 </button>
                             </div>
                         </form>
@@ -421,27 +490,29 @@
 
                 <!-- ================== TAB: BATCH_RET ================== -->
                 <div id="tab-BATCH_RET" class="tab-content">
-                    <div class="flex justify-between items-center mb-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                         <div>
                             <h2 class="text-xl font-bold text-zinc-100">รอตัดรอบ POS</h2>
-                            <p class="text-xs text-zinc-500 mt-1">รายการที่พร้อม Export กลับเข้าระบบ ERP</p>
+                            <p class="text-xs text-zinc-500 mt-1">รวมรายการสินค้าคืนสภาพดี และรายการปรับสต๊อค</p>
                         </div>
-                        <button id="btn-export" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 rounded-lg font-medium text-sm flex items-center transition-all">
+                        <button id="btn-export" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 rounded-lg font-medium text-sm flex items-center transition-all w-fit">
                             <i data-lucide="download" class="w-4 h-4 mr-2 text-zinc-400"></i> Export CSV
                         </button>
                     </div>
                     <div class="glass-card rounded-2xl overflow-hidden">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-zinc-900/50 border-b border-zinc-800">
-                                <tr>
-                                    <th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">รายการสินค้า</th>
-                                    <th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">จำนวน</th>
-                                    <th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">ผลประเมิน</th>
-                                    <th class="p-4"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="batchList" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody>
-                        </table>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm whitespace-nowrap">
+                                <thead class="bg-zinc-900/50 border-b border-zinc-800">
+                                    <tr>
+                                        <th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">รายการสินค้า</th>
+                                        <th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">จำนวน / รายละเอียด</th>
+                                        <th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">ประเภท</th>
+                                        <th class="p-4"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="batchList" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -453,7 +524,6 @@
                     </div>
                     
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <!-- Column: ลดหนี้ -->
                         <div class="glass-card p-5 rounded-[20px] flex flex-col border-t-2 border-t-rose-500">
                             <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-4">
                                 <h3 class="font-bold text-zinc-200 text-sm">รอหักลดหนี้ในบิลถัดไป</h3>
@@ -462,7 +532,6 @@
                             <div id="cust_credit_list" class="space-y-3 flex-1 overflow-y-auto max-h-[60vh] custom-scroll pr-1"></div>
                         </div>
 
-                        <!-- Column: ฝากขาย -->
                         <div class="glass-card p-5 rounded-[20px] flex flex-col border-t-2 border-t-amber-500">
                             <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-4">
                                 <h3 class="font-bold text-zinc-200 text-sm">รับคืนเพื่อฝากขาย</h3>
@@ -471,7 +540,6 @@
                             <div id="cust_consig_list" class="space-y-3 flex-1 overflow-y-auto max-h-[60vh] custom-scroll pr-1"></div>
                         </div>
 
-                        <!-- Column: เปลี่ยนใหม่ -->
                         <div class="glass-card p-5 rounded-[20px] flex flex-col border-t-2 border-t-emerald-500">
                             <div class="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-4">
                                 <h3 class="font-bold text-zinc-200 text-sm">เปลี่ยนสินค้าเป็นของใหม่</h3>
@@ -534,7 +602,9 @@
                                 <button id="btn_submit_drafts" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-sm shadow-[0_0_15px_rgba(16,185,129,0.2)] transition-all">ส่งข้อมูลทั้งหมด</button>
                             </div>
                             <div class="border border-zinc-800/50 rounded-xl overflow-hidden">
-                                <table class="w-full text-sm text-left"><thead class="bg-zinc-900/80"><tr><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">สินค้า</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest text-center">จำนวน</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">สาเหตุ</th><th class="p-4 text-center"></th></tr></thead><tbody id="clm_draft_list" class="divide-y divide-zinc-800/50 text-zinc-300 bg-[#18181b]"></tbody></table>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left whitespace-nowrap"><thead class="bg-zinc-900/80"><tr><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">สินค้า</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest text-center">จำนวน</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">สาเหตุ</th><th class="p-4 text-center"></th></tr></thead><tbody id="clm_draft_list" class="divide-y divide-zinc-800/50 text-zinc-300 bg-[#18181b]"></tbody></table>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -579,7 +649,21 @@
         // 🔗 วาง Web App URL ที่นี่
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbz2XC1hVmWZTzluCpS5t3VjbAqkx8VGagXAiXR4CCXtz1X2R0iNc3flGMAqMhsM4fg/exec';
         
-        let state = { products: [], claims: [], returns: [], drafts: [], user: 'Admin' };
+        let state = { products: [], claims: [], returns: [], stocks: [], drafts: [], user: 'Admin' };
+
+        // ⏳ Loader Functions
+        function showLoader(text = 'กำลังประมวลผล...') {
+            document.getElementById('global-loader-text').innerText = text;
+            const loader = document.getElementById('global-loader');
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+        }
+
+        function hideLoader() {
+            const loader = document.getElementById('global-loader');
+            loader.classList.add('hidden');
+            loader.classList.remove('flex');
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
@@ -593,19 +677,31 @@
 
         // ================= API FETCH =================
         async function fetchData(loader = true) {
-            if(loader) Swal.fire({ title: 'Syncing Data...', allowOutsideClick: false, didOpen:()=>Swal.showLoading()});
+            if(loader) showLoader('กำลังซิงค์ข้อมูล...');
             const cb = 'jsonp_' + Date.now();
             window[cb] = (res) => {
-                if(res.status === 'success') { state = { ...state, ...res.data }; renderUI(); if(loader) Swal.close(); }
-                else Swal.fire('Error', res.message, 'error');
+                if(loader) hideLoader();
+                if(res.status === 'success') { 
+                    state = { ...state, ...res.data }; 
+                    renderUI(); 
+                } else {
+                    Swal.fire('Error', res.message, 'error');
+                }
                 delete window[cb]; document.head.removeChild(document.getElementById(cb));
             };
-            const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}`;
+            const script = document.createElement('script'); 
+            script.id = cb; 
+            script.src = `${GAS_URL}?callback=${cb}`;
+            script.onerror = () => {
+                if(loader) hideLoader();
+                Swal.fire('Error', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+                delete window[cb]; document.head.removeChild(document.getElementById(cb));
+            };
             document.head.appendChild(script);
         }
 
         async function postData(payload, successMsg) {
-            Swal.fire({ title: 'Processing...', allowOutsideClick: false, didOpen:()=>Swal.showLoading()});
+            showLoader('กำลังบันทึกข้อมูล...');
             try {
                 const response = await fetch(GAS_URL, { 
                     method: 'POST', 
@@ -614,12 +710,15 @@
                 });
                 const result = await response.json();
                 
+                hideLoader();
+                
                 if(result.status === 'success') {
                     Swal.fire({ icon: 'success', title: 'Complete', text: successMsg, timer: 1500, showConfirmButton: false });
                     setTimeout(() => fetchData(false), 800);
                     return true;
                 } else throw new Error(result.message);
             } catch (e) {
+                hideLoader();
                 Swal.fire('Failed', e.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล', 'error');
                 return false;
             }
@@ -672,6 +771,7 @@
                 };
             };
             bind('ret_search', 'ret_list', 'ret_sku', 'ret_unit', null);
+            bind('adj_search', 'adj_list', 'adj_sku', 'adj_unit', null);
             bind('clm_search', 'clm_list', 'clm_sku', null, 'clm_vendor');
             document.addEventListener('click', e => { if(!e.target.closest('input')) document.querySelectorAll('ul[id$="_list"]').forEach(u => u.classList.add('hidden')); });
         }
@@ -688,7 +788,7 @@
         }
 
         function setupForms() {
-            // --- จัดการ UI ฟอร์มรับคืน (Dynamic Form) ---
+            // --- UI ฟอร์มรับคืน ---
             const rs = document.getElementById('ret_source');
             const rs1 = document.getElementById('ret_src1_fields');
             const rs2 = document.getElementById('ret_src2_fields');
@@ -721,7 +821,6 @@
                 const now = new Date(); 
                 const d = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getFullYear()).slice(-2)}`;
                 const source = rs.value;
-                const isAuto = source === 'ปรับสต็อคสินค้า';
                 
                 let finalReason = '-';
                 let compValue = '-';
@@ -763,8 +862,8 @@
                     billStatus:bStatus, 
                     compensation:compValue, 
                     billNo:bNo, 
-                    status:isAuto?'รอตัดรอบ':'รอ QC', 
-                    qcCondition:isAuto?'ปรับสต็อก':'-', 
+                    status:'รอ QC', 
+                    qcCondition:'-', 
                     unit:document.getElementById('ret_unit').value 
                 };
 
@@ -780,7 +879,42 @@
                 }
             };
 
-            // --- แจ้งเคลมลง Draft ---
+            // --- การ Submit ฟอร์มปรับสต๊อค ---
+            document.getElementById('adjForm').onsubmit = async e => {
+                e.preventDefault();
+                const sku = document.getElementById('adj_sku').value;
+                if(!sku) return Swal.fire('Notice','เลือกสินค้าก่อน','warning');
+
+                const now = new Date();
+                const d = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getFullYear()).slice(-2)}`;
+                const sysQty = parseInt(document.getElementById('adj_sys_qty').value);
+                const actQty = parseInt(document.getElementById('adj_act_qty').value);
+                const diff = actQty - sysQty;
+
+                const payload = {
+                    action: 'addStock',
+                    id: 'ADJ-' + Date.now(),
+                    dateStr: d,
+                    timeStr: now.toLocaleTimeString('th-TH',{hour12:false}),
+                    sku,
+                    name: document.getElementById('adj_search').value,
+                    sysQty,
+                    actQty,
+                    diff,
+                    remark: document.getElementById('adj_remark').value || '-',
+                    unit: document.getElementById('adj_unit').value || 'ชิ้น',
+                    status: 'รอตัดรอบ',
+                    user: state.user
+                };
+
+                const ok = await postData(payload, 'ส่งข้อมูลปรับสต๊อคสำเร็จ');
+                if(ok) {
+                    e.target.reset();
+                    document.getElementById('adj_sku').value='';
+                }
+            };
+
+            // แจ้งเคลมลง Draft
             document.getElementById('clmForm').onsubmit = e => {
                 e.preventDefault();
                 const sku = document.getElementById('clm_sku').value; if(!sku) return Swal.fire('Notice','เลือกสินค้าก่อน','warning');
@@ -798,13 +932,28 @@
                 renderDrafts(); e.target.reset(); document.getElementById('clm_sku').value=''; document.getElementById('clm_vendor').innerText='-';
             };
 
+            // ส่งข้อมูลเคลมทั้งหมด
             document.getElementById('btn_submit_drafts').onclick = async () => {
                 if(state.drafts.length && await postData({ action:'addDrafts', drafts: state.drafts }, 'ส่งเคลมเข้าระบบเรียบร้อย')) { state.drafts = []; renderDrafts(); }
             };
 
+            // Export POS (Return Batch)
             document.getElementById('btn-export').onclick = async () => {
-                const ids = state.returns.filter(r => r.status === 'รอตัดรอบ').map(r => r.id);
-                if(ids.length) postData({ action:'updateReturnBatch', ids }, 'Export ข้อมูลเรียบร้อย');
+                // สำหรับการ Export อาจจะต้องรวบรวมทั้ง Return และ Stock, ในเบื้องต้นดึง Returns ก่อน
+                const ids = state.returns.filter(r => r.status === 'รอตัดรอบ' || r.status === 'QC_PASSED').map(r => r.id);
+                const sIds = (state.stocks || []).filter(s => s.status === 'รอตัดรอบ').map(s => s.id);
+                // สมมติว่า backend รองรับการอัปเดต batch เฉพาะ Return ก่อน หรือเราสามารถส่งแยกกัน
+                if(ids.length || sIds.length) {
+                    Swal.fire({ title: 'Export ข้อมูล', text: 'คุณต้องการบันทึกการตัดรอบในระบบหรือไม่?', showCancelButton: true }).then(r => {
+                        if(r.isConfirmed) {
+                            if(ids.length) postData({ action:'updateReturnBatch', ids }, 'Export ข้อมูลเรียบร้อย');
+                            // หาก backend รองรับ updateStockBatch ก็เรียกด้วย
+                            if(sIds.length && !ids.length) postData({ action:'updateStockBatch', ids:sIds }, 'Export สต๊อคเรียบร้อย');
+                        }
+                    });
+                } else {
+                    Swal.fire('Info', 'ไม่มีรายการรอตัดรอบ', 'info');
+                }
             };
         }
 
@@ -834,7 +983,8 @@
                     icon: 'question', 
                     showCancelButton: true, 
                     confirmButtonText: 'ยืนยัน', 
-                    cancelButtonText: 'ยกเลิก' 
+                    cancelButtonText: 'ยกเลิก',
+                    confirmButtonColor: '#6366f1' 
                 }).then(r => { 
                     if(r.isConfirmed) postData({ action:'updateReturnQC', id, grade, status:st, qcCondition:cond, sku:btn.dataset.sku, name:btn.dataset.name, qty:btn.dataset.qty, unit:btn.dataset.unit, source:btn.dataset.source, reason:btn.dataset.reason, user:state.user }, 'ประเมินสภาพสำเร็จ'); 
                 });
@@ -943,7 +1093,7 @@
             const badgeQc = document.getElementById('badge-qc');
             const badgeBatch = document.getElementById('badge-batch');
             const qcC = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length;
-            const bC = state.returns.filter(r => r.status==='รอตัดรอบ').length;
+            const bC = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED').length + (state.stocks || []).filter(s => s.status==='รอตัดรอบ').length;
             badgeQc.innerText = qcC; badgeQc.classList.toggle('hidden', qcC===0);
             badgeBatch.innerText = bC; badgeBatch.classList.toggle('hidden', bC===0);
 
@@ -967,15 +1117,33 @@
                 </div>
             `).join('') : '<div class="col-span-full py-16 text-center"><i data-lucide="check-circle-2" class="w-12 h-12 text-zinc-700 mx-auto mb-3"></i><p class="text-zinc-500 font-medium">ไม่มีรายการค้างตรวจสภาพ</p></div>';
 
-            const pBatch = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED');
-            document.getElementById('batchList').innerHTML = pBatch.length ? pBatch.map(r => `
+            // รวมรายการรับคืนที่รอตัดรอบ และ สต๊อกที่รอตัดรอบ
+            const pBatchReturns = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED');
+            const pBatchStocks = (state.stocks || []).filter(s => s.status==='รอตัดรอบ');
+            
+            const renderBatchReturn = (r) => `
                 <tr class="hover:bg-zinc-900/30 transition-colors group">
                     <td class="p-4"><p class="font-semibold text-sm text-zinc-200">${r.name}</p><p class="text-[10px] text-zinc-500 font-mono mt-0.5">${r.sku}</p></td>
                     <td class="p-4 text-center font-bold text-zinc-300">${r.qty}</td>
-                    <td class="p-4"><span class="text-[10px] font-medium px-2 py-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">${r.qcCondition}</span></td>
+                    <td class="p-4"><span class="text-[10px] font-medium px-2 py-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">${r.qcCondition || 'สินค้าสภาพดี'}</span></td>
                     <td class="p-4 text-right"><button onclick="postData({action:'updateReturnBatch', ids:['${r.id}']},'นำเข้าระบบสำเร็จ')" class="text-zinc-600 hover:text-emerald-400 p-2 transition-colors"><i data-lucide="check-square" class="w-5 h-5"></i></button></td>
                 </tr>
-            `).join('') : '<tr><td colspan="4" class="py-16 text-center text-zinc-500">ไม่มีข้อมูลรอจัดการ</td></tr>';
+            `;
+
+            const renderBatchStock = (s) => `
+                <tr class="hover:bg-zinc-900/30 transition-colors group border-l-2 border-l-indigo-500 bg-indigo-500/5">
+                    <td class="p-4"><p class="font-semibold text-sm text-zinc-200">${s.name}</p><p class="text-[10px] text-indigo-400 font-mono mt-0.5">${s.sku} • ปรับสต๊อค</p></td>
+                    <td class="p-4 text-center">
+                        <span class="text-[10px] text-zinc-400 block mb-1">ระบบ: ${s.sysQty} | จริง: ${s.actQty}</span>
+                        <span class="font-bold text-sm ${s.diff < 0 ? 'text-rose-400' : s.diff > 0 ? 'text-emerald-400' : 'text-zinc-400'}">ดิฟ: ${s.diff > 0 ? '+'+s.diff : s.diff}</span>
+                    </td>
+                    <td class="p-4"><span class="text-[10px] font-medium px-2 py-1 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">${s.remark !== '-' ? s.remark : 'นับสต๊อก'}</span></td>
+                    <td class="p-4 text-right"><button onclick="postData({action:'updateStockBatch', ids:['${s.id}']},'ตัดรอบปรับสต๊อคสำเร็จ')" class="text-zinc-600 hover:text-emerald-400 p-2 transition-colors"><i data-lucide="check-square" class="w-5 h-5"></i></button></td>
+                </tr>
+            `;
+
+            const batchHtml = [...pBatchReturns.map(renderBatchReturn), ...pBatchStocks.map(renderBatchStock)].join('');
+            document.getElementById('batchList').innerHTML = batchHtml || '<tr><td colspan="4" class="py-16 text-center text-zinc-500">ไม่มีข้อมูลรอจัดการ</td></tr>';
 
             const pWH = state.claims.filter(c => c.whStatus==='ยังไม่รับ');
             document.getElementById('wh_claim_list').innerHTML = pWH.length ? pWH.map(c => `
@@ -1019,120 +1187,17 @@
             }).join('');
 
             renderTrackClaim();
-            renderTrackCust(); // แสดงผลแท็บติดตามลูกค้า
+            renderTrackCust();
             
             lucide.createIcons();
-        }
-
-        // ================= TRACKING RENDERERS =================
-        function renderTrackClaim() {
-            const trackingList = state.claims.filter(c => c.whStatus !== 'ยังไม่รับ');
-            const waitList = trackingList.filter(c => c.status === 'รอเคลม');
-            const processList = trackingList.filter(c => c.status === 'แจ้งเคลมแล้ว');
-            const doneList = trackingList.filter(c => c.status === 'เคลมแล้ว' || c.status === 'สำเร็จแล้ว');
-            
-            document.getElementById('track-wait-count').innerText = waitList.length;
-            document.getElementById('track-process-count').innerText = processList.length;
-            document.getElementById('track-done-count').innerText = doneList.length;
-            
-            const groupClaims = (list) => {
-                return list.reduce((acc, c) => {
-                    const v = c.vendor || 'ไม่ระบุ Vendor';
-                    if(!acc[v]) acc[v] = [];
-                    acc[v].push(c);
-                    return acc;
-                }, {});
-            };
-
-            const waitGrouped = groupClaims(waitList);
-            const processGrouped = groupClaims(processList);
-            const doneGrouped = groupClaims(doneList);
-
-            const genVendorCard = (vendor, items, actionType) => {
-                const totalQty = items.reduce((s, i) => s + Number(i.qty), 0);
-                const safeVendor = vendor.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-                const latestClaimType = items[0].claimType || 'ทำรายการสำเร็จ';
-                const latestBillNo = items[0].claimBillNo;
-                const latestAmount = items[0].claimAmount;
-
-                return `
-                <div class="glass-card p-5 rounded-[20px] relative group hover:border-zinc-700 transition-colors ${actionType === 'done' ? 'border-l-2 border-emerald-500' : ''}">
-                    <div class="flex justify-between items-start mb-3 border-b border-zinc-800/80 pb-3">
-                        <h4 class="font-bold text-zinc-100 text-sm truncate pr-2">${vendor}</h4>
-                        <span class="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-1 rounded-md border border-zinc-700/50 whitespace-nowrap">${items.length} รายการ</span>
-                    </div>
-                    <p class="text-xs text-zinc-400 mb-4">ยอดรวม: <strong class="text-zinc-200">${totalQty} ชิ้น</strong></p>
-                    
-                    ${actionType === 'wait' ? `
-                        <button data-action="track-notify" data-vendor="${safeVendor}" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow-[0_0_10px_rgba(99,102,241,0.2)]">
-                            แจ้งเคลม Vendor แล้ว
-                        </button>
-                    ` : actionType === 'process' ? `
-                        <button data-action="track-resolve" data-vendor="${safeVendor}" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-[0_0_10px_rgba(16,185,129,0.2)] transition-colors">
-                            บันทึกผลการเคลม
-                        </button>
-                    ` : `
-                        <div class="bg-[#09090b] rounded-xl p-3 border border-zinc-800/50 mt-2">
-                            <p class="text-[11px] font-bold text-emerald-400 mb-1 flex items-center"><i data-lucide="check-circle-2" class="w-3.5 h-3.5 mr-1.5 inline"></i> ${latestClaimType}</p>
-                            ${latestClaimType === 'คืนสินค้าหักใบบิล' && latestBillNo && latestBillNo !== '-' ? `
-                                <div class="flex justify-between text-[10px] mt-2 border-t border-zinc-800/80 pt-2">
-                                    <span class="text-zinc-500">บิล: <strong class="text-zinc-300">${latestBillNo}</strong></span>
-                                    <span class="text-zinc-500">หักยอด: <strong class="text-rose-400">${latestAmount} ฿</strong></span>
-                                </div>
-                            ` : ''}
-                            <button class="w-full mt-3 py-1.5 border border-zinc-800 text-zinc-500 rounded-lg text-[10px] font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">ดูรายการสินค้าในบิลนี้</button>
-                            <div class="hidden mt-2 space-y-1.5 pt-3 border-t border-zinc-800/50 max-h-32 overflow-y-auto custom-scroll pr-1">
-                                ${items.map(i => `<div class="flex justify-between text-[10px] text-zinc-500 border-b border-zinc-800/50 pb-1.5 last:border-0"><span class="truncate pr-2">${i.name}</span><span class="font-mono text-zinc-400 whitespace-nowrap">${i.qty} ${i.unit || 'ชิ้น'}</span></div>`).join('')}
-                            </div>
-                        </div>
-                    `}
-                </div>
-                `;
-            };
-            
-            document.getElementById('track_wait_list').innerHTML = Object.keys(waitGrouped).length ? Object.keys(waitGrouped).map(v => genVendorCard(v, waitGrouped[v], 'wait')).join('') : '<div class="py-10 text-center"><p class="text-xs text-zinc-600 font-medium">ไม่มีรายการ</p></div>';
-            document.getElementById('track_process_list').innerHTML = Object.keys(processGrouped).length ? Object.keys(processGrouped).map(v => genVendorCard(v, processGrouped[v], 'process')).join('') : '<div class="py-10 text-center"><p class="text-xs text-zinc-600 font-medium">ไม่มีรายการ</p></div>';
-            document.getElementById('track_done_list').innerHTML = Object.keys(doneGrouped).length ? Object.keys(doneGrouped).map(v => genVendorCard(v, doneGrouped[v], 'done')).join('') : '<div class="py-10 text-center"><p class="text-xs text-zinc-600 font-medium">ไม่มีรายการ</p></div>';
-        }
-
-        // แสดงผลรายการติดตามลูกค้า
-        function renderTrackCust() {
-            const custItems = state.returns.filter(i => i.source === 'หน้าร้าน/ลูกค้า' && i.compensation && i.compensation !== '-');
-            
-            const creditList = custItems.filter(i => i.compensation === 'หักลดหนี้ในบิลถัดไป');
-            const consigList = custItems.filter(i => i.compensation === 'รับคืนเพื่อฝากขาย');
-            const replaceList = custItems.filter(i => i.compensation === 'เปลี่ยนสินค้าเดิมเป็นของใหม่ (ไม่แก้บิล)');
-
-            document.getElementById('cust-credit-count').innerText = creditList.length;
-            document.getElementById('cust-consig-count').innerText = consigList.length;
-            document.getElementById('cust-replace-count').innerText = replaceList.length;
-
-            const genCard = (c) => `
-                <div class="bg-[#09090b] border border-zinc-800/80 p-3 rounded-xl hover:border-zinc-600 transition-colors">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">${c.sku}</span>
-                        <span class="text-xs font-bold text-zinc-200">${c.qty} <span class="text-[10px] font-normal text-zinc-500">${c.unit || 'ชิ้น'}</span></span>
-                    </div>
-                    <p class="text-sm font-semibold text-zinc-200 leading-snug line-clamp-1 mb-1">${c.name}</p>
-                    <p class="text-[11px] text-zinc-400 truncate">${c.reason}</p>
-                    <div class="mt-3 pt-2 border-t border-zinc-800/50 flex justify-between items-center text-[10px] text-zinc-500">
-                        <span>${c.dateStr}</span>
-                        <span class="${c.status === 'BATCHED' ? 'text-emerald-500' : c.status === 'QC_PASSED' ? 'text-amber-500' : 'text-zinc-400'} font-medium">${c.status}</span>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('cust_credit_list').innerHTML = creditList.length ? creditList.map(genCard).join('') : '<p class="text-center text-xs text-zinc-600 py-6">ไม่มีรายการ</p>';
-            document.getElementById('cust_consig_list').innerHTML = consigList.length ? consigList.map(genCard).join('') : '<p class="text-center text-xs text-zinc-600 py-6">ไม่มีรายการ</p>';
-            document.getElementById('cust_replace_list').innerHTML = replaceList.length ? replaceList.map(genCard).join('') : '<p class="text-center text-xs text-zinc-600 py-6">ไม่มีรายการ</p>';
         }
 
         // ================= DASHBOARD & DETAILS =================
         function renderDashboard() {
             // Update KPI
             const retQcCount = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length;
-            const retBatchCount = state.returns.filter(r => r.status==='รอตัดรอบ').length;
-            const retDoneCount = state.returns.filter(r => r.status==='ตัดรอบแล้ว' || r.status==='ส่งเคลมแล้ว').length;
+            const retBatchCount = state.returns.filter(r => r.status==='รอตัดรอบ').length + (state.stocks || []).filter(s => s.status==='รอตัดรอบ').length;
+            const retDoneCount = state.returns.filter(r => r.status==='ตัดรอบแล้ว' || r.status==='ส่งเคลมแล้ว').length + (state.stocks || []).filter(s => s.status==='ตัดรอบแล้ว').length;
             
             document.getElementById('dash-ret-qc').innerText = retQcCount;
             document.getElementById('dash-ret-batch').innerText = retBatchCount;
@@ -1255,6 +1320,108 @@
                 `;
                 Swal.fire({ title: '🚨 รายละเอียดการแจ้งเคลม', html: html, showConfirmButton: true, confirmButtonText: 'ปิดหน้าต่าง', confirmButtonColor: '#27272a', width: '600px' });
             }
+        }
+
+        // ================= TRACKING RENDERERS =================
+        function renderTrackClaim() {
+            const trackingList = state.claims.filter(c => c.whStatus !== 'ยังไม่รับ');
+            const waitList = trackingList.filter(c => c.status === 'รอเคลม');
+            const processList = trackingList.filter(c => c.status === 'แจ้งเคลมแล้ว');
+            const doneList = trackingList.filter(c => c.status === 'เคลมแล้ว' || c.status === 'สำเร็จแล้ว');
+            
+            document.getElementById('track-wait-count').innerText = waitList.length;
+            document.getElementById('track-process-count').innerText = processList.length;
+            document.getElementById('track-done-count').innerText = doneList.length;
+            
+            const groupClaims = (list) => {
+                return list.reduce((acc, c) => {
+                    const v = c.vendor || 'ไม่ระบุ Vendor';
+                    if(!acc[v]) acc[v] = [];
+                    acc[v].push(c);
+                    return acc;
+                }, {});
+            };
+
+            const waitGrouped = groupClaims(waitList);
+            const processGrouped = groupClaims(processList);
+            const doneGrouped = groupClaims(doneList);
+
+            const genVendorCard = (vendor, items, actionType) => {
+                const totalQty = items.reduce((s, i) => s + Number(i.qty), 0);
+                const safeVendor = vendor.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+                const latestClaimType = items[0].claimType || 'ทำรายการสำเร็จ';
+                const latestBillNo = items[0].claimBillNo;
+                const latestAmount = items[0].claimAmount;
+
+                return `
+                <div class="glass-card p-5 rounded-[20px] relative group hover:border-zinc-700 transition-colors ${actionType === 'done' ? 'border-l-2 border-emerald-500' : ''}">
+                    <div class="flex justify-between items-start mb-3 border-b border-zinc-800/80 pb-3">
+                        <h4 class="font-bold text-zinc-100 text-sm truncate pr-2">${vendor}</h4>
+                        <span class="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-1 rounded-md border border-zinc-700/50 whitespace-nowrap">${items.length} รายการ</span>
+                    </div>
+                    <p class="text-xs text-zinc-400 mb-4">ยอดรวม: <strong class="text-zinc-200">${totalQty} ชิ้น</strong></p>
+                    
+                    ${actionType === 'wait' ? `
+                        <button data-action="track-notify" data-vendor="${safeVendor}" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shadow-[0_0_10px_rgba(99,102,241,0.2)]">
+                            แจ้งเคลม Vendor แล้ว
+                        </button>
+                    ` : actionType === 'process' ? `
+                        <button data-action="track-resolve" data-vendor="${safeVendor}" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-[0_0_10px_rgba(16,185,129,0.2)] transition-colors">
+                            บันทึกผลการเคลม
+                        </button>
+                    ` : `
+                        <div class="bg-[#09090b] rounded-xl p-3 border border-zinc-800/50 mt-2">
+                            <p class="text-[11px] font-bold text-emerald-400 mb-1 flex items-center"><i data-lucide="check-circle-2" class="w-3.5 h-3.5 mr-1.5 inline"></i> ${latestClaimType}</p>
+                            ${latestClaimType === 'คืนสินค้าหักใบบิล' && latestBillNo && latestBillNo !== '-' ? `
+                                <div class="flex justify-between text-[10px] mt-2 border-t border-zinc-800/80 pt-2">
+                                    <span class="text-zinc-500">บิล: <strong class="text-zinc-300">${latestBillNo}</strong></span>
+                                    <span class="text-zinc-500">หักยอด: <strong class="text-rose-400">${latestAmount} ฿</strong></span>
+                                </div>
+                            ` : ''}
+                            <button class="w-full mt-3 py-1.5 border border-zinc-800 text-zinc-500 rounded-lg text-[10px] font-medium hover:bg-zinc-800 hover:text-zinc-200 transition-colors" onclick="this.nextElementSibling.classList.toggle('hidden')">ดูรายการสินค้าในบิลนี้</button>
+                            <div class="hidden mt-2 space-y-1.5 pt-3 border-t border-zinc-800/50 max-h-32 overflow-y-auto custom-scroll pr-1">
+                                ${items.map(i => `<div class="flex justify-between text-[10px] text-zinc-500 border-b border-zinc-800/50 pb-1.5 last:border-0"><span class="truncate pr-2">${i.name}</span><span class="font-mono text-zinc-400 whitespace-nowrap">${i.qty} ${i.unit || 'ชิ้น'}</span></div>`).join('')}
+                            </div>
+                        </div>
+                    `}
+                </div>
+                `;
+            };
+            
+            document.getElementById('track_wait_list').innerHTML = Object.keys(waitGrouped).length ? Object.keys(waitGrouped).map(v => genVendorCard(v, waitGrouped[v], 'wait')).join('') : '<div class="py-10 text-center"><p class="text-xs text-zinc-600 font-medium">ไม่มีรายการ</p></div>';
+            document.getElementById('track_process_list').innerHTML = Object.keys(processGrouped).length ? Object.keys(processGrouped).map(v => genVendorCard(v, processGrouped[v], 'process')).join('') : '<div class="py-10 text-center"><p class="text-xs text-zinc-600 font-medium">ไม่มีรายการ</p></div>';
+            document.getElementById('track_done_list').innerHTML = Object.keys(doneGrouped).length ? Object.keys(doneGrouped).map(v => genVendorCard(v, doneGrouped[v], 'done')).join('') : '<div class="py-10 text-center"><p class="text-xs text-zinc-600 font-medium">ไม่มีรายการ</p></div>';
+        }
+
+        function renderTrackCust() {
+            const custItems = state.returns.filter(i => i.source === 'หน้าร้าน/ลูกค้า' && i.compensation && i.compensation !== '-');
+            
+            const creditList = custItems.filter(i => i.compensation === 'หักลดหนี้ในบิลถัดไป');
+            const consigList = custItems.filter(i => i.compensation === 'รับคืนเพื่อฝากขาย');
+            const replaceList = custItems.filter(i => i.compensation === 'เปลี่ยนสินค้าเดิมเป็นของใหม่ (ไม่แก้บิล)');
+
+            document.getElementById('cust-credit-count').innerText = creditList.length;
+            document.getElementById('cust-consig-count').innerText = consigList.length;
+            document.getElementById('cust-replace-count').innerText = replaceList.length;
+
+            const genCard = (c) => `
+                <div class="bg-[#09090b] border border-zinc-800/80 p-3 rounded-xl hover:border-zinc-600 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">${c.sku}</span>
+                        <span class="text-xs font-bold text-zinc-200">${c.qty} <span class="text-[10px] font-normal text-zinc-500">${c.unit || 'ชิ้น'}</span></span>
+                    </div>
+                    <p class="text-sm font-semibold text-zinc-200 leading-snug line-clamp-1 mb-1">${c.name}</p>
+                    <p class="text-[11px] text-zinc-400 truncate">${c.reason}</p>
+                    <div class="mt-3 pt-2 border-t border-zinc-800/50 flex justify-between items-center text-[10px] text-zinc-500">
+                        <span>${c.dateStr}</span>
+                        <span class="${c.status === 'BATCHED' || c.status === 'ตัดรอบแล้ว' ? 'text-emerald-500' : c.status === 'QC_PASSED' ? 'text-amber-500' : 'text-zinc-400'} font-medium">${c.status}</span>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('cust_credit_list').innerHTML = creditList.length ? creditList.map(genCard).join('') : '<p class="text-center text-xs text-zinc-600 py-6">ไม่มีรายการ</p>';
+            document.getElementById('cust_consig_list').innerHTML = consigList.length ? consigList.map(genCard).join('') : '<p class="text-center text-xs text-zinc-600 py-6">ไม่มีรายการ</p>';
+            document.getElementById('cust_replace_list').innerHTML = replaceList.length ? replaceList.map(genCard).join('') : '<p class="text-center text-xs text-zinc-600 py-6">ไม่มีรายการ</p>';
         }
 
         function renderDrafts() {
