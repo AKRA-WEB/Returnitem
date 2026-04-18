@@ -612,11 +612,11 @@
         window.addCountInput = function(id) {
             const container = document.getElementById(`count_inputs_${id}`);
             const div = document.createElement('div');
-            div.className = 'flex items-center gap-1 mt-2 animate-in fade-in duration-200';
+            div.className = 'flex items-center gap-2 mt-2 animate-in fade-in duration-200';
             div.innerHTML = `
-                <input type="text" class="w-12 px-1 py-2.5 bg-zinc-800 border border-zinc-600 rounded-lg text-center text-[10px] text-zinc-200 focus:border-indigo-500 outline-none" placeholder="โซน..">
-                <input type="number" min="0" step="any" class="qty-input-${id} w-full px-2 py-2.5 input-dark rounded-lg text-center font-bold text-amber-400 text-lg focus:ring-2 focus:ring-amber-500/50 transition-all" placeholder="0" oninput="calcAuditTotal('${id}')">
-                <button type="button" onclick="this.parentElement.remove(); calcAuditTotal('${id}');" class="text-rose-500 hover:bg-rose-500/10 p-1.5 rounded-lg transition-colors"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+                <input type="text" class="w-16 px-2 py-3 bg-zinc-800 border border-zinc-600 rounded-lg text-center text-xs text-zinc-200 focus:border-indigo-500 outline-none" placeholder="โซน..">
+                <input type="number" min="0" step="any" class="qty-input-${id} flex-1 px-3 py-3 bg-[#09090b] border-2 border-zinc-700 rounded-lg text-center font-black text-amber-400 text-2xl focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all" placeholder="0" oninput="calcAuditTotal('${id}')">
+                <button type="button" onclick="this.parentElement.remove(); calcAuditTotal('${id}');" class="text-rose-500 hover:bg-rose-500/20 bg-rose-500/10 p-3 rounded-lg transition-colors"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
             `;
             container.appendChild(div);
             lucide.createIcons();
@@ -769,38 +769,9 @@
             document.getElementById('btn_submit_drafts').onclick = async () => { if(state.drafts.length && await postData({ action:'addDrafts', drafts: state.drafts }, 'ส่งเคลมสำเร็จ')) { state.drafts = []; renderDrafts(); } };
             
             document.getElementById('btn-export').onclick = async () => {
-                const pendingItems = state.returns.filter(r => r.status === 'รอตัดรอบ' || r.status === 'QC_PASSED');
-                const ids = pendingItems.map(r => r.id);
-                
-                if(ids.length) {
-                    Swal.fire({ 
-                        title: 'Export & ตัดรอบ?', 
-                        text: 'ระบบจะทำการดาวน์โหลดไฟล์ CSV และเปลี่ยนสถานะรายการเป็น "ตัดรอบแล้ว"', 
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonText: 'ใช่, ส่งออกเลย',
-                        confirmButtonColor: '#10b981'
-                    }).then(r => { 
-                        if(r.isConfirmed) {
-                            const csvData = [
-                                ["รหัสเอกสาร", "วันที่", "เวลา", "SKU", "ชื่อสินค้า", "จำนวน", "หน่วย", "แหล่งที่มา", "สภาพ", "ลูกค้า"]
-                            ];
-                            pendingItems.forEach(item => {
-                                csvData.push([
-                                    item.id, item.dateStr, item.timeStr, item.sku, 
-                                    item.name, item.qty, item.unit, item.source, 
-                                    item.qcCondition || 'ปกติ', item.customerName || '-'
-                                ]);
-                            });
-
-                            const fileName = `Export_POS_${Date.now()}.csv`;
-                            exportToCSV(csvData, fileName);
-                            postData({ action:'updateReturnBatch', ids }, 'ตัดรอบเรียบร้อยแล้ว'); 
-                        }
-                    });
-                } else {
-                    Swal.fire('Info', 'ไม่มีรายการรอตัดรอบ POS ตอนนี้', 'info');
-                }
+                const ids = state.returns.filter(r => r.status === 'รอตัดรอบ' || r.status === 'QC_PASSED').map(r => r.id);
+                if(ids.length) Swal.fire({ title: 'Export ข้อมูล', text: 'ยืนยันบันทึกการตัดรอบ?', showCancelButton: true }).then(r => { if(r.isConfirmed) postData({ action:'updateReturnBatch', ids }, 'Export ข้อมูลเรียบร้อย'); });
+                else Swal.fire('Info', 'ไม่มีรายการรอตัดรอบ', 'info');
             };
         }
 
@@ -812,9 +783,6 @@
             if(badgeAudit) { const c = new Set(state.audits.filter(a => a.overallStatus !== 'Completed' && a.overallStatus !== 'Reviewing').map(a => a.taskId)).size; badgeAudit.innerText = c; badgeAudit.classList.toggle('hidden', c===0); }
 
             renderDashboard();
-            if(document.getElementById('tab-DASHBOARD').classList.contains('active')) {
-                drawDashboardChart();
-            }
             renderAuditUI();
             renderTrackClaim();
             renderTrackCust();
@@ -920,71 +888,6 @@
                     </tr>
                 `).join('') : '<tr><td colspan="5" class="py-10 text-center text-zinc-500">ไม่พบข้อมูลที่ค้นหา</td></tr>';
             }
-        }
-
-        function drawDashboardChart() {
-            const ctx = document.getElementById('mainDashboardChart');
-            if(!ctx) return;
-
-            // Prepare Data
-            const retCount = state.returns.length;
-            const clmCount = state.claims.length;
-            const auditCount = new Set(state.audits.map(a => a.taskId)).size; // นับเป็น Task
-
-            if(dashboardChartInstance) {
-                dashboardChartInstance.destroy();
-            }
-
-            dashboardChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['รายการรับคืนทั้งหมด', 'แจ้งเคลมชำรุดสะสม', 'ใบงานนับสต๊อก (Task)'],
-                    datasets: [{
-                        label: 'จำนวน (รายการ)',
-                        data: [retCount, clmCount, auditCount],
-                        backgroundColor: [
-                            'rgba(99, 102, 241, 0.2)', // Indigo for Returns
-                            'rgba(244, 63, 94, 0.2)',  // Rose for Claims
-                            'rgba(16, 185, 129, 0.2)'  // Emerald for Audits
-                        ],
-                        borderColor: [
-                            'rgba(99, 102, 241, 1)',
-                            'rgba(244, 63, 94, 1)',
-                            'rgba(16, 185, 129, 1)'
-                        ],
-                        borderWidth: 1,
-                        borderRadius: 6,
-                        barThickness: 40
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(24, 24, 27, 0.9)',
-                            titleColor: '#e4e4e7',
-                            bodyColor: '#a1a1aa',
-                            borderColor: 'rgba(63, 63, 70, 0.5)',
-                            borderWidth: 1,
-                            padding: 10,
-                            displayColors: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(39, 39, 42, 0.3)' },
-                            ticks: { color: '#71717a', stepSize: 5 }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: '#a1a1aa', font: { family: 'Sarabun' } }
-                        }
-                    }
-                }
-            });
         }
 
         // --- 10. RENDER AUDIT UI ---
@@ -1337,30 +1240,36 @@
                                     return `
                                     <div class="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800 shadow-sm relative overflow-hidden">
                                         <div class="absolute left-0 top-0 bottom-0 w-1 ${i.name.includes('ลัง') || i.unit === 'ลัง' ? 'bg-indigo-500/50' : 'bg-amber-500/50'}"></div>
-                                        <p class="font-bold text-sm text-zinc-200 ml-2 leading-snug">${i.name}</p>
-                                        <p class="text-[10px] text-zinc-500 font-mono mb-4 ml-2">${i.sku}</p>
                                         
-                                        <div class="grid grid-cols-12 gap-3 mb-1 ml-2">
-                                            <div class="col-span-5">
-                                                <div class="flex justify-between items-center mb-1.5">
-                                                    <label class="text-[10px] text-zinc-400">นับได้ (${i.unit || 'หน่วย'})</label>
-                                                    <button type="button" onclick="addCountInput('${i.id}')" class="text-[9px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded transition-colors">+ เพิ่มจุดนับ</button>
-                                                </div>
-                                                <div id="count_inputs_${i.id}" class="space-y-2">
-                                                    <div class="flex items-center gap-1">
-                                                        <input type="text" class="w-12 px-1 py-2.5 bg-zinc-800 border border-zinc-600 rounded-lg text-center text-[10px] text-zinc-200 focus:border-indigo-500 outline-none" placeholder="โซน.." value="${loc}" ${loc ? 'readonly' : ''}>
-                                                        <input type="number" min="0" step="any" class="qty-input-${i.id} w-full px-2 py-2.5 input-dark rounded-lg text-center font-bold text-amber-400 text-lg focus:ring-2 focus:ring-amber-500/50 transition-all" placeholder="0" value="${unitQty}" oninput="calcAuditTotal('${i.id}')">
-                                                    </div>
+                                        <div class="flex justify-between items-start ml-2 mb-3">
+                                            <div>
+                                                <p class="font-bold text-sm text-zinc-200 leading-snug pr-2">${i.name}</p>
+                                                <p class="text-[10px] text-zinc-500 font-mono mt-0.5">${i.sku}</p>
+                                            </div>
+                                            <div class="bg-zinc-950 px-2 py-1 rounded-lg border border-zinc-800/80 text-center shrink-0">
+                                                <p class="text-[9px] text-zinc-500 mb-0.5">ตัวคูณ (ชิ้น/${i.unit || 'หน่วย'})</p>
+                                                <input type="number" min="1" id="multiplier_${i.id}" class="w-12 bg-transparent text-center text-zinc-300 font-medium text-xs outline-none" value="${multVal}" oninput="calcAuditTotal('${i.id}')">
+                                            </div>
+                                        </div>
+
+                                        <div class="ml-2 bg-black/20 p-3 rounded-xl border border-zinc-800/50">
+                                            <div class="flex justify-between items-center mb-2">
+                                                <label class="text-xs font-bold text-amber-400 flex items-center">👉 กรอกจำนวนที่นับได้ (${i.unit || 'หน่วย'})</label>
+                                                <button type="button" onclick="addCountInput('${i.id}')" class="text-[10px] font-medium text-indigo-400 hover:bg-indigo-500/20 bg-indigo-500/10 px-2 py-1 rounded-md transition-colors">+ เพิ่มจุดนับ (โซนอื่น)</button>
+                                            </div>
+                                            
+                                            <div id="count_inputs_${i.id}" class="space-y-2">
+                                                <div class="flex items-center gap-2">
+                                                    <input type="text" class="w-16 px-2 py-3 bg-zinc-800 border border-zinc-600 rounded-lg text-center text-xs text-zinc-200 focus:border-indigo-500 outline-none" placeholder="โซน.." value="${loc}" ${loc ? 'readonly' : ''}>
+                                                    <input type="number" min="0" step="any" class="qty-input-${i.id} flex-1 px-3 py-3 bg-[#09090b] border-2 border-zinc-700 rounded-lg text-center font-black text-amber-400 text-2xl focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all" placeholder="0" value="${unitQty}" oninput="calcAuditTotal('${i.id}')">
                                                 </div>
                                             </div>
-                                            <div class="col-span-3">
-                                                <label class="block text-[10px] text-zinc-400 mb-1.5">ชิ้น/${i.unit || 'หน่วย'}</label>
-                                                <input type="number" min="1" id="multiplier_${i.id}" class="w-full px-2 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg text-center text-zinc-400 text-sm focus:border-indigo-500 transition-all" value="${multVal}" oninput="calcAuditTotal('${i.id}')">
-                                            </div>
-                                            <div class="col-span-4 text-right flex flex-col justify-end pb-1">
-                                                <label class="block text-[10px] text-zinc-500 mb-1">รวมเป็นชิ้น</label>
-                                                <div class="flex items-baseline justify-end">
-                                                    <span id="total_display_${i.id}" class="text-zinc-200 font-bold text-xl">${totalQty}</span>
+                                            
+                                            <div class="mt-3 pt-2 border-t border-zinc-800/80 flex justify-between items-center">
+                                                <span class="text-[10px] text-zinc-500">ระบบจะนำไปคูณอัตโนมัติ เป็นยอดรวมสุทธิ</span>
+                                                <div class="text-right">
+                                                    <span class="text-[10px] text-zinc-500 mr-1">รวมเป็นชิ้น:</span>
+                                                    <span id="total_display_${i.id}" class="text-zinc-200 font-black text-lg">${totalQty}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1520,6 +1429,20 @@
             document.getElementById('print-document-content').innerHTML = printHTML;
             document.getElementById('print-preview-overlay').classList.remove('hidden');
         };
+        
+        window.addCountInput = function(id) {
+            const container = document.getElementById(`count_inputs_${id}`);
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2 mt-2 animate-in fade-in duration-200';
+            div.innerHTML = `
+                <input type="text" class="w-16 px-2 py-3 bg-zinc-800 border border-zinc-600 rounded-lg text-center text-xs text-zinc-200 focus:border-indigo-500 outline-none" placeholder="โซน..">
+                <input type="number" min="0" step="any" class="qty-input-${id} flex-1 px-3 py-3 bg-[#09090b] border-2 border-zinc-700 rounded-lg text-center font-black text-amber-400 text-2xl focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 transition-all" placeholder="0" oninput="calcAuditTotal('${id}')">
+                <button type="button" onclick="this.parentElement.remove(); calcAuditTotal('${id}');" class="text-rose-500 hover:bg-rose-500/20 bg-rose-500/10 p-3 rounded-lg transition-colors"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
+            `;
+            container.appendChild(div);
+            lucide.createIcons();
+            div.querySelector('input[type="number"]').focus();
+        }
     </script>
 </body>
 </html>
