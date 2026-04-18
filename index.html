@@ -522,6 +522,13 @@
             document.body.removeChild(link);
         }
 
+        // --- เพิ่มฟังก์ชันจัดการชื่อผู้ตรวจสอบและ Location ---
+        function parseCounter(rawStr) {
+            if (!rawStr || rawStr === '-') return { user: null, loc: null };
+            const parts = String(rawStr).split('|');
+            return { user: parts[0], loc: parts[1] || '' };
+        }
+
         // --- 5. AUDIT DYNAMIC ROWS ---
         window.addAuditItemRow = function() {
             const container = document.getElementById('audit_items_container');
@@ -546,15 +553,9 @@
             const currentRow = btn.closest('.audit-item-row');
             const currentName = currentRow.querySelector('.audit-search').value;
 
-            // ตรรกะในการดึงชื่อหลักออกมา (ลบ Z/, X/, Z/L) และ ลบคำในวงเล็บเช่น (ลัง10x1kg))
-            let baseSearch = currentName
-                .replace(/^[A-Z0-9\/|\\]+/, '') // เอาตัวอักษรภาษาอังกฤษ/ตัวเลขนำหน้าออกเช่น Z/ , X/, Z/L)
-                .replace(/\(.*?\)/g, '') // เอาคำในวงเล็บออก
-                .replace(/@\d+[a-zA-Z]+/g, '') // เอาพวก @1kg ออก (ถ้ามี)
-                .trim();
+            let baseSearch = getBaseItemName(currentName);
 
             const row = document.createElement('div');
-            // ทำสไตล์ให้ดูรู้ว่าเป็นของที่เกี่ยวข้องกัน (เพิ่ม indent ml-4 หรือ ml-8 และเปลี่ยนสีกรอบ)
             row.className = 'audit-item-row flex flex-col md:flex-row gap-3 relative bg-indigo-900/10 p-3 rounded-xl border border-indigo-500/30 animate-in fade-in duration-200 mt-2 ml-4 md:ml-8';
             row.innerHTML = `
                 <div class="absolute -left-5 top-1/2 -translate-y-1/2 w-4 h-[1px] bg-indigo-500/30 hidden md:block"></div>
@@ -570,14 +571,12 @@
                 </div>
             `;
             
-            // แทรกต่อจาก row ปัจจุบัน
             currentRow.parentNode.insertBefore(row, currentRow.nextSibling);
             lucide.createIcons();
 
-            // ค้นหาชื่ออัติโนมัติให้เลย
             const searchInput = row.querySelector('.audit-search');
             searchInput.value = baseSearch;
-            handleAuditSearch(searchInput); // เรียกใช้ฟังก์ชันค้นหาเพื่อให้ dropdown โผล่
+            handleAuditSearch(searchInput); 
             searchInput.focus();
         }
 
@@ -603,21 +602,37 @@
             row.querySelector('.audit-unit').value = unit; 
             row.querySelector('.audit-list').classList.add('hidden');
             
-            // แสดงปุ่มแยกหน่วยย่อย (ถ้ามี)
             const subBtn = row.querySelector('.btn-add-sub');
             if(subBtn) subBtn.classList.remove('hidden');
         }
 
+        // --- เพิ่ม/ลบช่องกรอกจุดนับ (Multi-Location Counter) ---
+        window.addCountInput = function(id) {
+            const container = document.getElementById(`count_inputs_${id}`);
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-1 mt-2 animate-in fade-in duration-200';
+            div.innerHTML = `
+                <input type="text" class="w-12 px-1 py-2.5 bg-black/40 border border-zinc-700/50 rounded-lg text-center text-[10px] text-zinc-400 focus:border-indigo-500 outline-none" placeholder="โซน..">
+                <input type="number" min="0" step="any" class="qty-input-${id} w-full px-2 py-2.5 input-dark rounded-lg text-center font-bold text-amber-400 text-lg focus:ring-2 focus:ring-amber-500/50 transition-all" placeholder="0" oninput="calcAuditTotal('${id}')">
+                <button type="button" onclick="this.parentElement.remove(); calcAuditTotal('${id}');" class="text-rose-500 hover:bg-rose-500/10 p-1.5 rounded-lg transition-colors"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+            `;
+            container.appendChild(div);
+            lucide.createIcons();
+            div.querySelector('input[type="number"]').focus();
+        }
+
         window.calcAuditTotal = function(id) {
-            const carton = parseInt(document.getElementById('carton_' + id).value) || 0;
-            const mult = parseInt(document.getElementById('multiplier_' + id).value) || 0;
-            const loose = parseInt(document.getElementById('loose_' + id).value) || 0;
-            const total = (carton * mult) + loose;
+            const qtyInputs = document.querySelectorAll(`.qty-input-${id}`);
+            let totalUnitQty = 0;
+            qtyInputs.forEach(inp => {
+                totalUnitQty += parseFloat(inp.value) || 0;
+            });
+            const mult = parseInt(document.getElementById('multiplier_' + id).value) || 1;
+            const total = Math.round(totalUnitQty * mult);
             document.getElementById('total_display_' + id).innerText = total;
             document.getElementById('total_input_' + id).value = total;
         }
 
-        // เพิ่มฟังก์ชันคำนวณสำหรับหน้า Review (เพื่อให้แอดมินไม่งงหน่วย)
         window.calcReviewTotal = function(id, actualQty) {
             const carton = parseInt(document.getElementById('rev_carton_' + id).value) || 0;
             const mult = parseInt(document.getElementById('rev_multiplier_' + id).value) || 0;
@@ -633,12 +648,18 @@
             diffEl.className = 'text-[10px] mt-0.5 ' + (diff === 0 ? 'text-emerald-400 font-medium' : 'text-rose-400 font-bold');
         }
 
-        // --- เพิ่มฟังก์ชันหาชื่อหลัก (Base Name) เพื่อใช้จัดกลุ่ม ---
         function getBaseItemName(name) {
-            return name.replace(/^[A-Z0-9\/|\\]+/, '') // ตัด Z/, X/
-                       .replace(/\(.*?\)/g, '')       // ตัดวงเล็บ (ลัง...)
-                       .replace(/@\d+[a-zA-Z]+/g, '') // ตัดพวก @1kg
+            return name.replace(/^([A-Z0-9]+[\/\-\.\)\]]+)+/i, '') 
+                       .replace(/\(.*?\)/g, '')       
+                       .replace(/@\s*\d+[a-zA-Z]+/g, '') 
                        .trim();
+        }
+
+        function extractMultiplier(name, unit) {
+            const match = name.match(/ลัง\s*(\d+)\s*[xX*]/i) || name.match(/\(\s*(\d+)\s*[xX*]/i);
+            if (match && match[1]) return match[1]; 
+            if (unit === 'ลัง' || name.includes('ลัง')) return '1'; 
+            return '1'; 
         }
 
         // --- 6. AUTOCOMPLETE (RET/CLM) ---
@@ -745,7 +766,6 @@
             };
             document.getElementById('btn_submit_drafts').onclick = async () => { if(state.drafts.length && await postData({ action:'addDrafts', drafts: state.drafts }, 'ส่งเคลมสำเร็จ')) { state.drafts = []; renderDrafts(); } };
             
-            // แก้ไขปุ่ม Export ให้โหลด CSV จริง
             document.getElementById('btn-export').onclick = async () => {
                 const pendingItems = state.returns.filter(r => r.status === 'รอตัดรอบ' || r.status === 'QC_PASSED');
                 const ids = pendingItems.map(r => r.id);
@@ -760,7 +780,6 @@
                         confirmButtonColor: '#10b981'
                     }).then(r => { 
                         if(r.isConfirmed) {
-                            // 1. สร้างข้อมูล CSV
                             const csvData = [
                                 ["รหัสเอกสาร", "วันที่", "เวลา", "SKU", "ชื่อสินค้า", "จำนวน", "หน่วย", "แหล่งที่มา", "สภาพ", "ลูกค้า"]
                             ];
@@ -772,11 +791,8 @@
                                 ]);
                             });
 
-                            // 2. โหลดไฟล์ลงเครื่อง
                             const fileName = `Export_POS_${Date.now()}.csv`;
                             exportToCSV(csvData, fileName);
-
-                            // 3. ยิง API อัปเดตสถานะ
                             postData({ action:'updateReturnBatch', ids }, 'ตัดรอบเรียบร้อยแล้ว'); 
                         }
                     });
@@ -990,15 +1006,24 @@
                 const targetWH = meta.targetWH;
 
                 if (status === 'Pending') {
-                    const trdLock = items.some(i => i.trdStatus === 'Counting') ? items.find(i => i.trdStatus === 'Counting').trdCountBy : null;
-                    const akraLock = items.some(i => i.akraStatus === 'Counting') ? items.find(i => i.akraStatus === 'Counting').akraCountBy : null;
+                    const trdLockRaw = items.some(i => i.trdStatus === 'Counting') ? items.find(i => i.trdStatus === 'Counting').trdCountBy : null;
+                    const akraLockRaw = items.some(i => i.akraStatus === 'Counting') ? items.find(i => i.akraStatus === 'Counting').akraCountBy : null;
+                    
+                    const trdLock = parseCounter(trdLockRaw);
+                    const akraLock = parseCounter(akraLockRaw);
+
                     const trdDone = items.every(i => i.trdStatus === 'Done');
                     const akraDone = items.every(i => i.akraStatus === 'Done');
 
-                    const renderWHButton = (wh, lock, done) => {
-                        if(done) return `<div class="flex-1 py-3 text-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold"><i data-lucide="check-circle-2" class="inline w-3.5 h-3.5 mr-1 mb-0.5"></i> ${wh} นับเสร็จแล้ว</div>`;
-                        if(lock === state.user) return `<button data-action="audit-continue" data-taskid="${taskId}" data-wh="${wh}" class="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-[0_0_10px_rgba(217,119,6,0.3)] transition-all animate-pulse">ทำรายการ ${wh} ต่อ</button>`;
-                        if(lock) return `<div class="flex-1 py-3 text-center bg-zinc-900 border border-zinc-800 text-zinc-500 rounded-xl text-xs font-bold"><i data-lucide="lock" class="inline w-3 h-3 mr-1 mb-0.5"></i> ${lock} กำลังนับ ${wh}</div>`;
+                    const renderWHButton = (wh, parsedLock, done) => {
+                        const locText = parsedLock.loc ? ` โซน ${parsedLock.loc}` : '';
+                        
+                        if(done) return `<div class="flex-1 py-3 text-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold"><i data-lucide="check-circle-2" class="inline w-3.5 h-3.5 mr-1 mb-0.5"></i> ${wh}${locText} นับเสร็จแล้ว</div>`;
+                        
+                        if(parsedLock.user === state.user) return `<button data-action="audit-continue" data-taskid="${taskId}" data-wh="${wh}" data-loc="${parsedLock.loc}" class="flex-1 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-[0_0_10px_rgba(217,119,6,0.3)] transition-all animate-pulse">ทำรายการ ${wh}${locText} ต่อ</button>`;
+                        
+                        if(parsedLock.user) return `<div class="flex-1 py-3 text-center bg-zinc-900 border border-zinc-800 text-zinc-500 rounded-xl text-xs font-bold"><i data-lucide="lock" class="inline w-3 h-3 mr-1 mb-0.5"></i> ${parsedLock.user} กำลังนับ ${wh}${locText}</div>`;
+                        
                         return `<button data-action="audit-start" data-taskid="${taskId}" data-wh="${wh}" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-xl text-xs font-bold transition-all">รับงานนับคลัง ${wh}</button>`;
                     };
 
@@ -1172,12 +1197,48 @@
             if(action === 'audit-start') {
                 const taskId = btn.dataset.taskid, wh = btn.dataset.wh;
                 const itemsInTask = state.audits.filter(a => a.taskId === taskId);
-                if(itemsInTask.some(i => i[`${wh.toLowerCase()}Status`] === 'Counting' && i[`${wh.toLowerCase()}CountBy`] !== state.user)) return Swal.fire('Notice', 'ใบงานนี้กำลังถูกนับโดยบุคคลอื่น', 'warning');
-                Swal.fire({ title: `เริ่มนับสต๊อกคลัง ${wh}?`, text: "ระบบจะล็อคใบงานนี้เป็นชื่อของคุณทันที", icon: 'info', showCancelButton: true, confirmButtonColor: '#10b981' }).then(r => {
-                    if(r.isConfirmed) postData({ action: 'lockAuditWH', taskId: taskId, wh: wh, user: state.user }, false).then(ok => { if(ok) openAuditCountingModal(taskId, wh); });
+                
+                // เช็คก่อนว่ามีใครกดไปก่อนหน้าเราไหม
+                const lockCheck = itemsInTask.some(i => {
+                    const status = i[`${wh.toLowerCase()}Status`];
+                    const countBy = i[`${wh.toLowerCase()}CountBy`];
+                    const parsed = parseCounter(countBy);
+                    return status === 'Counting' && parsed.user !== state.user;
                 });
+                if(lockCheck) return Swal.fire('Notice', 'ใบงานนี้กำลังถูกนับโดยบุคคลอื่น', 'warning');
+
+                // ถ้าเป็นฝั่ง AKRA ให้มี Popup ถาม Location 
+                if (wh === 'AKRA') {
+                    Swal.fire({
+                        title: 'เลือกโซน/ตึก ที่กำลังนับ',
+                        html: '<p class="text-xs text-zinc-400 mb-4">คลัง AKRA มีหลายโซน กรุณาระบุเพื่อความชัดเจน</p>',
+                        input: 'select',
+                        inputOptions: { 'W2': 'W2', 'W3': 'W3', 'W4': 'W4', 'W5': 'W5', 'C1': 'C1', 'C2': 'C2' },
+                        inputPlaceholder: '-- เลือก Location --',
+                        showCancelButton: true,
+                        confirmButtonText: 'เริ่มนับสต๊อก',
+                        confirmButtonColor: '#10b981',
+                        inputValidator: (value) => { if (!value) return 'กรุณาเลือก Location!'; }
+                    }).then(r => {
+                        if(r.isConfirmed) {
+                            const finalUser = `${state.user}|${r.value}`; // ส่งไปเป็นรูปแบบ ชื่อ|Location
+                            postData({ action: 'lockAuditWH', taskId: taskId, wh: wh, user: finalUser }, false).then(ok => { 
+                                if(ok) openAuditCountingModal(taskId, wh, r.value); 
+                            });
+                        }
+                    });
+                } else {
+                    Swal.fire({ title: `เริ่มนับสต๊อกคลัง ${wh}?`, text: "ระบบจะล็อคใบงานนี้เป็นชื่อของคุณทันที", icon: 'info', showCancelButton: true, confirmButtonColor: '#10b981' }).then(r => {
+                        if(r.isConfirmed) {
+                            const finalUser = `${state.user}|`;
+                            postData({ action: 'lockAuditWH', taskId: taskId, wh: wh, user: finalUser }, false).then(ok => { 
+                                if(ok) openAuditCountingModal(taskId, wh, ''); 
+                            });
+                        }
+                    });
+                }
             }
-            if(action === 'audit-continue') { openAuditCountingModal(btn.dataset.taskid, btn.dataset.wh); }
+            if(action === 'audit-continue') { openAuditCountingModal(btn.dataset.taskid, btn.dataset.wh, btn.dataset.loc); }
             if(action === 'audit-review') { openAuditReviewModal(btn.dataset.taskid); }
         }
 
@@ -1199,27 +1260,42 @@
                 const items = state.audits.filter(a => a.taskId === id);
                 if (!items.length) return;
                 const m = items[0];
+                
+                const groupedItems = {};
+                items.forEach(i => {
+                    const base = getBaseItemName(i.name);
+                    if(!groupedItems[base]) groupedItems[base] = { mainItem: i, subItems: [], totalActualQty: 0, currentSys: parseInt(i.sysStock) || 0 };
+                    else groupedItems[base].subItems.push(i);
+                    
+                    const tQty = parseInt(i.trdCountQty) || 0, aQty = parseInt(i.akraCountQty) || 0;
+                    groupedItems[base].totalActualQty += (m.targetWH==='TRD'?tQty : m.targetWH==='AKRA'?aQty : (tQty+aQty));
+                });
+                
                 html = `
                     <div class="text-left space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2 mt-4">
                         <div class="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800 mb-4">
                             <div class="flex justify-between items-center border-b border-zinc-700 pb-2 mb-2"><span class="text-xs text-zinc-400">ใบงาน: <strong class="text-indigo-400 font-mono ml-1">${id}</strong></span><span class="text-[10px] bg-zinc-800 px-2 py-1 rounded text-zinc-300">${m.createdDate}</span></div>
                             <p class="text-xs text-zinc-400">เป้าหมายคลัง: <strong class="text-zinc-200">${m.targetWH}</strong></p><p class="text-xs text-zinc-400">สร้างโดย: <strong class="text-zinc-200">${m.createdBy}</strong></p>
                         </div>
-                        <h4 class="font-bold text-sm text-zinc-300 border-b border-zinc-800 pb-2 mb-2">รายการที่ตรวจนับ (${items.length})</h4>
-                        ${items.map(i => {
-                            const tQty = parseInt(i.trdCountQty) || 0, aQty = parseInt(i.akraCountQty) || 0;
-                            const totalActual = (m.targetWH==='TRD'?tQty : m.targetWH==='AKRA'?aQty : (tQty+aQty));
+                        <h4 class="font-bold text-sm text-zinc-300 border-b border-zinc-800 pb-2 mb-2">สรุปผลการนับ (รวมหน่วยย่อย)</h4>
+                        ${Object.keys(groupedItems).map(baseName => {
+                            const group = groupedItems[baseName];
+                            const i = group.mainItem;
+                            const totalActual = group.totalActualQty;
                             const diff = parseInt(i.stockDiff) || 0;
                             
-                            // ซ่อนรายการย่อยที่มียอด Diff = 0 เพื่อไม่ให้รก เพราะยอดถูกรวมไปที่ตัวหลักแล้ว
-                            if(i.sysStock === "0" && diff === 0 && i.id.endsWith("-sub")) return ''; 
-
+                            const tP = parseCounter(i.trdCountBy);
+                            const aP = parseCounter(i.akraCountBy);
+                            
                             return `
                                 <div class="bg-[#09090b] p-3 rounded-lg border ${diff === 0 ? 'border-zinc-800/50' : 'border-rose-500/30'}">
-                                    <div class="flex justify-between"><div class="truncate pr-2 w-2/3"><p class="text-xs font-bold text-zinc-200 truncate">${i.name}</p><p class="text-[10px] text-zinc-500 font-mono">${i.sku}</p></div><div class="text-right w-1/3"><p class="text-[10px] text-zinc-500">ระบบ: ${i.sysStock}</p><p class="text-[10px] ${diff === 0 ? 'text-emerald-400' : 'text-rose-400 font-bold'}">ดิฟ: ${diff > 0 ? '+'+diff : diff}</p></div></div>
+                                    <div class="flex justify-between"><div class="truncate pr-2 w-2/3"><p class="text-xs font-bold text-zinc-200 truncate">${i.name}</p><p class="text-[10px] text-zinc-500 font-mono">${i.sku} ${group.subItems.length > 0 ? '+ ' + group.subItems.length + ' หน่วยย่อย' : ''}</p></div><div class="text-right w-1/3"><p class="text-[10px] text-zinc-500">ระบบ: ${i.sysStock}</p><p class="text-[10px] ${diff === 0 ? 'text-emerald-400' : 'text-rose-400 font-bold'}">ดิฟ: ${diff > 0 ? '+'+diff : diff}</p></div></div>
                                     <div class="mt-2 pt-2 border-t border-zinc-800/50 flex gap-2 text-[10px]">
-                                        ${m.targetWH === 'BOTH' || m.targetWH === 'TRD' ? `<span class="bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-400">TRD: ${tQty} <span class="opacity-50">(${i.trdCountBy || '-'})</span></span>` : ''}
-                                        ${m.targetWH === 'BOTH' || m.targetWH === 'AKRA' ? `<span class="bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-400">AKRA: ${aQty} <span class="opacity-50">(${i.akraCountBy || '-'})</span></span>` : ''}
+                                        <span class="bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-400">รวมยอดนับจริง: ${totalActual} ชิ้น</span>
+                                    </div>
+                                    <div class="mt-1 pt-1 flex gap-2 text-[9px] text-zinc-500 font-medium">
+                                        ${m.targetWH === 'BOTH' || m.targetWH === 'TRD' ? `<span>TRD: <span class="text-zinc-400">${tP.user || '-'}</span></span>` : ''}
+                                        ${m.targetWH === 'BOTH' || m.targetWH === 'AKRA' ? `<span>AKRA${aP.loc ? ` (${aP.loc})` : ''}: <span class="text-zinc-400">${aP.user || '-'}</span></span>` : ''}
                                     </div>
                                 </div>
                             `;
@@ -1230,11 +1306,12 @@
             }
         }
 
-        function openAuditCountingModal(taskId, wh) {
+        function openAuditCountingModal(taskId, wh, loc = '') {
             const items = state.audits.filter(a => a.taskId === taskId);
             const prefix = wh.toLowerCase();
             
-            // จับกลุ่มสินค้าสำหรับหน้า Counting
+            const locText = loc ? ` (โซน ${loc})` : '';
+            
             const groupedItems = {};
             items.forEach(i => {
                 const base = getBaseItemName(i.name);
@@ -1244,25 +1321,51 @@
 
             const html = `
                 <div class="text-left space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2">
-                    <div class="sticky top-0 bg-[#18181b] pb-2 border-b border-zinc-800 z-10"><h3 class="text-lg font-bold text-amber-400">บันทึกยอดนับจริงคลัง ${wh}</h3><p class="text-xs text-zinc-500 font-mono">Task: ${taskId}</p></div>
+                    <div class="sticky top-0 bg-[#18181b] pb-2 border-b border-zinc-800 z-10"><h3 class="text-lg font-bold text-amber-400">บันทึกยอดนับจริงคลัง ${wh}${locText}</h3><p class="text-xs text-zinc-500 font-mono">Task: ${taskId}</p></div>
                     <form id="form-audit-count-${taskId}" class="space-y-6">
                         ${Object.keys(groupedItems).map(baseName => `
                             <div class="bg-zinc-900/30 p-1 rounded-2xl border border-zinc-800/50 space-y-2">
                                 <div class="px-3 pt-3 pb-1"><p class="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center"><i data-lucide="package" class="w-3.5 h-3.5 mr-1.5 text-zinc-500"></i> ${baseName}</p></div>
-                                ${groupedItems[baseName].map(i => `
+                                ${groupedItems[baseName].map(i => {
+                                    const multVal = extractMultiplier(i.name, i.unit);
+                                    const mult = parseInt(multVal) || 1;
+                                    const totalQty = i[`${prefix}Status`] === 'Done' ? parseInt(i[`${prefix}CountQty`]) || 0 : 0;
+                                    const unitQty = totalQty > 0 ? (totalQty / mult) : '';
+                                    
+                                    return `
                                     <div class="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800 shadow-sm relative overflow-hidden">
-                                        <div class="absolute left-0 top-0 bottom-0 w-1 ${i.name.includes('ลัง') ? 'bg-indigo-500/50' : 'bg-amber-500/50'}"></div>
-                                        <p class="font-bold text-sm text-zinc-200 ml-2">${i.name}</p>
+                                        <div class="absolute left-0 top-0 bottom-0 w-1 ${i.name.includes('ลัง') || i.unit === 'ลัง' ? 'bg-indigo-500/50' : 'bg-amber-500/50'}"></div>
+                                        <p class="font-bold text-sm text-zinc-200 ml-2 leading-snug">${i.name}</p>
                                         <p class="text-[10px] text-zinc-500 font-mono mb-3 ml-2">${i.sku}</p>
-                                        <div class="grid grid-cols-4 gap-2 mb-2 ml-2">
-                                            <div class="col-span-1"><label class="block text-[10px] text-zinc-400 mb-1">ลัง/กล่อง</label><input type="number" min="0" id="carton_${i.id}" class="w-full px-2 py-2 input-dark rounded-lg text-center" value="0" oninput="calcAuditTotal('${i.id}')"></div>
-                                            <div class="col-span-1"><label class="block text-[10px] text-zinc-400 mb-1">ชิ้น/ลัง</label><input type="number" min="0" id="multiplier_${i.id}" class="w-full px-2 py-2 input-dark rounded-lg text-center" value="${i.name.includes('ลัง') ? '0' : '1'}" oninput="calcAuditTotal('${i.id}')"></div>
-                                            <div class="col-span-1"><label class="block text-[10px] text-zinc-400 mb-1">เศษ (ชิ้น)</label><input type="number" min="0" id="loose_${i.id}" class="w-full px-2 py-2 input-dark rounded-lg text-center font-bold text-amber-100" value="0" oninput="calcAuditTotal('${i.id}')"></div>
-                                            <div class="col-span-1 text-right flex flex-col justify-end"><label class="block text-[10px] text-zinc-400 mb-1">รวมทั้งหมด</label><div class="h-9 flex items-center justify-end"><span id="total_display_${i.id}" class="text-amber-400 font-bold text-lg">${i[`${prefix}Status`] === 'Done' ? i[`${prefix}CountQty`] : '0'}</span></div></div>
+                                        
+                                        <div class="grid grid-cols-12 gap-3 mb-1 ml-2">
+                                            <div class="col-span-5">
+                                                <div class="flex justify-between items-center mb-1.5">
+                                                    <label class="text-[10px] text-zinc-400">นับได้ (${i.unit || 'หน่วย'})</label>
+                                                    <button type="button" onclick="addCountInput('${i.id}')" class="text-[9px] text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded transition-colors">+ เพิ่มจุดนับ</button>
+                                                </div>
+                                                <div id="count_inputs_${i.id}" class="space-y-2">
+                                                    <div class="flex items-center gap-1">
+                                                        <input type="text" class="w-12 px-1 py-2.5 bg-black/40 border border-zinc-700/50 rounded-lg text-center text-[10px] text-zinc-500 focus:border-indigo-500 outline-none" placeholder="โซน.." value="${loc}" ${loc ? 'readonly' : ''}>
+                                                        <input type="number" min="0" step="any" class="qty-input-${i.id} w-full px-2 py-2.5 input-dark rounded-lg text-center font-bold text-amber-400 text-lg focus:ring-2 focus:ring-amber-500/50 transition-all" placeholder="0" value="${unitQty}" oninput="calcAuditTotal('${i.id}')">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-span-3">
+                                                <label class="block text-[10px] text-zinc-400 mb-1.5">ชิ้น/${i.unit || 'หน่วย'}</label>
+                                                <input type="number" min="1" id="multiplier_${i.id}" class="w-full px-2 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg text-center text-zinc-400 text-sm focus:border-indigo-500 transition-all" value="${multVal}" oninput="calcAuditTotal('${i.id}')">
+                                            </div>
+                                            <div class="col-span-4 text-right flex flex-col justify-end pb-1">
+                                                <label class="block text-[10px] text-zinc-500 mb-1">รวมเป็นชิ้น</label>
+                                                <div class="flex items-baseline justify-end">
+                                                    <span id="total_display_${i.id}" class="text-zinc-200 font-bold text-xl">${totalQty}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <input type="hidden" name="qty_${i.id}" id="total_input_${i.id}" value="${i[`${prefix}Status`] === 'Done' ? i[`${prefix}CountQty`] : '0'}">
+                                        <input type="hidden" name="qty_${i.id}" id="total_input_${i.id}" value="${totalQty}">
                                     </div>
-                                `).join('')}
+                                    `
+                                }).join('')}
                             </div>
                         `).join('')}
                     </form>
@@ -1305,6 +1408,13 @@
                             const currentSys = group.currentSys;
                             const initialDiff = totalActual - currentSys;
                             
+                            const tParsed = parseCounter(main.trdCountBy);
+                            const aParsed = parseCounter(main.akraCountBy);
+                            
+                            let counterTags = '';
+                            if(targetWH === 'BOTH' || targetWH === 'TRD') counterTags += `<span class="text-zinc-500">TRD โดย: <strong class="text-zinc-300">${tParsed.user || '-'}</strong></span>`;
+                            if(targetWH === 'BOTH' || targetWH === 'AKRA') counterTags += `<span class="text-zinc-500 ml-3">AKRA ${aParsed.loc ? `(${aParsed.loc})` : ''} โดย: <strong class="text-zinc-300">${aParsed.user || '-'}</strong></span>`;
+                            
                             return `
                             <div class="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 relative">
                                 <div class="flex items-start justify-between mb-2">
@@ -1321,6 +1431,7 @@
                                         <strong class="text-emerald-400 text-sm ml-2">${totalActual}</strong>
                                     </div>
                                 </div>
+                                <div class="text-[9px] mb-3 px-2">${counterTags}</div>
                                 
                                 <!-- ฟอร์มกรอกยอดจากระบบ (POS) แบบมีเครื่องคิดเลข -->
                                 <div class="bg-indigo-500/5 border border-indigo-500/20 p-3 rounded-xl mt-4">
@@ -1334,7 +1445,7 @@
                                         </div>
                                         <div class="col-span-1">
                                             <label class="block text-[10px] text-zinc-400 mb-1.5">ชิ้น/ลัง</label>
-                                            <input type="number" min="0" id="rev_multiplier_${main.id}" class="w-full px-2 py-2.5 input-dark bg-black/50 rounded-lg text-center text-sm font-medium" value="0" oninput="calcReviewTotal('${main.id}', ${totalActual})">
+                                            <input type="number" min="0" id="rev_multiplier_${main.id}" class="w-full px-2 py-2.5 input-dark bg-black/50 rounded-lg text-center text-sm font-medium" value="${extractMultiplier(main.name, main.unit)}" oninput="calcReviewTotal('${main.id}', ${totalActual})">
                                         </div>
                                         <div class="col-span-1">
                                             <label class="block text-[10px] text-zinc-400 mb-1.5">เศษ (ชิ้น)</label>
@@ -1380,9 +1491,7 @@
                         finalResults.push({ rowId: mainId, sysStock: sysTotal, stockDiff: diff });
                         
                         // สินค้าย่อย ส่งค่า 0 ไปเพื่อให้แถวใน Google Sheet ถูกปิดสถานะ Review ได้
-                        // (แต่แอดมินดูย้อนหลังจะไม่สับสน เพราะดูยอดรวมที่ตัวหลักแทน)
                         group.subItems.forEach(sub => {
-                            // ใส่ tag ลงไปในรหัสเพื่อบอกหลังบ้านว่านี่คือ row ย่อยที่ถูกรวมแล้ว
                             sub.id = sub.id + "-sub"; 
                             finalResults.push({ rowId: sub.id.replace('-sub',''), sysStock: 0, stockDiff: 0 });
                         });
