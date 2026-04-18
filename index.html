@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Chart.js for Dashboard Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
@@ -127,8 +129,12 @@
             <div class="flex justify-between items-center p-4 bg-slate-100 border-b print:hidden sticky top-0 z-10 shadow-sm text-slate-800">
                 <h3 class="font-bold flex items-center"><i data-lucide="file-text" class="w-5 h-5 mr-2"></i> ตัวอย่างใบส่งคืนสินค้าชำรุด</h3>
                 <div class="flex space-x-2">
-                    <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center transition-all"><i data-lucide="printer" class="w-4 h-4 mr-2"></i> สั่งพิมพ์</button>
-                    <button onclick="document.getElementById('print-preview-overlay').classList.add('hidden')" class="px-4 py-2 bg-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-400 flex items-center transition-all"><i data-lucide="x" class="w-4 h-4 mr-2"></i> ปิด</button>
+                    <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center transition-all">
+                        <i data-lucide="printer" class="w-4 h-4 mr-2"></i> สั่งพิมพ์
+                    </button>
+                    <button onclick="document.getElementById('print-preview-overlay').classList.add('hidden')" class="px-4 py-2 bg-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-400 flex items-center transition-all">
+                        <i data-lucide="x" class="w-4 h-4 mr-2"></i> ปิด
+                    </button>
                 </div>
             </div>
             <div id="print-document-content" class="p-8 md:p-12 bg-white text-black min-h-[297mm]"></div>
@@ -141,7 +147,9 @@
         <!-- 🧭 Sidebar (Desktop) -->
         <aside class="hidden md:flex w-64 bg-black flex-col shrink-0 border-r border-zinc-800/80 z-20">
             <div class="p-6 flex items-center space-x-3">
-                <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)]"><i data-lucide="package-search" class="text-white w-5 h-5"></i></div>
+                <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+                    <i data-lucide="package-search" class="text-white w-5 h-5"></i>
+                </div>
                 <div>
                     <h1 class="text-zinc-100 font-bold text-lg leading-none tracking-tight">WMS Pro</h1>
                     <p class="text-zinc-500 text-[10px] mt-1 uppercase tracking-widest font-semibold">Returns & Claims</p>
@@ -156,7 +164,9 @@
 
                 <!-- Group 2: Returns -->
                 <div class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบสินค้าคืนและสต๊อก</div>
-                <button data-tab="ADD_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent"><i data-lucide="plus-circle" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">รับเข้าสินค้าคืน</span></button>
+                <button data-tab="ADD_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
+                    <i data-lucide="plus-circle" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">รับเข้าสินค้าคืน</span>
+                </button>
                 <button data-tab="QC_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent relative group">
                     <i data-lucide="shield-check" class="w-5 h-5 mr-3 group-hover:text-indigo-400 transition-colors"></i><span class="text-sm font-medium">รอตรวจสภาพ</span>
                     <span id="badge-qc" class="absolute right-4 bg-indigo-500/20 text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-500/30 hidden">0</span>
@@ -165,23 +175,37 @@
                     <i data-lucide="file-down" class="w-5 h-5 mr-3 group-hover:text-amber-400 transition-colors"></i><span class="text-sm font-medium">รอตัดรอบ POS</span>
                     <span id="badge-batch" class="absolute right-4 bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-md border border-amber-500/20 hidden">0</span>
                 </button>
-                <button data-tab="TRACK_CUST" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent"><i data-lucide="users" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ติดตามงานลูกค้า</span></button>
+                <button data-tab="TRACK_CUST" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
+                    <i data-lucide="users" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ติดตามงานลูกค้า</span>
+                </button>
 
                 <!-- Group 3: Audit -->
                 <div class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Inventory Audit (นับสต๊อก)</div>
-                <button data-tab="AUDIT_CREATE" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent"><i data-lucide="file-plus" class="w-5 h-5 mr-3 text-emerald-500/70"></i><span class="text-sm font-medium">สร้างใบงาน Audit</span></button>
+                <button data-tab="AUDIT_CREATE" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
+                    <i data-lucide="file-plus" class="w-5 h-5 mr-3 text-emerald-500/70"></i><span class="text-sm font-medium">สร้างใบงาน Audit</span>
+                </button>
                 <button data-tab="AUDIT_TASK" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent relative group">
                     <i data-lucide="clipboard-signature" class="w-5 h-5 mr-3 text-amber-500/70"></i><span class="text-sm font-medium">ใบงานนับสต๊อก</span>
                     <span id="badge-audit" class="absolute right-4 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-md border border-emerald-500/20 hidden">0</span>
                 </button>
-                <button data-tab="AUDIT_REVIEW" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent"><i data-lucide="check-square-2" class="w-5 h-5 mr-3 text-indigo-500/70"></i><span class="text-sm font-medium">ตรวจสอบใบงาน</span></button>
+                <button data-tab="AUDIT_REVIEW" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
+                    <i data-lucide="check-square-2" class="w-5 h-5 mr-3 text-indigo-500/70"></i><span class="text-sm font-medium">ตรวจสอบใบงาน</span>
+                </button>
 
                 <!-- Group 4: Claims -->
                 <div class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบเคลมชำรุด</div>
-                <button data-tab="ADD_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent"><i data-lucide="alert-triangle" class="w-5 h-5 mr-3 text-rose-500/70"></i><span class="text-sm font-medium">แจ้งเคลมชิ้นใหม่</span></button>
-                <button data-tab="WH_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent"><i data-lucide="warehouse" class="w-5 h-5 mr-3 text-emerald-500/70"></i><span class="text-sm font-medium">คลังรับของเคลม</span></button>
-                <button data-tab="MANAGE_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent"><i data-lucide="send" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ส่งคืน Vendor</span></button>
-                <button data-tab="TRACK_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent text-indigo-400"><i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ติดตามสถานะเคลม</span></button>
+                <button data-tab="ADD_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 mr-3 text-rose-500/70"></i><span class="text-sm font-medium">แจ้งเคลมชิ้นใหม่</span>
+                </button>
+                <button data-tab="WH_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
+                    <i data-lucide="warehouse" class="w-5 h-5 mr-3 text-emerald-500/70"></i><span class="text-sm font-medium">คลังรับของเคลม</span>
+                </button>
+                <button data-tab="MANAGE_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
+                    <i data-lucide="send" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ส่งคืน Vendor</span>
+                </button>
+                <button data-tab="TRACK_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent text-indigo-400">
+                    <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ติดตามสถานะเคลม</span>
+                </button>
             </nav>
 
             <div class="p-5 border-t border-zinc-800">
@@ -227,7 +251,17 @@
                         <div class="glass-card rounded-2xl p-5 border-t-2 border-t-amber-500"><p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ลูกค้า (รอชดเชย)</p><h3 class="text-3xl font-black text-zinc-100" id="kpi-cust">0</h3></div>
                     </div>
 
-                    <div class="glass-card p-2 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 sticky top-0 z-30 bg-[#18181b]/90 backdrop-blur-md">
+                    <!-- 📊 New Dashboard Chart -->
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-[12px] font-bold text-zinc-400 uppercase tracking-widest">สถิติปริมาณงานรวม (Workload Statistics)</h3>
+                        </div>
+                        <div class="h-[220px] w-full">
+                            <canvas id="mainDashboardChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-2 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 sticky top-0 z-30 bg-[#18181b]/90 backdrop-blur-md mt-6">
                         <div class="flex overflow-x-auto hide-scrollbar w-full md:w-auto">
                             <button data-dashview="overview" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all bg-indigo-500/20 text-indigo-400">🔥 ภาพรวมทั้งหมด</button>
                             <button data-dashview="returns" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-zinc-400 hover:text-zinc-200">📦 ประวัติรับคืน</button>
@@ -281,7 +315,7 @@
                 <div id="tab-BATCH_RET" class="tab-content">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                         <div><h2 class="text-xl font-bold text-zinc-100">รอตัดรอบ POS</h2><p class="text-xs text-zinc-500 mt-1">รวมรายการสินค้าคืนสภาพดี รอโอนกลับสต๊อกขาย</p></div>
-                        <button id="btn-export" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 rounded-lg font-medium text-sm flex items-center transition-all w-fit"><i data-lucide="download" class="w-4 h-4 mr-2 text-zinc-400"></i> Export CSV</button>
+                        <button id="btn-export" class="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 rounded-lg font-medium text-sm flex items-center transition-all w-fit"><i data-lucide="download" class="w-4 h-4 mr-2 text-emerald-400"></i> Export CSV & ตัดรอบ</button>
                     </div>
                     <div class="glass-card rounded-2xl overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="bg-zinc-900/50 border-b border-zinc-800"><tr><th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">รายการสินค้า</th><th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">จำนวน / รายละเอียด</th><th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">ประเภท</th><th class="p-4"></th></tr></thead><tbody id="batchList" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody></table></div></div>
                 </div>
@@ -296,10 +330,16 @@
                                 <div class="flex justify-between items-center border-b border-zinc-800 pb-2"><h3 class="text-sm font-bold text-zinc-300">รายการสินค้าที่จะนับ</h3></div>
                                 <div id="audit_items_container" class="space-y-3">
                                     <div class="audit-item-row flex flex-col md:flex-row gap-3 relative bg-black/30 p-3 rounded-xl border border-zinc-800/50">
-                                        <div class="flex-1 relative"><input type="text" class="audit-search w-full px-3 py-2.5 input-dark rounded-lg text-sm" placeholder="ค้นหาชื่อสินค้า หรือ SKU..." oninput="handleAuditSearch(this)"><ul class="audit-list absolute z-50 w-full mt-1 bg-[#18181b] border border-zinc-700 rounded-lg shadow-2xl max-h-40 overflow-auto hidden"></ul></div>
+                                        <div class="flex-1 relative">
+                                            <input type="text" class="audit-search w-full px-3 py-2.5 input-dark rounded-lg text-sm" placeholder="ค้นหาชื่อสินค้า หรือ SKU..." oninput="handleAuditSearch(this)">
+                                            <ul class="audit-list absolute z-50 w-full mt-1 bg-[#18181b] border border-zinc-700 rounded-lg shadow-2xl max-h-40 overflow-auto hidden"></ul>
+                                        </div>
                                         <div class="w-full md:w-32"><input type="text" class="audit-sku w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg font-mono text-zinc-500 text-xs cursor-not-allowed" placeholder="SKU" readonly></div>
                                         <div class="w-full md:w-20"><input type="text" class="audit-unit w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg text-zinc-500 text-xs cursor-not-allowed" placeholder="Unit" readonly></div>
-                                        <button type="button" onclick="this.parentElement.remove()" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                        <div class="flex gap-1 shrink-0">
+                                            <button type="button" class="btn-add-sub hidden text-indigo-400 hover:bg-indigo-500/10 p-2 rounded-lg transition-colors" title="เพิ่มหน่วยย่อยของสินค้านี้" onclick="addSubUnitRow(this)"><i data-lucide="link" class="w-4 h-4 pointer-events-none"></i></button>
+                                            <button type="button" onclick="this.closest('.audit-item-row').remove()" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                        </div>
                                     </div>
                                 </div>
                                 <button type="button" onclick="addAuditItemRow()" class="w-full py-2.5 border border-dashed border-zinc-700 text-zinc-400 hover:text-emerald-400 hover:border-emerald-500/50 rounded-xl text-xs font-bold transition-all flex items-center justify-center"><i data-lucide="plus" class="w-3.5 h-3.5 mr-2"></i> เพิ่มรายการสินค้า</button>
@@ -358,9 +398,10 @@
     <!-- 🧠 JavaScript Logic -->
     <script>
         // --- 1. CONFIG & STATE ---
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbw6iqZ2QkNybVRRdGyOCTccjurYpd3mJANivj_8YWaw8VCT7HLUC0oPTyZIIRMmlG8/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxVij3HZ2LzqPU7mGEQjPdyJjWvHZx13MqYnviZOC10zgNTdIocl4MUbNE0wcaJadE/exec';
         let state = { products: [], claims: [], returns: [], audits: [], drafts: [], user: 'Admin' };
         let dashFilterText = '';
+        let dashboardChartInstance = null; // เก็บ Instance ของกราฟเพื่อทำลายก่อนวาดใหม่
 
         // --- 2. GLOBAL UI UTILS ---
         function showLoader(text = 'กำลังประมวลผล...') {
@@ -436,7 +477,10 @@
                     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                     document.getElementById(`tab-${target}`).classList.add('active');
                     document.getElementById('active-tab-title').innerText = btn.querySelector('span')?.innerText || 'WMS';
-                    if(target === 'DASHBOARD') renderDashboard(); 
+                    if(target === 'DASHBOARD') {
+                        renderDashboard();
+                        drawDashboardChart();
+                    }
                 };
             });
         }
@@ -462,6 +506,22 @@
             renderDashboard();
         }
 
+        // ฟังก์ชัน Export CSV ใหม่
+        function exportToCSV(dataArray, filename) {
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // ใส่ BOM (Byte Order Mark) เพื่อให้ Excel อ่านภาษาไทยได้
+            dataArray.forEach(function(rowArray) {
+                let row = rowArray.map(item => `"${String(item).replace(/"/g, '""')}"`).join(","); // ใส่ " ครอบข้อความกันพัง
+                csvContent += row + "\r\n";
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         // --- 5. AUDIT DYNAMIC ROWS ---
         window.addAuditItemRow = function() {
             const container = document.getElementById('audit_items_container');
@@ -474,9 +534,51 @@
                 </div>
                 <div class="w-full md:w-32"><input type="text" class="audit-sku w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg font-mono text-zinc-500 text-xs cursor-not-allowed" placeholder="SKU" readonly></div>
                 <div class="w-full md:w-20"><input type="text" class="audit-unit w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg text-zinc-500 text-xs cursor-not-allowed" placeholder="Unit" readonly></div>
-                <button type="button" onclick="this.parentElement.remove()" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                <div class="flex gap-1 shrink-0">
+                    <button type="button" class="btn-add-sub hidden text-indigo-400 hover:bg-indigo-500/10 p-2 rounded-lg transition-colors" title="เพิ่มหน่วยย่อยของสินค้านี้" onclick="addSubUnitRow(this)"><i data-lucide="link" class="w-4 h-4 pointer-events-none"></i></button>
+                    <button type="button" onclick="this.closest('.audit-item-row').remove()" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                </div>
             `;
             container.appendChild(row); lucide.createIcons();
+        }
+
+        window.addSubUnitRow = function(btn) {
+            const currentRow = btn.closest('.audit-item-row');
+            const currentName = currentRow.querySelector('.audit-search').value;
+
+            // ตรรกะในการดึงชื่อหลักออกมา (ลบ Z/, X/, Z/L) และ ลบคำในวงเล็บเช่น (ลัง10x1kg))
+            let baseSearch = currentName
+                .replace(/^[A-Z0-9\/|\\]+/, '') // เอาตัวอักษรภาษาอังกฤษ/ตัวเลขนำหน้าออกเช่น Z/ , X/, Z/L)
+                .replace(/\(.*?\)/g, '') // เอาคำในวงเล็บออก
+                .replace(/@\d+[a-zA-Z]+/g, '') // เอาพวก @1kg ออก (ถ้ามี)
+                .trim();
+
+            const row = document.createElement('div');
+            // ทำสไตล์ให้ดูรู้ว่าเป็นของที่เกี่ยวข้องกัน (เพิ่ม indent ml-4 หรือ ml-8 และเปลี่ยนสีกรอบ)
+            row.className = 'audit-item-row flex flex-col md:flex-row gap-3 relative bg-indigo-900/10 p-3 rounded-xl border border-indigo-500/30 animate-in fade-in duration-200 mt-2 ml-4 md:ml-8';
+            row.innerHTML = `
+                <div class="absolute -left-5 top-1/2 -translate-y-1/2 w-4 h-[1px] bg-indigo-500/30 hidden md:block"></div>
+                <div class="absolute -left-5 -top-5 w-[1px] h-11 bg-indigo-500/30 hidden md:block"></div>
+                <div class="flex-1 relative">
+                    <input type="text" class="audit-search w-full px-3 py-2.5 input-dark rounded-lg text-sm" placeholder="ค้นหาชื่อสินค้า หรือ SKU..." oninput="handleAuditSearch(this)">
+                    <ul class="audit-list absolute z-50 w-full mt-1 bg-[#18181b] border border-zinc-700 rounded-lg shadow-2xl max-h-40 overflow-auto hidden"></ul>
+                </div>
+                <div class="w-full md:w-32"><input type="text" class="audit-sku w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg font-mono text-zinc-500 text-xs cursor-not-allowed" placeholder="SKU" readonly></div>
+                <div class="w-full md:w-20"><input type="text" class="audit-unit w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg text-zinc-500 text-xs cursor-not-allowed" placeholder="Unit" readonly></div>
+                <div class="flex gap-1 shrink-0">
+                    <button type="button" onclick="this.closest('.audit-item-row').remove()" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                </div>
+            `;
+            
+            // แทรกต่อจาก row ปัจจุบัน
+            currentRow.parentNode.insertBefore(row, currentRow.nextSibling);
+            lucide.createIcons();
+
+            // ค้นหาชื่ออัติโนมัติให้เลย
+            const searchInput = row.querySelector('.audit-search');
+            searchInput.value = baseSearch;
+            handleAuditSearch(searchInput); // เรียกใช้ฟังก์ชันค้นหาเพื่อให้ dropdown โผล่
+            searchInput.focus();
         }
 
         window.handleAuditSearch = function(inp) {
@@ -496,7 +598,47 @@
         }
         window.selectAuditItem = function(li, name, sku, unit) {
             const row = li.closest('.audit-item-row');
-            row.querySelector('.audit-search').value = name; row.querySelector('.audit-sku').value = sku; row.querySelector('.audit-unit').value = unit; row.querySelector('.audit-list').classList.add('hidden');
+            row.querySelector('.audit-search').value = name; 
+            row.querySelector('.audit-sku').value = sku; 
+            row.querySelector('.audit-unit').value = unit; 
+            row.querySelector('.audit-list').classList.add('hidden');
+            
+            // แสดงปุ่มแยกหน่วยย่อย (ถ้ามี)
+            const subBtn = row.querySelector('.btn-add-sub');
+            if(subBtn) subBtn.classList.remove('hidden');
+        }
+
+        window.calcAuditTotal = function(id) {
+            const carton = parseInt(document.getElementById('carton_' + id).value) || 0;
+            const mult = parseInt(document.getElementById('multiplier_' + id).value) || 0;
+            const loose = parseInt(document.getElementById('loose_' + id).value) || 0;
+            const total = (carton * mult) + loose;
+            document.getElementById('total_display_' + id).innerText = total;
+            document.getElementById('total_input_' + id).value = total;
+        }
+
+        // เพิ่มฟังก์ชันคำนวณสำหรับหน้า Review (เพื่อให้แอดมินไม่งงหน่วย)
+        window.calcReviewTotal = function(id, actualQty) {
+            const carton = parseInt(document.getElementById('rev_carton_' + id).value) || 0;
+            const mult = parseInt(document.getElementById('rev_multiplier_' + id).value) || 0;
+            const loose = parseInt(document.getElementById('rev_loose_' + id).value) || 0;
+            const sysTotal = (carton * mult) + loose;
+            const diff = actualQty - sysTotal;
+
+            document.getElementById('rev_total_display_' + id).innerText = sysTotal;
+            document.getElementById('rev_total_input_' + id).value = sysTotal;
+
+            const diffEl = document.getElementById('rev_diff_display_' + id);
+            diffEl.innerText = 'ดิฟ: ' + (diff > 0 ? '+' + diff : diff);
+            diffEl.className = 'text-[10px] mt-0.5 ' + (diff === 0 ? 'text-emerald-400 font-medium' : 'text-rose-400 font-bold');
+        }
+
+        // --- เพิ่มฟังก์ชันหาชื่อหลัก (Base Name) เพื่อใช้จัดกลุ่ม ---
+        function getBaseItemName(name) {
+            return name.replace(/^[A-Z0-9\/|\\]+/, '') // ตัด Z/, X/
+                       .replace(/\(.*?\)/g, '')       // ตัดวงเล็บ (ลัง...)
+                       .replace(/@\d+[a-zA-Z]+/g, '') // ตัดพวก @1kg
+                       .trim();
         }
 
         // --- 6. AUTOCOMPLETE (RET/CLM) ---
@@ -533,7 +675,6 @@
 
         // --- 7. FORM SUBMISSIONS ---
         function setupForms() {
-            // Form: Create Audit
             document.getElementById('auditCreateForm').onsubmit = async e => {
                 e.preventDefault();
                 const targetWH = document.getElementById('audit_target_wh').value;
@@ -550,12 +691,23 @@
                 
                 if(await postData(payload, 'สร้างใบงาน Cycle Count สำเร็จ')) {
                     e.target.reset();
-                    document.getElementById('audit_items_container').innerHTML = `<div class="audit-item-row flex flex-col md:flex-row gap-3 relative bg-black/30 p-3 rounded-xl border border-zinc-800/50"><div class="flex-1 relative"><input type="text" class="audit-search w-full px-3 py-2.5 input-dark rounded-lg text-sm" placeholder="ค้นหาชื่อสินค้า หรือ SKU..." oninput="handleAuditSearch(this)"><ul class="audit-list absolute z-50 w-full mt-1 bg-[#18181b] border border-zinc-700 rounded-lg shadow-2xl max-h-40 overflow-auto hidden"></ul></div><div class="w-full md:w-32"><input type="text" class="audit-sku w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg font-mono text-zinc-500 text-xs cursor-not-allowed" placeholder="SKU" readonly></div><div class="w-full md:w-20"><input type="text" class="audit-unit w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg text-zinc-500 text-xs cursor-not-allowed" placeholder="Unit" readonly></div><button type="button" onclick="this.parentElement.remove()" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button></div>`;
+                    document.getElementById('audit_items_container').innerHTML = `
+                    <div class="audit-item-row flex flex-col md:flex-row gap-3 relative bg-black/30 p-3 rounded-xl border border-zinc-800/50">
+                        <div class="flex-1 relative">
+                            <input type="text" class="audit-search w-full px-3 py-2.5 input-dark rounded-lg text-sm" placeholder="ค้นหาชื่อสินค้า หรือ SKU..." oninput="handleAuditSearch(this)">
+                            <ul class="audit-list absolute z-50 w-full mt-1 bg-[#18181b] border border-zinc-700 rounded-lg shadow-2xl max-h-40 overflow-auto hidden"></ul>
+                        </div>
+                        <div class="w-full md:w-32"><input type="text" class="audit-sku w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg font-mono text-zinc-500 text-xs cursor-not-allowed" placeholder="SKU" readonly></div>
+                        <div class="w-full md:w-20"><input type="text" class="audit-unit w-full px-3 py-2.5 bg-[#09090b] border border-zinc-800 rounded-lg text-zinc-500 text-xs cursor-not-allowed" placeholder="Unit" readonly></div>
+                        <div class="flex gap-1 shrink-0">
+                            <button type="button" class="btn-add-sub hidden text-indigo-400 hover:bg-indigo-500/10 p-2 rounded-lg transition-colors" title="เพิ่มหน่วยย่อยของสินค้านี้" onclick="addSubUnitRow(this)"><i data-lucide="link" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button type="button" onclick="this.closest('.audit-item-row').remove()" class="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg transition-colors"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        </div>
+                    </div>`;
                     lucide.createIcons();
                 }
             };
 
-            // Form: Returns
             const rs = document.getElementById('ret_source'), rs1 = document.getElementById('ret_src1_fields');
             rs.addEventListener('change', () => { if(rs.value === 'หน้าร้าน/ลูกค้า') rs1.classList.remove('hidden'); else rs1.classList.add('hidden'); });
             document.getElementById('ret_main_reason').addEventListener('change', e => { document.getElementById('ret_other_reason_container').classList.toggle('hidden', e.target.value !== 'อื่น ๆ'); });
@@ -585,7 +737,6 @@
                 }
             };
 
-            // Form: Claims
             document.getElementById('clmForm').onsubmit = e => {
                 e.preventDefault(); const sku = document.getElementById('clm_sku').value; if(!sku) return;
                 const dDate = document.getElementById('clm_date').value, eDate = document.getElementById('clm_exp').value;
@@ -594,50 +745,81 @@
             };
             document.getElementById('btn_submit_drafts').onclick = async () => { if(state.drafts.length && await postData({ action:'addDrafts', drafts: state.drafts }, 'ส่งเคลมสำเร็จ')) { state.drafts = []; renderDrafts(); } };
             
-            // Buttons: Exports
+            // แก้ไขปุ่ม Export ให้โหลด CSV จริง
             document.getElementById('btn-export').onclick = async () => {
-                const ids = state.returns.filter(r => r.status === 'รอตัดรอบ' || r.status === 'QC_PASSED').map(r => r.id);
-                if(ids.length) Swal.fire({ title: 'Export ข้อมูล', text: 'ยืนยันบันทึกการตัดรอบ?', showCancelButton: true }).then(r => { if(r.isConfirmed) postData({ action:'updateReturnBatch', ids }, 'Export ข้อมูลเรียบร้อย'); });
-                else Swal.fire('Info', 'ไม่มีรายการรอตัดรอบ', 'info');
+                const pendingItems = state.returns.filter(r => r.status === 'รอตัดรอบ' || r.status === 'QC_PASSED');
+                const ids = pendingItems.map(r => r.id);
+                
+                if(ids.length) {
+                    Swal.fire({ 
+                        title: 'Export & ตัดรอบ?', 
+                        text: 'ระบบจะทำการดาวน์โหลดไฟล์ CSV และเปลี่ยนสถานะรายการเป็น "ตัดรอบแล้ว"', 
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'ใช่, ส่งออกเลย',
+                        confirmButtonColor: '#10b981'
+                    }).then(r => { 
+                        if(r.isConfirmed) {
+                            // 1. สร้างข้อมูล CSV
+                            const csvData = [
+                                ["รหัสเอกสาร", "วันที่", "เวลา", "SKU", "ชื่อสินค้า", "จำนวน", "หน่วย", "แหล่งที่มา", "สภาพ", "ลูกค้า"]
+                            ];
+                            pendingItems.forEach(item => {
+                                csvData.push([
+                                    item.id, item.dateStr, item.timeStr, item.sku, 
+                                    item.name, item.qty, item.unit, item.source, 
+                                    item.qcCondition || 'ปกติ', item.customerName || '-'
+                                ]);
+                            });
+
+                            // 2. โหลดไฟล์ลงเครื่อง
+                            const fileName = `Export_POS_${Date.now()}.csv`;
+                            exportToCSV(csvData, fileName);
+
+                            // 3. ยิง API อัปเดตสถานะ
+                            postData({ action:'updateReturnBatch', ids }, 'ตัดรอบเรียบร้อยแล้ว'); 
+                        }
+                    });
+                } else {
+                    Swal.fire('Info', 'ไม่มีรายการรอตัดรอบ POS ตอนนี้', 'info');
+                }
             };
         }
 
-        // --- 8. RENDER MAIN UI ---
+        // --- 8. RENDER UI ---
         function renderUI() {
-            // Badges
             const badgeQc = document.getElementById('badge-qc'), badgeBatch = document.getElementById('badge-batch'), badgeAudit = document.getElementById('badge-audit');
             if(badgeQc) { const c = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length; badgeQc.innerText = c; badgeQc.classList.toggle('hidden', c===0); }
             if(badgeBatch) { const c = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED').length; badgeBatch.innerText = c; badgeBatch.classList.toggle('hidden', c===0); }
             if(badgeAudit) { const c = new Set(state.audits.filter(a => a.overallStatus !== 'Completed' && a.overallStatus !== 'Reviewing').map(a => a.taskId)).size; badgeAudit.innerText = c; badgeAudit.classList.toggle('hidden', c===0); }
 
             renderDashboard();
+            if(document.getElementById('tab-DASHBOARD').classList.contains('active')) {
+                drawDashboardChart();
+            }
             renderAuditUI();
             renderTrackClaim();
             renderTrackCust();
             renderDrafts();
 
-            // Render QC List
             const pQC = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING');
             const qcListEl = document.getElementById('qcList');
             if(qcListEl) {
                 qcListEl.innerHTML = pQC.length ? pQC.map(r => `<div class="glass-card p-5 rounded-[20px] flex flex-col justify-between hover:border-zinc-700 transition-colors group"><div><div class="flex justify-between items-start mb-4"><span class="text-[10px] font-mono bg-zinc-800 text-zinc-400 px-2 py-1 rounded border border-zinc-700/50">${r.sku}</span><span class="text-xs font-bold text-zinc-300 bg-zinc-800 px-2 py-1 rounded-md border border-zinc-700/50">จำนวน ${r.qty}</span></div><h4 class="font-semibold text-zinc-200 mb-4 leading-snug line-clamp-2">${r.name}</h4></div><div class="grid grid-cols-2 gap-3 mt-2 pt-4 border-t border-zinc-800/50"><button data-action="qc" data-id="${r.id}" data-grade="A" data-sku="${r.sku}" data-name="${r.name}" data-qty="${r.qty}" data-unit="${r.unit}" data-source="${r.source}" data-reason="${r.reason}" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-500/20 transition-all flex items-center justify-center"><i data-lucide="check-circle-2" class="w-4 h-4 mr-2 pointer-events-none"></i> สินค้าสภาพดี</button><button data-action="qc" data-id="${r.id}" data-grade="C" data-sku="${r.sku}" data-name="${r.name}" data-qty="${r.qty}" data-unit="${r.unit}" data-source="${r.source}" data-reason="${r.reason}" class="bg-rose-500/10 text-rose-400 border border-rose-500/20 py-2.5 rounded-xl text-sm font-bold hover:bg-rose-500/20 transition-all flex items-center justify-center"><i data-lucide="x-circle" class="w-4 h-4 mr-2 pointer-events-none"></i> สินค้าเสียหาย</button></div></div>`).join('') : '<div class="col-span-full py-16 text-center"><p class="text-zinc-500 font-medium">ไม่มีรายการค้างตรวจสภาพ</p></div>';
             }
 
-            // Render Batch List
             const pBatchReturns = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED');
             const batchListEl = document.getElementById('batchList');
             if(batchListEl) {
                 batchListEl.innerHTML = pBatchReturns.length ? pBatchReturns.map(r => `<tr class="hover:bg-zinc-900/30 transition-colors group"><td class="p-4"><p class="font-semibold text-sm text-zinc-200">${r.name}</p><p class="text-[10px] text-zinc-500 font-mono mt-0.5">${r.sku}</p></td><td class="p-4 text-center font-bold text-zinc-300">${r.qty}</td><td class="p-4"><span class="text-[10px] font-medium px-2 py-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">${r.qcCondition || 'สินค้าสภาพดี'}</span></td><td class="p-4 text-right"><button onclick="postData({action:'updateReturnBatch', ids:['${r.id}']},'นำเข้าระบบสำเร็จ')" class="text-zinc-600 hover:text-emerald-400 p-2 transition-colors"><i data-lucide="check-square" class="w-5 h-5"></i></button></td></tr>`).join('') : '<tr><td colspan="4" class="py-16 text-center text-zinc-500">ไม่มีข้อมูลรอจัดการ</td></tr>';
             }
 
-            // Render WH Claims
             const pWH = state.claims.filter(c => c.whStatus==='ยังไม่รับ');
             const whClaimListEl = document.getElementById('wh_claim_list');
             if(whClaimListEl) {
                 whClaimListEl.innerHTML = pWH.length ? pWH.map(c => `<div class="glass-card p-5 rounded-[20px] relative group border-l-2 border-l-rose-500"><button data-action="del-clm" data-id="${c.id}" class="absolute top-4 right-4 text-zinc-600 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="w-4 h-4"></i></button><div class="pr-6"><span class="text-[10px] font-mono text-zinc-400 block mb-1">${c.sku}</span><h4 class="font-bold text-zinc-200 text-sm leading-snug mb-3">${c.name}</h4><div class="flex items-center text-[11px] text-zinc-500 mb-4 bg-zinc-900 w-fit px-2 py-1 rounded-md border border-zinc-800"><span class="mr-2">ยอด: <strong class="text-rose-400">${c.qty}</strong></span> | <span class="ml-2 truncate max-w-[120px]">${c.reason}</span></div></div><button data-action="wh-in" data-id="${c.id}" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-2.5 rounded-xl text-xs font-bold transition-colors">บันทึกรับเข้าคลัง</button></div>`).join('') : '<div class="col-span-full py-16 text-center"><p class="text-zinc-500 font-medium">ไม่มีของรอรับเข้าคลังเคลม</p></div>';
             }
 
-            // Render Manage Claims
             const manageAccEl = document.getElementById('manage_acc');
             if(manageAccEl) {
                 const grouped = state.claims.reduce((a, c) => { let v = c.vendor||'รอระบุ Vendor'; if(!a[v]) a[v]=[]; a[v].push(c); return a; }, {});
@@ -662,7 +844,6 @@
 
             const filterStr = dashFilterText.toLowerCase();
 
-            // Overview List
             const allActivity = [
                 ...state.returns.map(r => ({ type: 'return', date: r.dateStr, label: 'รับคืนสินค้า', item: r, textSearch: `${r.sku} ${r.name} ${r.billNo}`.toLowerCase() })),
                 ...state.claims.map(c => ({ type: 'claim', date: c.reportDate, label: 'แจ้งเคลม', item: c, textSearch: `${c.sku} ${c.name} ${c.vendor} ${c.claimBillNo}`.toLowerCase() }))
@@ -680,7 +861,6 @@
                 `).join('') : '<p class="text-zinc-500 text-sm text-center py-6">ไม่พบข้อมูลในระบบ</p>';
             }
 
-            // Returns Table
             const retFiltered = state.returns.filter(r => `${r.sku} ${r.name} ${r.billNo} ${r.customerName}`.toLowerCase().includes(filterStr)).sort((a,b) => b.id.localeCompare(a.id)).slice(0, 30);
             if(document.getElementById('dash-list-returns')) {
                 document.getElementById('dash-list-returns').innerHTML = retFiltered.length ? retFiltered.map(r => `
@@ -694,7 +874,6 @@
                 `).join('') : '<tr><td colspan="5" class="py-10 text-center text-zinc-500">ไม่พบข้อมูลที่ค้นหา</td></tr>';
             }
 
-            // Audit Table
             const completedAudits = state.audits.filter(a => a.taskId.toLowerCase().includes(filterStr) || a.sku.toLowerCase().includes(filterStr));
             const grpDash = completedAudits.reduce((acc, row) => { if(!acc[row.taskId]) acc[row.taskId] = []; acc[row.taskId].push(row); return acc; }, {});
             if(document.getElementById('dash-list-audits')) {
@@ -711,7 +890,6 @@
                 `}).join('') : '<tr><td colspan="5" class="py-10 text-center text-zinc-500">ไม่พบประวัติการนับสต๊อก</td></tr>';
             }
 
-            // Claims Table
             const clmFiltered = state.claims.filter(c => `${c.sku} ${c.name} ${c.vendor} ${c.claimBillNo}`.toLowerCase().includes(filterStr)).sort((a,b) => b.id.localeCompare(a.id)).slice(0, 30);
             if(document.getElementById('dash-list-claims')) {
                 document.getElementById('dash-list-claims').innerHTML = clmFiltered.length ? clmFiltered.map(c => `
@@ -724,6 +902,71 @@
                     </tr>
                 `).join('') : '<tr><td colspan="5" class="py-10 text-center text-zinc-500">ไม่พบข้อมูลที่ค้นหา</td></tr>';
             }
+        }
+
+        function drawDashboardChart() {
+            const ctx = document.getElementById('mainDashboardChart');
+            if(!ctx) return;
+
+            // Prepare Data
+            const retCount = state.returns.length;
+            const clmCount = state.claims.length;
+            const auditCount = new Set(state.audits.map(a => a.taskId)).size; // นับเป็น Task
+
+            if(dashboardChartInstance) {
+                dashboardChartInstance.destroy();
+            }
+
+            dashboardChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['รายการรับคืนทั้งหมด', 'แจ้งเคลมชำรุดสะสม', 'ใบงานนับสต๊อก (Task)'],
+                    datasets: [{
+                        label: 'จำนวน (รายการ)',
+                        data: [retCount, clmCount, auditCount],
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.2)', // Indigo for Returns
+                            'rgba(244, 63, 94, 0.2)',  // Rose for Claims
+                            'rgba(16, 185, 129, 0.2)'  // Emerald for Audits
+                        ],
+                        borderColor: [
+                            'rgba(99, 102, 241, 1)',
+                            'rgba(244, 63, 94, 1)',
+                            'rgba(16, 185, 129, 1)'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barThickness: 40
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(24, 24, 27, 0.9)',
+                            titleColor: '#e4e4e7',
+                            bodyColor: '#a1a1aa',
+                            borderColor: 'rgba(63, 63, 70, 0.5)',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(39, 39, 42, 0.3)' },
+                            ticks: { color: '#71717a', stepSize: 5 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#a1a1aa', font: { family: 'Sarabun' } }
+                        }
+                    }
+                }
+            });
         }
 
         // --- 10. RENDER AUDIT UI ---
@@ -883,7 +1126,6 @@
             lucide.createIcons();
         }
 
-        // --- 12. EVENT HANDLERS (CLICKS & MODALS) ---
         function handleGlobalClicks(e) {
             const btn = e.target.closest('[data-action]');
             if(!btn) return;
@@ -960,24 +1202,21 @@
                 html = `
                     <div class="text-left space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2 mt-4">
                         <div class="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800 mb-4">
-                            <div class="flex justify-between items-center border-b border-zinc-700 pb-2 mb-2">
-                                <span class="text-xs text-zinc-400">ใบงาน: <strong class="text-indigo-400 font-mono ml-1">${id}</strong></span>
-                                <span class="text-[10px] bg-zinc-800 px-2 py-1 rounded text-zinc-300">${m.createdDate}</span>
-                            </div>
-                            <p class="text-xs text-zinc-400">เป้าหมายคลัง: <strong class="text-zinc-200">${m.targetWH}</strong></p>
-                            <p class="text-xs text-zinc-400">สร้างโดย: <strong class="text-zinc-200">${m.createdBy}</strong></p>
+                            <div class="flex justify-between items-center border-b border-zinc-700 pb-2 mb-2"><span class="text-xs text-zinc-400">ใบงาน: <strong class="text-indigo-400 font-mono ml-1">${id}</strong></span><span class="text-[10px] bg-zinc-800 px-2 py-1 rounded text-zinc-300">${m.createdDate}</span></div>
+                            <p class="text-xs text-zinc-400">เป้าหมายคลัง: <strong class="text-zinc-200">${m.targetWH}</strong></p><p class="text-xs text-zinc-400">สร้างโดย: <strong class="text-zinc-200">${m.createdBy}</strong></p>
                         </div>
                         <h4 class="font-bold text-sm text-zinc-300 border-b border-zinc-800 pb-2 mb-2">รายการที่ตรวจนับ (${items.length})</h4>
                         ${items.map(i => {
                             const tQty = parseInt(i.trdCountQty) || 0, aQty = parseInt(i.akraCountQty) || 0;
                             const totalActual = (m.targetWH==='TRD'?tQty : m.targetWH==='AKRA'?aQty : (tQty+aQty));
                             const diff = parseInt(i.stockDiff) || 0;
+                            
+                            // ซ่อนรายการย่อยที่มียอด Diff = 0 เพื่อไม่ให้รก เพราะยอดถูกรวมไปที่ตัวหลักแล้ว
+                            if(i.sysStock === "0" && diff === 0 && i.id.endsWith("-sub")) return ''; 
+
                             return `
                                 <div class="bg-[#09090b] p-3 rounded-lg border ${diff === 0 ? 'border-zinc-800/50' : 'border-rose-500/30'}">
-                                    <div class="flex justify-between">
-                                        <div class="truncate pr-2 w-2/3"><p class="text-xs font-bold text-zinc-200 truncate">${i.name}</p><p class="text-[10px] text-zinc-500 font-mono">${i.sku}</p></div>
-                                        <div class="text-right w-1/3"><p class="text-[10px] text-zinc-500">ระบบ: ${i.sysStock}</p><p class="text-[10px] ${diff === 0 ? 'text-emerald-400' : 'text-rose-400 font-bold'}">ดิฟ: ${diff > 0 ? '+'+diff : diff}</p></div>
-                                    </div>
+                                    <div class="flex justify-between"><div class="truncate pr-2 w-2/3"><p class="text-xs font-bold text-zinc-200 truncate">${i.name}</p><p class="text-[10px] text-zinc-500 font-mono">${i.sku}</p></div><div class="text-right w-1/3"><p class="text-[10px] text-zinc-500">ระบบ: ${i.sysStock}</p><p class="text-[10px] ${diff === 0 ? 'text-emerald-400' : 'text-rose-400 font-bold'}">ดิฟ: ${diff > 0 ? '+'+diff : diff}</p></div></div>
                                     <div class="mt-2 pt-2 border-t border-zinc-800/50 flex gap-2 text-[10px]">
                                         ${m.targetWH === 'BOTH' || m.targetWH === 'TRD' ? `<span class="bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-400">TRD: ${tQty} <span class="opacity-50">(${i.trdCountBy || '-'})</span></span>` : ''}
                                         ${m.targetWH === 'BOTH' || m.targetWH === 'AKRA' ? `<span class="bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-400">AKRA: ${aQty} <span class="opacity-50">(${i.akraCountBy || '-'})</span></span>` : ''}
@@ -991,12 +1230,45 @@
             }
         }
 
-        // ================= INVENTORY AUDIT MODALS =================
         function openAuditCountingModal(taskId, wh) {
             const items = state.audits.filter(a => a.taskId === taskId);
             const prefix = wh.toLowerCase();
-            const html = `<div class="text-left space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2"><div class="sticky top-0 bg-[#18181b] pb-2 border-b border-zinc-800 z-10"><h3 class="text-lg font-bold text-amber-400">บันทึกยอดนับจริงคลัง ${wh}</h3><p class="text-xs text-zinc-500 font-mono">Task: ${taskId}</p></div><form id="form-audit-count-${taskId}" class="space-y-4">${items.map(i => `<div class="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800"><p class="font-bold text-sm text-zinc-200">${i.name}</p><p class="text-[10px] text-zinc-500 font-mono mb-3">${i.sku}</p><div class="flex items-center gap-3"><div class="flex-1"><label class="block text-[10px] text-zinc-400 mb-1">จำนวนที่นับได้จริง</label><input type="number" min="0" required name="qty_${i.id}" class="w-full px-3 py-2 input-dark rounded-lg text-amber-400 font-bold" value="${i[`${prefix}Status`] === 'Done' ? i[`${prefix}CountQty`] : ''}"></div><div class="w-16 pt-5 text-zinc-500 text-xs">${i.unit}</div></div></div>`).join('')}</form></div>`;
-            Swal.fire({ html: html, showCancelButton: true, confirmButtonText: 'บันทึกยอดนับ', confirmButtonColor: '#10b981', cancelButtonText: 'พักไว้ก่อน', width: '600px', preConfirm: () => {
+            
+            // จับกลุ่มสินค้าสำหรับหน้า Counting
+            const groupedItems = {};
+            items.forEach(i => {
+                const base = getBaseItemName(i.name);
+                if(!groupedItems[base]) groupedItems[base] = [];
+                groupedItems[base].push(i);
+            });
+
+            const html = `
+                <div class="text-left space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2">
+                    <div class="sticky top-0 bg-[#18181b] pb-2 border-b border-zinc-800 z-10"><h3 class="text-lg font-bold text-amber-400">บันทึกยอดนับจริงคลัง ${wh}</h3><p class="text-xs text-zinc-500 font-mono">Task: ${taskId}</p></div>
+                    <form id="form-audit-count-${taskId}" class="space-y-6">
+                        ${Object.keys(groupedItems).map(baseName => `
+                            <div class="bg-zinc-900/30 p-1 rounded-2xl border border-zinc-800/50 space-y-2">
+                                <div class="px-3 pt-3 pb-1"><p class="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center"><i data-lucide="package" class="w-3.5 h-3.5 mr-1.5 text-zinc-500"></i> ${baseName}</p></div>
+                                ${groupedItems[baseName].map(i => `
+                                    <div class="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800 shadow-sm relative overflow-hidden">
+                                        <div class="absolute left-0 top-0 bottom-0 w-1 ${i.name.includes('ลัง') ? 'bg-indigo-500/50' : 'bg-amber-500/50'}"></div>
+                                        <p class="font-bold text-sm text-zinc-200 ml-2">${i.name}</p>
+                                        <p class="text-[10px] text-zinc-500 font-mono mb-3 ml-2">${i.sku}</p>
+                                        <div class="grid grid-cols-4 gap-2 mb-2 ml-2">
+                                            <div class="col-span-1"><label class="block text-[10px] text-zinc-400 mb-1">ลัง/กล่อง</label><input type="number" min="0" id="carton_${i.id}" class="w-full px-2 py-2 input-dark rounded-lg text-center" value="0" oninput="calcAuditTotal('${i.id}')"></div>
+                                            <div class="col-span-1"><label class="block text-[10px] text-zinc-400 mb-1">ชิ้น/ลัง</label><input type="number" min="0" id="multiplier_${i.id}" class="w-full px-2 py-2 input-dark rounded-lg text-center" value="${i.name.includes('ลัง') ? '0' : '1'}" oninput="calcAuditTotal('${i.id}')"></div>
+                                            <div class="col-span-1"><label class="block text-[10px] text-zinc-400 mb-1">เศษ (ชิ้น)</label><input type="number" min="0" id="loose_${i.id}" class="w-full px-2 py-2 input-dark rounded-lg text-center font-bold text-amber-100" value="0" oninput="calcAuditTotal('${i.id}')"></div>
+                                            <div class="col-span-1 text-right flex flex-col justify-end"><label class="block text-[10px] text-zinc-400 mb-1">รวมทั้งหมด</label><div class="h-9 flex items-center justify-end"><span id="total_display_${i.id}" class="text-amber-400 font-bold text-lg">${i[`${prefix}Status`] === 'Done' ? i[`${prefix}CountQty`] : '0'}</span></div></div>
+                                        </div>
+                                        <input type="hidden" name="qty_${i.id}" id="total_input_${i.id}" value="${i[`${prefix}Status`] === 'Done' ? i[`${prefix}CountQty`] : '0'}">
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `).join('')}
+                    </form>
+                </div>
+            `;
+            Swal.fire({ html: html, showCancelButton: true, confirmButtonText: 'บันทึกยอดนับ', confirmButtonColor: '#10b981', cancelButtonText: 'พักไว้ก่อน', width: '600px', didOpen: () => { lucide.createIcons(); }, preConfirm: () => {
                 const form = document.getElementById(`form-audit-count-${taskId}`);
                 if(!form.checkValidity()) { form.reportValidity(); return false; }
                 return items.map(i => ({ rowId: i.id, qty: form.querySelector(`[name="qty_${i.id}"]`).value }));
@@ -1007,19 +1279,120 @@
             const items = state.audits.filter(a => a.taskId === taskId);
             const targetWH = items[0].targetWH;
             const isBoth = targetWH === 'BOTH';
-            const html = `<div class="text-left space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2"><div class="sticky top-0 bg-[#18181b] pb-2 border-b border-zinc-800 z-10"><h3 class="text-lg font-bold text-indigo-400">สรุปยอดระบบ (System Stock)</h3><p class="text-xs text-zinc-500 font-mono">Task: ${taskId}</p></div><form id="form-audit-review-${taskId}" class="space-y-4">${items.map(i => {
+            
+            // จับกลุ่มสินค้าหลัก-ย่อย เพื่อแสดงผลรวมใน Review Modal
+            const groupedItems = {};
+            items.forEach(i => {
+                const base = getBaseItemName(i.name);
+                if(!groupedItems[base]) groupedItems[base] = { mainItem: i, subItems: [], totalActualQty: 0, currentSys: parseInt(i.sysStock) || 0 };
+                else groupedItems[base].subItems.push(i);
+                
                 const tQty = parseInt(i.trdCountQty) || 0, aQty = parseInt(i.akraCountQty) || 0;
-                const totalActual = (targetWH==='TRD'?tQty : targetWH==='AKRA'?aQty : (tQty+aQty));
-                return `<div class="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800"><p class="font-bold text-sm text-zinc-200">${i.name}</p><p class="text-[10px] text-zinc-500 font-mono mb-2">${i.sku}</p><div class="flex gap-2 mb-3 bg-black/40 p-2 rounded-lg text-[10px]">${isBoth || targetWH==='TRD' ? `<div class="flex-1"><span class="text-zinc-500">TRD:</span> <strong class="text-zinc-300">${tQty}</strong></div>` : ''}${isBoth || targetWH==='AKRA' ? `<div class="flex-1"><span class="text-zinc-500">AKRA:</span> <strong class="text-zinc-300">${aQty}</strong></div>` : ''}<div class="flex-1 text-right"><span class="text-zinc-500">รวมนับจริง:</span> <strong class="text-emerald-400 text-xs">${totalActual}</strong></div></div><div class="flex items-center gap-3"><div class="flex-1"><label class="block text-[10px] text-zinc-400 mb-1">ยอดสต๊อกในระบบ (POS)</label><input type="number" min="0" required name="sys_${i.id}" class="w-full px-3 py-2 input-dark rounded-lg text-indigo-400 font-bold" value="${i.sysStock || ''}"></div><div class="w-16 pt-5 text-zinc-500 text-xs">${i.unit}</div></div></div>`}).join('')}</form></div>`;
-            Swal.fire({ html: html, showCancelButton: true, confirmButtonText: 'คำนวณ Diff & ปิดจ๊อบ', confirmButtonColor: '#6366f1', width: '600px', preConfirm: () => {
-                const form = document.getElementById(`form-audit-review-${taskId}`);
-                if(!form.checkValidity()) { form.reportValidity(); return false; }
-                return items.map(i => {
-                    const tQty = parseInt(i.trdCountQty) || 0, aQty = parseInt(i.akraCountQty) || 0;
-                    const totalActual = (targetWH==='TRD'?tQty : targetWH==='AKRA'?aQty : (tQty+aQty));
-                    return { rowId: i.id, sysStock: parseInt(form.querySelector(`[name="sys_${i.id}"]`).value), stockDiff: totalActual - parseInt(form.querySelector(`[name="sys_${i.id}"]`).value) };
-                });
-            }}).then(r => { if(r.isConfirmed) postData({ action: 'finalizeAudit', taskId: taskId, reviews: r.value }, 'ประมวลผล Audit สำเร็จ'); });
+                groupedItems[base].totalActualQty += (targetWH==='TRD'?tQty : targetWH==='AKRA'?aQty : (tQty+aQty));
+            });
+
+            const html = `
+                <div class="text-left space-y-4 max-h-[60vh] overflow-y-auto custom-scroll pr-2">
+                    <div class="sticky top-0 bg-[#18181b] pb-3 border-b border-zinc-800 z-10">
+                        <h3 class="text-lg font-bold text-indigo-400">สรุปยอดระบบ (System Stock)</h3>
+                        <p class="text-xs text-zinc-500 font-mono mt-1">Task: ${taskId}</p>
+                    </div>
+                    <form id="form-audit-review-${taskId}" class="space-y-5">
+                        ${Object.keys(groupedItems).map(baseName => {
+                            const group = groupedItems[baseName];
+                            const main = group.mainItem;
+                            const totalActual = group.totalActualQty;
+                            const currentSys = group.currentSys;
+                            const initialDiff = totalActual - currentSys;
+                            
+                            return `
+                            <div class="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 relative">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div class="pr-4">
+                                        <p class="font-bold text-sm text-zinc-200 leading-snug">${main.name}</p>
+                                        <p class="text-[10px] text-zinc-500 font-mono mt-1">${main.sku} ${group.subItems.length > 0 ? ` <span class="bg-zinc-800 text-indigo-300 px-1.5 py-0.5 rounded ml-1">+ รวมหน่วยย่อยแล้ว</span>` : ''}</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- แสดงยอดนับจริงรวมทั้งหมด (Actual) -->
+                                <div class="flex gap-2 mb-3 bg-black/40 p-2.5 rounded-lg text-[10px]">
+                                    <div class="flex-1 text-right flex items-center justify-between px-2">
+                                        <span class="text-zinc-500">ผลรวมการนับจริงทั้งหมด (ชิ้น):</span> 
+                                        <strong class="text-emerald-400 text-sm ml-2">${totalActual}</strong>
+                                    </div>
+                                </div>
+                                
+                                <!-- ฟอร์มกรอกยอดจากระบบ (POS) แบบมีเครื่องคิดเลข -->
+                                <div class="bg-indigo-500/5 border border-indigo-500/20 p-3 rounded-xl mt-4">
+                                    <p class="text-[10px] text-indigo-400/80 mb-2.5 font-bold uppercase tracking-widest flex items-center">
+                                        <i data-lucide="calculator" class="w-3 h-3 mr-1.5"></i> แปลงยอดจากระบบ POS (เป็นชิ้น)
+                                    </p>
+                                    <div class="grid grid-cols-4 gap-2">
+                                        <div class="col-span-1">
+                                            <label class="block text-[10px] text-zinc-400 mb-1.5">จำนวนลัง</label>
+                                            <input type="number" min="0" id="rev_carton_${main.id}" class="w-full px-2 py-2.5 input-dark bg-black/50 rounded-lg text-center text-sm font-medium" value="0" oninput="calcReviewTotal('${main.id}', ${totalActual})">
+                                        </div>
+                                        <div class="col-span-1">
+                                            <label class="block text-[10px] text-zinc-400 mb-1.5">ชิ้น/ลัง</label>
+                                            <input type="number" min="0" id="rev_multiplier_${main.id}" class="w-full px-2 py-2.5 input-dark bg-black/50 rounded-lg text-center text-sm font-medium" value="0" oninput="calcReviewTotal('${main.id}', ${totalActual})">
+                                        </div>
+                                        <div class="col-span-1">
+                                            <label class="block text-[10px] text-zinc-400 mb-1.5">เศษ (ชิ้น)</label>
+                                            <input type="number" min="0" id="rev_loose_${main.id}" class="w-full px-2 py-2.5 input-dark bg-black/50 rounded-lg text-center text-sm font-bold text-indigo-300" value="${currentSys}" oninput="calcReviewTotal('${main.id}', ${totalActual})">
+                                        </div>
+                                        <div class="col-span-1 text-right flex flex-col justify-end">
+                                            <label class="block text-[10px] text-zinc-400 mb-1">ยอดรวมระบบ</label>
+                                            <div class="flex flex-col items-end">
+                                                <span id="rev_total_display_${main.id}" class="text-indigo-400 font-black text-lg">${currentSys}</span>
+                                                <span id="rev_diff_display_${main.id}" class="text-[10px] mt-0.5 ${initialDiff === 0 ? 'text-emerald-400 font-medium' : 'text-rose-400 font-bold'}">ดิฟ: ${initialDiff > 0 ? '+'+initialDiff : initialDiff}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="sys_${main.id}" id="rev_total_input_${main.id}" value="${currentSys}">
+                                </div>
+                            </div>`
+                        }).join('')}
+                    </form>
+                </div>
+            `;
+            
+            Swal.fire({ 
+                html: html, 
+                showCancelButton: true, 
+                confirmButtonText: 'คำนวณ Diff & ปิดจ๊อบ', 
+                confirmButtonColor: '#6366f1', 
+                cancelButtonColor: '#27272a',
+                width: '600px', 
+                didOpen: () => { lucide.createIcons(); },
+                preConfirm: () => {
+                    const form = document.getElementById(`form-audit-review-${taskId}`);
+                    if(!form.checkValidity()) { form.reportValidity(); return false; }
+                    
+                    let finalResults = [];
+                    Object.keys(groupedItems).forEach(baseName => {
+                        const group = groupedItems[baseName];
+                        const mainId = group.mainItem.id;
+                        
+                        const sysTotal = parseInt(form.querySelector(`[name="sys_${mainId}"]`).value) || 0;
+                        const diff = group.totalActualQty - sysTotal;
+                        
+                        // สินค้าตัวหลัก เก็บยอดรวมของทั้งกลุ่มและค่า Diff
+                        finalResults.push({ rowId: mainId, sysStock: sysTotal, stockDiff: diff });
+                        
+                        // สินค้าย่อย ส่งค่า 0 ไปเพื่อให้แถวใน Google Sheet ถูกปิดสถานะ Review ได้
+                        // (แต่แอดมินดูย้อนหลังจะไม่สับสน เพราะดูยอดรวมที่ตัวหลักแทน)
+                        group.subItems.forEach(sub => {
+                            // ใส่ tag ลงไปในรหัสเพื่อบอกหลังบ้านว่านี่คือ row ย่อยที่ถูกรวมแล้ว
+                            sub.id = sub.id + "-sub"; 
+                            finalResults.push({ rowId: sub.id.replace('-sub',''), sysStock: 0, stockDiff: 0 });
+                        });
+                    });
+                    
+                    return finalResults;
+                }
+            }).then(r => { 
+                if(r.isConfirmed) postData({ action: 'finalizeAudit', taskId: taskId, reviews: r.value }, 'ประมวลผล Audit สำเร็จ'); 
+            });
         }
 
         window.executePrintPreview = function(vendor) {
