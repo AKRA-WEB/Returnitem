@@ -50,7 +50,9 @@
         div:where(.swal2-container) div:where(.swal2-html-container) { color: #a1a1aa; font-family: 'Sarabun', sans-serif; }
         div:where(.swal2-container) button:where(.swal2-confirm) { background-color: #4f46e5 !important; border-radius: 0.5rem; }
         div:where(.swal2-container) button:where(.swal2-cancel) { background-color: #27272a !important; color: #f4f4f5 !important; border-radius: 0.5rem; }
-        div:where(.swal2-container) input:where(.swal2-input), div:where(.swal2-container) select:where(.swal2-select) { background: #09090b; border: 1px solid #27272a; color: #f4f4f5; border-radius: 0.5rem; }
+        div:where(.swal2-container) input:where(.swal2-input), div:where(.swal2-container) select:where(.swal2-select) { background: #09090b; border: 1px solid #3f3f46; color: #f4f4f5; border-radius: 0.5rem; }
+        div:where(.swal2-container) input:where(.swal2-input):focus, div:where(.swal2-container) select:where(.swal2-select):focus { border-color: #6366f1; box-shadow: 0 0 0 1px #6366f1; outline: none; }
+        div:where(.swal2-container) select:where(.swal2-select) option { background-color: #18181b; color: #f4f4f5; }
 
         .accordion-content { transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; max-height: 0; overflow: hidden; opacity: 0; }
         .accordion-content.expanded { max-height: 2500px; opacity: 1; padding-bottom: 1.5rem; }
@@ -612,7 +614,7 @@
             const div = document.createElement('div');
             div.className = 'flex items-center gap-1 mt-2 animate-in fade-in duration-200';
             div.innerHTML = `
-                <input type="text" class="w-12 px-1 py-2.5 bg-black/40 border border-zinc-700/50 rounded-lg text-center text-[10px] text-zinc-400 focus:border-indigo-500 outline-none" placeholder="โซน..">
+                <input type="text" class="w-12 px-1 py-2.5 bg-zinc-800 border border-zinc-600 rounded-lg text-center text-[10px] text-zinc-200 focus:border-indigo-500 outline-none" placeholder="โซน..">
                 <input type="number" min="0" step="any" class="qty-input-${id} w-full px-2 py-2.5 input-dark rounded-lg text-center font-bold text-amber-400 text-lg focus:ring-2 focus:ring-amber-500/50 transition-all" placeholder="0" oninput="calcAuditTotal('${id}')">
                 <button type="button" onclick="this.parentElement.remove(); calcAuditTotal('${id}');" class="text-rose-500 hover:bg-rose-500/10 p-1.5 rounded-lg transition-colors"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
             `;
@@ -885,7 +887,7 @@
                         <td class="p-4"><p class="font-mono text-xs text-indigo-400">${r.billNo !== '-' ? r.billNo : r.source}</p>${r.customerName ? `<p class="text-[10px] text-zinc-400">ลูกค้า: ${r.customerName}</p>` : ''}</td>
                         <td class="p-4"><p class="font-semibold text-zinc-200 text-sm truncate max-w-[200px]">${r.name}</p><p class="text-[10px] text-zinc-500 font-mono">${r.sku} • <span class="font-bold text-zinc-300">${r.qty} ${r.unit}</span></p></td>
                         <td class="p-4 text-center">${r.status === 'รอ QC' || r.status === 'PENDING' ? '<span class="px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-[10px] font-bold">รอ QC</span>' : r.status === 'รอตัดรอบ' ? '<span class="px-2 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-[10px] font-bold">รอตัดรอบ</span>' : r.status === 'ตัดรอบแล้ว' ? '<span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-[10px] font-bold">ตัดรอบแล้ว</span>' : '<span class="px-2 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded text-[10px] font-bold">ส่งเคลม</span>'}</td>
-                        <td class="p-4 text-center"><button data-action="view-details" data-type="return" data-id="${r.id}" class="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>
+                        <td class="p-4 text-center"><button data-action="view-details" data-type="return" data-id="${r.id}" class="p-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded-lg transition-all"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>
                     </tr>
                 `).join('') : '<tr><td colspan="5" class="py-10 text-center text-zinc-500">ไม่พบข้อมูลที่ค้นหา</td></tr>';
             }
@@ -901,7 +903,7 @@
                         <td class="p-4"><p class="font-semibold text-sm text-zinc-300">${m.createdDate}</p><p class="text-[10px] text-zinc-500 mt-0.5">เปิดโดย: ${m.createdBy}</p></td>
                         <td class="p-4"><p class="font-semibold text-zinc-200 text-sm">${items.length} รายการ</p></td>
                         <td class="p-4 text-center">${m.overallStatus === 'Completed' ? '<span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-[10px] font-bold">ปิดจ๊อบแล้ว</span>' : '<span class="px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-[10px] font-bold">ยังไม่เสร็จ</span>'}</td>
-                        <td class="p-4 text-center"><button data-action="view-details" data-type="audit" data-id="${taskId}" class="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>
+                        <td class="p-4 text-center"><button data-action="view-details" data-type="audit" data-id="${taskId}" class="p-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded-lg transition-all"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>
                     </tr>
                 `}).join('') : '<tr><td colspan="5" class="py-10 text-center text-zinc-500">ไม่พบประวัติการนับสต๊อก</td></tr>';
             }
@@ -914,7 +916,7 @@
                         <td class="p-4"><p class="font-bold text-xs text-rose-400 truncate max-w-[150px]">${c.vendor || 'ไม่ระบุ'}</p><p class="text-[10px] text-zinc-500 font-mono mt-0.5">บิล: ${c.claimBillNo && c.claimBillNo !== '-' ? c.claimBillNo : 'ยังไม่มี'}</p></td>
                         <td class="p-4"><p class="font-semibold text-zinc-200 text-sm truncate max-w-[200px]">${c.name}</p><p class="text-[10px] text-zinc-500 font-mono">${c.sku} • <span class="font-bold text-zinc-300">${c.qty} ${c.unit || 'ชิ้น'}</span></p></td>
                         <td class="p-4 text-center">${c.status === 'รอคลังรับของ' || c.status === 'รอเคลม' ? '<span class="px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-[10px] font-bold">รอเคลม</span>' : c.status === 'แจ้งเคลมแล้ว' ? '<span class="px-2 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-[10px] font-bold">กำลังตามเรื่อง</span>' : '<span class="px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-[10px] font-bold">เคลมสำเร็จ</span>'}</td>
-                        <td class="p-4 text-center"><button data-action="view-details" data-type="claim" data-id="${c.id}" class="p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>
+                        <td class="p-4 text-center"><button data-action="view-details" data-type="claim" data-id="${c.id}" class="p-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded-lg transition-all"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>
                     </tr>
                 `).join('') : '<tr><td colspan="5" class="py-10 text-center text-zinc-500">ไม่พบข้อมูลที่ค้นหา</td></tr>';
             }
@@ -1336,7 +1338,7 @@
                                     <div class="bg-zinc-900/80 p-4 rounded-xl border border-zinc-800 shadow-sm relative overflow-hidden">
                                         <div class="absolute left-0 top-0 bottom-0 w-1 ${i.name.includes('ลัง') || i.unit === 'ลัง' ? 'bg-indigo-500/50' : 'bg-amber-500/50'}"></div>
                                         <p class="font-bold text-sm text-zinc-200 ml-2 leading-snug">${i.name}</p>
-                                        <p class="text-[10px] text-zinc-500 font-mono mb-3 ml-2">${i.sku}</p>
+                                        <p class="text-[10px] text-zinc-500 font-mono mb-4 ml-2">${i.sku}</p>
                                         
                                         <div class="grid grid-cols-12 gap-3 mb-1 ml-2">
                                             <div class="col-span-5">
@@ -1346,7 +1348,7 @@
                                                 </div>
                                                 <div id="count_inputs_${i.id}" class="space-y-2">
                                                     <div class="flex items-center gap-1">
-                                                        <input type="text" class="w-12 px-1 py-2.5 bg-black/40 border border-zinc-700/50 rounded-lg text-center text-[10px] text-zinc-500 focus:border-indigo-500 outline-none" placeholder="โซน.." value="${loc}" ${loc ? 'readonly' : ''}>
+                                                        <input type="text" class="w-12 px-1 py-2.5 bg-zinc-800 border border-zinc-600 rounded-lg text-center text-[10px] text-zinc-200 focus:border-indigo-500 outline-none" placeholder="โซน.." value="${loc}" ${loc ? 'readonly' : ''}>
                                                         <input type="number" min="0" step="any" class="qty-input-${i.id} w-full px-2 py-2.5 input-dark rounded-lg text-center font-bold text-amber-400 text-lg focus:ring-2 focus:ring-amber-500/50 transition-all" placeholder="0" value="${unitQty}" oninput="calcAuditTotal('${i.id}')">
                                                     </div>
                                                 </div>
