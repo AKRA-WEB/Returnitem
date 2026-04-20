@@ -125,6 +125,9 @@
         </div>
     </div>
 
+    <!-- 📱 Sidebar Overlay (For Mobile) -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[55] hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
+
     <!-- 🖨️ Print Preview Overlay -->
     <div id="print-preview-overlay" class="fixed inset-0 z-[100] bg-zinc-900/90 backdrop-blur-sm hidden overflow-y-auto pt-10 pb-20 custom-scroll">
         <div class="max-w-4xl mx-auto bg-white shadow-2xl rounded-sm">
@@ -146,10 +149,16 @@
     <!-- 📱 App Shell -->
     <div id="app-shell" class="flex flex-col md:flex-row h-screen">
         
-        <!-- 🧭 Sidebar (Desktop) -->
-        <aside class="hidden md:flex w-64 bg-black flex-col shrink-0 border-r border-zinc-800/80 z-20">
-            <div class="p-6 flex items-center space-x-3">
-                <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+        <!-- 🧭 Sidebar (Desktop & Mobile Drawer) -->
+        <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-[60] w-64 bg-black flex flex-col shrink-0 border-r border-zinc-800/80 transform -translate-x-full transition-transform duration-300 md:relative md:translate-x-0 shadow-2xl md:shadow-none">
+            
+            <!-- Mobile Close Button -->
+            <button id="close-sidebar-btn" class="md:hidden absolute top-5 right-4 p-2 bg-zinc-900 text-zinc-400 hover:text-white rounded-lg border border-zinc-800 transition-colors">
+                <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+
+            <div class="p-6 flex items-center space-x-3 border-b border-zinc-800/80 md:border-none">
+                <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)] shrink-0">
                     <i data-lucide="package-search" class="text-white w-5 h-5"></i>
                 </div>
                 <div>
@@ -210,9 +219,9 @@
                 </button>
             </nav>
 
-            <div class="p-5 border-t border-zinc-800">
+            <div class="p-5 border-t border-zinc-800 mt-auto bg-black">
                 <div class="flex items-center space-x-3 bg-zinc-900/50 border border-zinc-800/50 p-3 rounded-xl">
-                    <div id="user-avatar" class="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 font-bold text-xs">AD</div>
+                    <div id="user-avatar" class="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 font-bold text-xs shrink-0">AD</div>
                     <div class="flex-1 overflow-hidden">
                         <p class="text-xs font-bold text-zinc-200 truncate" id="user-display">Administrator</p>
                         <p class="text-[10px] text-emerald-500 flex items-center mt-0.5"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5 shadow-[0_0_8px_#10b981]"></span>System Online</p>
@@ -221,28 +230,25 @@
             </div>
         </aside>
 
-        <!-- 📱 Mobile Nav Bottom -->
-        <nav class="md:hidden bg-[#09090b] border-t border-zinc-800 flex overflow-x-auto hide-scrollbar p-1 pb-safe z-50 order-2 snap-x" id="mobile-nav">
-            <button data-tab="DASHBOARD" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-indigo-400"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">แดชบอร์ด</span></button>
-            <button data-tab="ADD_RET" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-zinc-200"><i data-lucide="package-plus" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">รับคืน</span></button>
-            <button data-tab="QC_RET" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-zinc-200"><i data-lucide="shield-check" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">QC</span></button>
-            <button data-tab="AUDIT_TASK" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-emerald-400"><i data-lucide="clipboard-signature" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">งานนับ</span></button>
-            <button data-tab="ADD_CLM" class="flex flex-col items-center justify-center text-zinc-500 p-2 min-w-[70px] snap-center hover:text-rose-400"><i data-lucide="alert-triangle" class="w-5 h-5"></i><span class="text-[10px] mt-1.5 font-medium">แจ้งเคลม</span></button>
-        </nav>
-
         <!-- 🖥️ Main Space & Header -->
-        <main class="flex-1 flex flex-col overflow-hidden order-1 md:order-2 bg-[#09090b] relative">
+        <main class="flex-1 flex flex-col overflow-hidden bg-[#09090b] relative w-full">
             <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-indigo-500/10 blur-[120px] pointer-events-none rounded-full"></div>
 
-            <header class="bg-[#09090b]/80 backdrop-blur-xl h-16 flex items-center justify-between px-6 shrink-0 z-40 border-b border-zinc-800/80">
-                <h2 class="font-semibold text-lg text-zinc-100 tracking-tight" id="active-tab-title">ภาพรวมระบบ</h2>
-                <div class="flex items-center space-x-3">
+            <header class="bg-[#09090b]/80 backdrop-blur-xl h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-40 border-b border-zinc-800/80 sticky top-0 w-full">
+                <div class="flex items-center gap-3 w-3/4">
+                    <!-- Hamburger Menu Button -->
+                    <button id="mobile-menu-btn" class="md:hidden p-2 -ml-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                    <h2 class="font-semibold text-lg text-zinc-100 tracking-tight truncate" id="active-tab-title">ภาพรวมระบบ</h2>
+                </div>
+                <div class="flex items-center space-x-3 shrink-0">
                     <button onclick="fetchData()" class="p-2.5 text-zinc-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
                 </div>
             </header>
 
             <!-- 🗂️ TAB CONTAINERS -->
-            <div class="flex-1 overflow-y-auto p-4 md:p-8 relative z-10" id="tab-container">
+            <div class="flex-1 overflow-y-auto p-4 md:p-8 relative z-10 w-full" id="tab-container">
                 
                 <!-- ================== TAB: DASHBOARD ================== -->
                 <div id="tab-DASHBOARD" class="tab-content active space-y-6">
@@ -254,9 +260,9 @@
                     </div>
 
                     <!-- 📊 New Dashboard Chart -->
-                    <div class="glass-card rounded-2xl p-5">
+                    <div class="glass-card rounded-2xl p-5 w-full overflow-hidden">
                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-[12px] font-bold text-zinc-400 uppercase tracking-widest">สถิติปริมาณงานรวม (Workload Statistics)</h3>
+                            <h3 class="text-[12px] font-bold text-zinc-400 uppercase tracking-widest">สถิติปริมาณงานรวม</h3>
                         </div>
                         <div class="h-[220px] w-full">
                             <canvas id="mainDashboardChart"></canvas>
@@ -265,10 +271,10 @@
 
                     <div class="glass-card p-2 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 sticky top-0 z-30 bg-[#18181b]/90 backdrop-blur-md mt-6">
                         <div class="flex overflow-x-auto hide-scrollbar w-full md:w-auto">
-                            <button data-dashview="overview" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all bg-indigo-500/20 text-indigo-400">🔥 ภาพรวมทั้งหมด</button>
-                            <button data-dashview="returns" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-zinc-400 hover:text-zinc-200">📦 ประวัติรับคืน</button>
-                            <button data-dashview="audits" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-zinc-400 hover:text-zinc-200">📋 ประวัตินับสต๊อก</button>
-                            <button data-dashview="claims" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-zinc-400 hover:text-zinc-200">🚨 ประวัติแจ้งเคลม</button>
+                            <button data-dashview="overview" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all bg-indigo-500/20 text-indigo-400 whitespace-nowrap">🔥 ภาพรวมทั้งหมด</button>
+                            <button data-dashview="returns" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-zinc-400 hover:text-zinc-200 whitespace-nowrap">📦 ประวัติรับคืน</button>
+                            <button data-dashview="audits" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-zinc-400 hover:text-zinc-200 whitespace-nowrap">📋 ประวัตินับสต๊อก</button>
+                            <button data-dashview="claims" class="dash-nav px-6 py-2.5 rounded-xl text-sm font-bold transition-all text-zinc-400 hover:text-zinc-200 whitespace-nowrap">🚨 ประวัติแจ้งเคลม</button>
                         </div>
                         <div class="relative w-full md:w-64 shrink-0">
                             <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500"></i>
@@ -277,16 +283,16 @@
                     </div>
 
                     <div id="dash-views-container" class="glass-card rounded-[24px] overflow-hidden min-h-[400px]">
-                        <div id="dash-view-overview" class="dash-view active p-6"><h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4">Activity ล่าสุด</h3><div class="space-y-3" id="dash-list-overview"></div></div>
-                        <div id="dash-view-returns" class="dash-view"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="bg-zinc-900/80 border-b border-zinc-800"><tr><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">วันที่-เวลา</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">รหัสอ้างอิง / ลูกค้า</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">รายการสินค้า</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest text-center">สถานะ</th><th class="p-4 text-center"></th></tr></thead><tbody id="dash-list-returns" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody></table></div>
-                        <div id="dash-view-audits" class="dash-view"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="bg-zinc-900/80 border-b border-zinc-800"><tr><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">ใบงาน (Task ID)</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">วันที่สร้าง / โดย</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">จำนวนรายการ</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest text-center">สถานะ / ผลลัพธ์</th><th class="p-4 text-center"></th></tr></thead><tbody id="dash-list-audits" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody></table></div>
-                        <div id="dash-view-claims" class="dash-view"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="bg-zinc-900/80 border-b border-zinc-800"><tr><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">วันที่พบ/ส่งคืน</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">Vendor / เลขบิลเคลม</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">รายการสินค้า</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest text-center">สถานะ</th><th class="p-4 text-center"></th></tr></thead><tbody id="dash-list-claims" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody></table></div>
+                        <div id="dash-view-overview" class="dash-view active p-4 md:p-6"><h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4">Activity ล่าสุด</h3><div class="space-y-3" id="dash-list-overview"></div></div>
+                        <div id="dash-view-returns" class="dash-view"><div class="overflow-x-auto"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="bg-zinc-900/80 border-b border-zinc-800"><tr><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">วันที่-เวลา</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">รหัสอ้างอิง / ลูกค้า</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">รายการสินค้า</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest text-center">สถานะ</th><th class="p-4 text-center"></th></tr></thead><tbody id="dash-list-returns" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody></table></div></div>
+                        <div id="dash-view-audits" class="dash-view"><div class="overflow-x-auto"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="bg-zinc-900/80 border-b border-zinc-800"><tr><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">ใบงาน (Task ID)</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">วันที่สร้าง / โดย</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">จำนวนรายการ</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest text-center">สถานะ / ผลลัพธ์</th><th class="p-4 text-center"></th></tr></thead><tbody id="dash-list-audits" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody></table></div></div>
+                        <div id="dash-view-claims" class="dash-view"><div class="overflow-x-auto"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="bg-zinc-900/80 border-b border-zinc-800"><tr><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">วันที่พบ/ส่งคืน</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">Vendor / เลขบิลเคลม</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest">รายการสินค้า</th><th class="p-4 text-[10px] text-zinc-500 uppercase tracking-widest text-center">สถานะ</th><th class="p-4 text-center"></th></tr></thead><tbody id="dash-list-claims" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody></table></div></div>
                     </div>
                 </div>
 
                 <!-- ================== TAB: ADD_RET ================== -->
                 <div id="tab-ADD_RET" class="tab-content">
-                    <div class="max-w-3xl mx-auto glass-card rounded-[24px] p-6 md:p-10">
+                    <div class="max-w-3xl mx-auto glass-card rounded-[24px] p-6 md:p-10 w-full">
                         <div class="mb-8"><h2 class="text-xl font-bold text-zinc-100 flex items-center"><i data-lucide="package-plus" class="mr-3 text-indigo-400"></i> ลงทะเบียนรับเข้าสินค้าคืน</h2><p class="text-xs text-zinc-500 mt-2">สแกนหรือค้นหาสินค้าคืนจากหน้าร้าน ลูกค้า หรือออนไลน์</p></div>
                         <form id="retForm" class="space-y-6">
                             <div class="relative"><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ค้นหาสินค้าจากฐานข้อมูล</label><div class="relative group"><i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors"></i><input type="text" id="ret_search" class="w-full pl-11 pr-4 py-3.5 input-dark rounded-xl font-medium text-sm" placeholder="พิมพ์ชื่อสินค้าหรือ SKU..."><ul id="ret_list" class="absolute z-50 w-full mt-2 bg-[#18181b] border border-zinc-800 rounded-xl shadow-2xl max-h-60 overflow-auto hidden"></ul></div></div>
@@ -324,7 +330,7 @@
 
                 <!-- ================== TAB: AUDIT_CREATE ================== -->
                 <div id="tab-AUDIT_CREATE" class="tab-content">
-                    <div class="max-w-4xl mx-auto glass-card rounded-[24px] p-6 md:p-10 border-t-2 border-t-emerald-500">
+                    <div class="max-w-4xl mx-auto glass-card rounded-[24px] p-6 md:p-10 border-t-2 border-t-emerald-500 w-full">
                         <div class="mb-8"><h2 class="text-xl font-bold text-emerald-400 flex items-center"><i data-lucide="file-plus" class="mr-3 w-6 h-6"></i> สร้างใบงาน Inventory Audit</h2><p class="text-xs text-zinc-500 mt-2">เปิดใบงาน Cycle Count กำหนดสินค้าและคลังที่ต้องการให้นับ</p></div>
                         <form id="auditCreateForm" class="space-y-6">
                             <div class="grid md:grid-cols-2 gap-6 bg-zinc-900/50 p-5 rounded-xl border border-zinc-800/50"><div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ระบุคลังเป้าหมาย (Target WH)</label><select id="audit_target_wh" class="w-full px-4 py-3 input-dark rounded-xl text-sm font-medium"><option value="BOTH" selected>นับทั้งสองคลัง (TRD & AKRA)</option><option value="TRD">เฉพาะคลัง TRD</option><option value="AKRA">เฉพาะคลัง AKRA</option></select></div></div>
@@ -367,7 +373,7 @@
 
                 <!-- ================== TAB: ADD_CLM ================== -->
                 <div id="tab-ADD_CLM" class="tab-content">
-                    <div class="max-w-4xl mx-auto space-y-6">
+                    <div class="max-w-4xl mx-auto space-y-6 w-full">
                         <div class="glass-card rounded-[24px] p-6 md:p-10 border-t-2 border-t-rose-500/50">
                             <div class="mb-8"><h3 class="text-xl font-bold text-rose-400 flex items-center"><i data-lucide="alert-triangle" class="w-5 h-5 mr-3"></i> แจ้งเคลมสินค้าชำรุด</h3><p class="text-xs text-zinc-500 mt-2">กรณีพบสินค้าเสียหายจากขนส่ง โรงงาน หรือหมดอายุ</p></div>
                             <form id="clmForm" class="space-y-6">
@@ -403,7 +409,7 @@
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxVij3HZ2LzqPU7mGEQjPdyJjWvHZx13MqYnviZOC10zgNTdIocl4MUbNE0wcaJadE/exec';
         let state = { products: [], claims: [], returns: [], audits: [], drafts: [], user: 'Admin' };
         let dashFilterText = '';
-        let dashboardChartInstance = null; // เก็บ Instance ของกราฟเพื่อทำลายก่อนวาดใหม่
+        let dashboardChartInstance = null; 
 
         // --- จัดการสิทธิ์การมองเห็นเมนู (Role Permissions) ---
         function applyRolePermissions() {
@@ -411,7 +417,6 @@
             const roles = appUser.roles || [];
             const isAdmin = roles.includes("ADMIN");
 
-            // จับคู่สิทธิ์ Role กับแท็บต่างๆ
             const rolePermissions = {
                 "AKRA": ["AUDIT_TASK", "ADD_CLM", "WH_CLM"],
                 "TRD": ["ADD_RET", "QC_RET"],
@@ -419,16 +424,14 @@
             };
 
             let allowedTabs = new Set();
-            if (isAdmin) return; // Admin เห็นทุกเมนูข้ามการตรวจได้เลย
+            if (isAdmin) return; 
 
-            // เอารายชื่อเมนูที่อนุญาตมารวมกัน
             roles.forEach(role => {
                 if (rolePermissions[role]) {
                     rolePermissions[role].forEach(tab => allowedTabs.add(tab));
                 }
             });
 
-            // ไล่ปิดเมนูที่ไม่มีสิทธิ์ (ทั้งแถบด้านข้างและเมนูด้านล่างบนมือถือ)
             document.querySelectorAll('[data-tab]').forEach(btn => {
                 const tabName = btn.dataset.tab;
                 if (!allowedTabs.has(tabName)) {
@@ -436,7 +439,6 @@
                 }
             });
 
-            // ซ่อนหัวข้อ Group หากไม่มีเมนูย่อยเลย
             const checkGroup = (grpId, tabs) => {
                 const hasAccess = tabs.some(t => allowedTabs.has(t));
                 const el = document.getElementById(grpId);
@@ -446,7 +448,6 @@
             checkGroup('grp-aud', ['AUDIT_CREATE', 'AUDIT_TASK', 'AUDIT_REVIEW']);
             checkGroup('grp-clm', ['ADD_CLM', 'WH_CLM', 'MANAGE_CLM', 'TRACK_CLM']);
 
-            // หากไม่มีสิทธิ์หน้า Dashboard ให้เลือกเมนูอันแรกสุดที่เห็นได้แทน
             if (!allowedTabs.has('DASHBOARD')) {
                 const firstVisible = document.querySelector('#desktop-nav [data-tab]:not([style*="display: none"])');
                 if (firstVisible) {
@@ -466,6 +467,40 @@
             loader.classList.add('hidden'); loader.classList.remove('flex');
         }
 
+        // --- Hamburger Menu Logic ---
+        function initMobileMenu() {
+            const sidebar = document.getElementById('main-sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const menuBtn = document.getElementById('mobile-menu-btn');
+            const closeBtn = document.getElementById('close-sidebar-btn');
+
+            function toggleSidebar() {
+                const isOpen = sidebar.classList.contains('translate-x-0');
+                if (isOpen) {
+                    sidebar.classList.remove('translate-x-0');
+                    sidebar.classList.add('-translate-x-full');
+                    overlay.classList.add('opacity-0');
+                    setTimeout(() => overlay.classList.add('hidden'), 300);
+                } else {
+                    sidebar.classList.remove('-translate-x-full');
+                    sidebar.classList.add('translate-x-0');
+                    overlay.classList.remove('hidden');
+                    setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+                }
+            }
+
+            if(menuBtn) menuBtn.addEventListener('click', toggleSidebar);
+            if(closeBtn) closeBtn.addEventListener('click', toggleSidebar);
+            if(overlay) overlay.addEventListener('click', toggleSidebar);
+            
+            // Expose globally to close from links
+            window.closeMobileSidebar = () => {
+                if(window.innerWidth < 768 && sidebar.classList.contains('translate-x-0')) {
+                    toggleSidebar();
+                }
+            };
+        }
+
         // --- 3. INIT & API ---
         document.addEventListener('DOMContentLoaded', () => {
             if (appUser && appUser.name) {
@@ -473,9 +508,10 @@
                 document.getElementById('user-display').innerText = appUser.name;
                 document.getElementById('user-avatar').innerText = appUser.name.substring(0, 2).toUpperCase();
                 
-                applyRolePermissions(); // จัดการหน้าตาสามสิทธิ์ User
+                applyRolePermissions();
             }
             lucide.createIcons();
+            initMobileMenu();
             setupNav();
             setupDashboardNav();
             setupAutoComplete();
@@ -531,10 +567,14 @@
                     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                     document.getElementById(`tab-${target}`).classList.add('active');
                     document.getElementById('active-tab-title').innerText = btn.querySelector('span')?.innerText || 'WMS';
+                    
                     if(target === 'DASHBOARD') {
                         renderDashboard();
                         drawDashboardChart();
                     }
+                    
+                    // Close sidebar on mobile
+                    if(window.closeMobileSidebar) window.closeMobileSidebar();
                 };
             });
         }
@@ -560,11 +600,10 @@
             renderDashboard();
         }
 
-        // ฟังก์ชัน Export CSV ใหม่
         function exportToCSV(dataArray, filename) {
-            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // ใส่ BOM (Byte Order Mark) เพื่อให้ Excel อ่านภาษาไทยได้
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
             dataArray.forEach(function(rowArray) {
-                let row = rowArray.map(item => `"${String(item).replace(/"/g, '""')}"`).join(","); // ใส่ " ครอบข้อความกันพัง
+                let row = rowArray.map(item => `"${String(item).replace(/"/g, '""')}"`).join(","); 
                 csvContent += row + "\r\n";
             });
             const encodedUri = encodeURI(csvContent);
@@ -576,7 +615,6 @@
             document.body.removeChild(link);
         }
 
-        // --- เพิ่มฟังก์ชันจัดการชื่อผู้ตรวจสอบและ Location ---
         function parseCounter(rawStr) {
             if (!rawStr || rawStr === '-') return { user: null, loc: null };
             const parts = String(rawStr).split('|');
@@ -660,7 +698,6 @@
             if(subBtn) subBtn.classList.remove('hidden');
         }
 
-        // --- เพิ่ม/ลบช่องกรอกจุดนับ (Multi-Location Counter) ---
         window.addCountInput = function(id) {
             const container = document.getElementById(`count_inputs_${id}`);
             const div = document.createElement('div');
@@ -821,9 +858,38 @@
             document.getElementById('btn_submit_drafts').onclick = async () => { if(state.drafts.length && await postData({ action:'addDrafts', drafts: state.drafts }, 'ส่งเคลมสำเร็จ')) { state.drafts = []; renderDrafts(); } };
             
             document.getElementById('btn-export').onclick = async () => {
-                const ids = state.returns.filter(r => r.status === 'รอตัดรอบ' || r.status === 'QC_PASSED').map(r => r.id);
-                if(ids.length) Swal.fire({ title: 'Export ข้อมูล', text: 'ยืนยันบันทึกการตัดรอบ?', showCancelButton: true }).then(r => { if(r.isConfirmed) postData({ action:'updateReturnBatch', ids }, 'Export ข้อมูลเรียบร้อย'); });
-                else Swal.fire('Info', 'ไม่มีรายการรอตัดรอบ', 'info');
+                const pendingItems = state.returns.filter(r => r.status === 'รอตัดรอบ' || r.status === 'QC_PASSED');
+                const ids = pendingItems.map(r => r.id);
+                
+                if(ids.length) {
+                    Swal.fire({ 
+                        title: 'Export & ตัดรอบ?', 
+                        text: 'ระบบจะทำการดาวน์โหลดไฟล์ CSV และเปลี่ยนสถานะรายการเป็น "ตัดรอบแล้ว"', 
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'ใช่, ส่งออกเลย',
+                        confirmButtonColor: '#10b981'
+                    }).then(r => { 
+                        if(r.isConfirmed) {
+                            const csvData = [
+                                ["รหัสเอกสาร", "วันที่", "เวลา", "SKU", "ชื่อสินค้า", "จำนวน", "หน่วย", "แหล่งที่มา", "สภาพ", "ลูกค้า"]
+                            ];
+                            pendingItems.forEach(item => {
+                                csvData.push([
+                                    item.id, item.dateStr, item.timeStr, item.sku, 
+                                    item.name, item.qty, item.unit, item.source, 
+                                    item.qcCondition || 'ปกติ', item.customerName || '-'
+                                ]);
+                            });
+
+                            const fileName = `Export_POS_${Date.now()}.csv`;
+                            exportToCSV(csvData, fileName);
+                            postData({ action:'updateReturnBatch', ids }, 'ตัดรอบเรียบร้อยแล้ว'); 
+                        }
+                    });
+                } else {
+                    Swal.fire('Info', 'ไม่มีรายการรอตัดรอบ POS ตอนนี้', 'info');
+                }
             };
         }
 
@@ -835,6 +901,9 @@
             if(badgeAudit) { const c = new Set(state.audits.filter(a => a.overallStatus !== 'Completed' && a.overallStatus !== 'Reviewing').map(a => a.taskId)).size; badgeAudit.innerText = c; badgeAudit.classList.toggle('hidden', c===0); }
 
             renderDashboard();
+            if(document.getElementById('tab-DASHBOARD').classList.contains('active')) {
+                drawDashboardChart();
+            }
             renderAuditUI();
             renderTrackClaim();
             renderTrackCust();
@@ -942,6 +1011,71 @@
             }
         }
 
+        function drawDashboardChart() {
+            const ctx = document.getElementById('mainDashboardChart');
+            if(!ctx) return;
+
+            // Prepare Data
+            const retCount = state.returns.length;
+            const clmCount = state.claims.length;
+            const auditCount = new Set(state.audits.map(a => a.taskId)).size; // นับเป็น Task
+
+            if(dashboardChartInstance) {
+                dashboardChartInstance.destroy();
+            }
+
+            dashboardChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['รายการรับคืนทั้งหมด', 'แจ้งเคลมชำรุดสะสม', 'ใบงานนับสต๊อก (Task)'],
+                    datasets: [{
+                        label: 'จำนวน (รายการ)',
+                        data: [retCount, clmCount, auditCount],
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.2)', // Indigo for Returns
+                            'rgba(244, 63, 94, 0.2)',  // Rose for Claims
+                            'rgba(16, 185, 129, 0.2)'  // Emerald for Audits
+                        ],
+                        borderColor: [
+                            'rgba(99, 102, 241, 1)',
+                            'rgba(244, 63, 94, 1)',
+                            'rgba(16, 185, 129, 1)'
+                        ],
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barThickness: 40
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(24, 24, 27, 0.9)',
+                            titleColor: '#e4e4e7',
+                            bodyColor: '#a1a1aa',
+                            borderColor: 'rgba(63, 63, 70, 0.5)',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(39, 39, 42, 0.3)' },
+                            ticks: { color: '#71717a', stepSize: 5 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#a1a1aa', font: { family: 'Sarabun' } }
+                        }
+                    }
+                }
+            });
+        }
+
         // --- 10. RENDER AUDIT UI ---
         function renderAuditUI() {
             const auditTaskEl = document.getElementById('audit_task_list');
@@ -984,12 +1118,31 @@
                         return `<button data-action="audit-start" data-taskid="${taskId}" data-wh="${wh}" class="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-xl text-xs font-bold transition-all">รับงานนับคลัง ${wh}</button>`;
                     };
 
+                    const itemListHtml = items.map(i => `
+                        <div class="flex justify-between items-center py-1.5 border-b border-zinc-800/50 last:border-0 text-xs">
+                            <span class="text-zinc-300 truncate pr-2">${i.name}</span>
+                            <span class="text-zinc-500 font-mono shrink-0">${i.sku}</span>
+                        </div>
+                    `).join('');
+
                     taskHtml += `
                         <div class="glass-card p-5 rounded-[20px] relative border-t-2 border-t-amber-500">
                             <div class="flex justify-between items-start mb-3 border-b border-zinc-800/80 pb-3">
-                                <div><h4 class="font-bold text-zinc-200 text-sm">ใบงาน: ${taskId}</h4><p class="text-[10px] text-zinc-500 mt-1">สร้างเมื่อ: ${meta.createdDate} โดย ${meta.createdBy}</p></div>
-                                <span class="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-1 rounded-md border border-zinc-700/50">${itemCount} รายการ</span>
+                                <div>
+                                    <h4 class="font-bold text-zinc-200 text-sm">ใบงาน: ${taskId}</h4>
+                                    <p class="text-[10px] text-zinc-500 mt-1">สร้างเมื่อ: ${meta.createdDate} โดย ${meta.createdBy}</p>
+                                </div>
+                                <button onclick="this.parentElement.nextElementSibling.classList.toggle('hidden')" class="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-amber-400 px-3 py-1.5 rounded-md border border-zinc-700/50 transition-colors flex items-center font-bold">
+                                    ดูรายการ (${itemCount}) <i data-lucide="chevron-down" class="w-3 h-3 ml-1 pointer-events-none"></i>
+                                </button>
                             </div>
+                            
+                            <!-- Hidden Item List -->
+                            <div class="hidden bg-[#09090b] rounded-xl p-3 border border-zinc-800/80 mb-4 max-h-40 overflow-y-auto custom-scroll animate-in fade-in slide-in-from-top-2 duration-200">
+                                <p class="text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">รายการที่ต้องนับ</p>
+                                ${itemListHtml}
+                            </div>
+
                             <div class="flex gap-3 mt-4">
                                 ${targetWH === 'BOTH' || targetWH === 'TRD' ? renderWHButton('TRD', trdLock, trdDone) : ''}
                                 ${targetWH === 'BOTH' || targetWH === 'AKRA' ? renderWHButton('AKRA', akraLock, akraDone) : ''}
@@ -1155,7 +1308,6 @@
                 const taskId = btn.dataset.taskid, wh = btn.dataset.wh;
                 const itemsInTask = state.audits.filter(a => a.taskId === taskId);
                 
-                // เช็คก่อนว่ามีใครกดไปก่อนหน้าเราไหม
                 const lockCheck = itemsInTask.some(i => {
                     const status = i[`${wh.toLowerCase()}Status`];
                     const countBy = i[`${wh.toLowerCase()}CountBy`];
@@ -1164,7 +1316,6 @@
                 });
                 if(lockCheck) return Swal.fire('Notice', 'ใบงานนี้กำลังถูกนับโดยบุคคลอื่น', 'warning');
 
-                // ถ้าเป็นฝั่ง AKRA ให้มี Popup ถาม Location 
                 if (wh === 'AKRA') {
                     Swal.fire({
                         title: 'เลือกโซน/ตึก ที่กำลังนับ',
@@ -1178,7 +1329,7 @@
                         inputValidator: (value) => { if (!value) return 'กรุณาเลือก Location!'; }
                     }).then(r => {
                         if(r.isConfirmed) {
-                            const finalUser = `${state.user}|${r.value}`; // ส่งไปเป็นรูปแบบ ชื่อ|Location
+                            const finalUser = `${state.user}|${r.value}`;
                             postData({ action: 'lockAuditWH', taskId: taskId, wh: wh, user: finalUser }, false).then(ok => { 
                                 if(ok) openAuditCountingModal(taskId, wh, r.value); 
                             });
