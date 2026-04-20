@@ -74,7 +74,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const ALLOWED_ROLES = ["AKRA", "ADMIN"]; 
+        const ALLOWED_ROLES = ["AKRA", "ADMIN", "TRD", "Cashier"]; 
         let appUser = null; 
 
         function verifyAccess() {
@@ -165,7 +165,7 @@
                 </button>
 
                 <!-- Group 2: Returns -->
-                <div class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบสินค้าคืนและสต๊อก</div>
+                <div id="grp-ret" class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบสินค้าคืนและสต๊อก</div>
                 <button data-tab="ADD_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
                     <i data-lucide="plus-circle" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">รับเข้าสินค้าคืน</span>
                 </button>
@@ -182,7 +182,7 @@
                 </button>
 
                 <!-- Group 3: Audit -->
-                <div class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Inventory Audit (นับสต๊อก)</div>
+                <div id="grp-aud" class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Inventory Audit (นับสต๊อก)</div>
                 <button data-tab="AUDIT_CREATE" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
                     <i data-lucide="file-plus" class="w-5 h-5 mr-3 text-emerald-500/70"></i><span class="text-sm font-medium">สร้างใบงาน Audit</span>
                 </button>
@@ -195,7 +195,7 @@
                 </button>
 
                 <!-- Group 4: Claims -->
-                <div class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบเคลมชำรุด</div>
+                <div id="grp-clm" class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบเคลมชำรุด</div>
                 <button data-tab="ADD_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
                     <i data-lucide="alert-triangle" class="w-5 h-5 mr-3 text-rose-500/70"></i><span class="text-sm font-medium">แจ้งเคลมชิ้นใหม่</span>
                 </button>
@@ -405,6 +405,56 @@
         let dashFilterText = '';
         let dashboardChartInstance = null; // เก็บ Instance ของกราฟเพื่อทำลายก่อนวาดใหม่
 
+        // --- จัดการสิทธิ์การมองเห็นเมนู (Role Permissions) ---
+        function applyRolePermissions() {
+            if (!appUser) return;
+            const roles = appUser.roles || [];
+            const isAdmin = roles.includes("ADMIN");
+
+            // จับคู่สิทธิ์ Role กับแท็บต่างๆ
+            const rolePermissions = {
+                "AKRA": ["AUDIT_TASK", "ADD_CLM", "WH_CLM"],
+                "TRD": ["ADD_RET", "QC_RET"],
+                "Cashier": ["AUDIT_CREATE", "AUDIT_TASK", "ADD_RET", "TRACK_CUST", "QC_RET", "BATCH_RET", "AUDIT_REVIEW"]
+            };
+
+            let allowedTabs = new Set();
+            if (isAdmin) return; // Admin เห็นทุกเมนูข้ามการตรวจได้เลย
+
+            // เอารายชื่อเมนูที่อนุญาตมารวมกัน
+            roles.forEach(role => {
+                if (rolePermissions[role]) {
+                    rolePermissions[role].forEach(tab => allowedTabs.add(tab));
+                }
+            });
+
+            // ไล่ปิดเมนูที่ไม่มีสิทธิ์ (ทั้งแถบด้านข้างและเมนูด้านล่างบนมือถือ)
+            document.querySelectorAll('[data-tab]').forEach(btn => {
+                const tabName = btn.dataset.tab;
+                if (!allowedTabs.has(tabName)) {
+                    btn.style.display = 'none';
+                }
+            });
+
+            // ซ่อนหัวข้อ Group หากไม่มีเมนูย่อยเลย
+            const checkGroup = (grpId, tabs) => {
+                const hasAccess = tabs.some(t => allowedTabs.has(t));
+                const el = document.getElementById(grpId);
+                if (el && !hasAccess) el.style.display = 'none';
+            };
+            checkGroup('grp-ret', ['ADD_RET', 'QC_RET', 'BATCH_RET', 'TRACK_CUST']);
+            checkGroup('grp-aud', ['AUDIT_CREATE', 'AUDIT_TASK', 'AUDIT_REVIEW']);
+            checkGroup('grp-clm', ['ADD_CLM', 'WH_CLM', 'MANAGE_CLM', 'TRACK_CLM']);
+
+            // หากไม่มีสิทธิ์หน้า Dashboard ให้เลือกเมนูอันแรกสุดที่เห็นได้แทน
+            if (!allowedTabs.has('DASHBOARD')) {
+                const firstVisible = document.querySelector('#desktop-nav [data-tab]:not([style*="display: none"])');
+                if (firstVisible) {
+                    setTimeout(() => firstVisible.click(), 50);
+                }
+            }
+        }
+
         // --- 2. GLOBAL UI UTILS ---
         function showLoader(text = 'กำลังประมวลผล...') {
             document.getElementById('global-loader-text').innerText = text;
@@ -422,6 +472,8 @@
                 state.user = appUser.name;
                 document.getElementById('user-display').innerText = appUser.name;
                 document.getElementById('user-avatar').innerText = appUser.name.substring(0, 2).toUpperCase();
+                
+                applyRolePermissions(); // จัดการหน้าตาสามสิทธิ์ User
             }
             lucide.createIcons();
             setupNav();
