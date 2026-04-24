@@ -59,9 +59,9 @@
 
         /* 🖨️ Print Rules */
         @media print {
-            body { background-color: white !important; margin: 0; padding: 0; color: black !important; }
-            #app-shell, #global-loader { display: none !important; }
-            #print-preview-overlay { display: block !important; position: static !important; padding: 0 !important; background: white !important; }
+            body { background-color: white !important; margin: 0; padding: 0; color: black !important; overflow: visible !important; }
+            #app-shell, #global-loader, #sidebar-overlay { display: none !important; }
+            #print-preview-overlay { display: block !important; position: static !important; padding: 0 !important; background: white !important; overflow: visible !important; height: auto !important; }
             #print-preview-overlay > div { box-shadow: none !important; max-width: 100% !important; margin: 0 !important; }
             .print\:hidden { display: none !important; }
             * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
@@ -128,7 +128,7 @@
             <div class="flex justify-between items-center p-4 bg-slate-100 border-b print:hidden sticky top-0 z-10 shadow-sm text-slate-800">
                 <h3 class="font-bold flex items-center"><i data-lucide="file-text" class="w-5 h-5 mr-2"></i> ตัวอย่างใบส่งคืนสินค้าชำรุด</h3>
                 <div class="flex space-x-2">
-                    <button onclick="window.print()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center transition-all">
+                    <button onclick="triggerPrint()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700 flex items-center transition-all">
                         <i data-lucide="printer" class="w-4 h-4 mr-2"></i> สั่งพิมพ์
                     </button>
                     <button onclick="document.getElementById('print-preview-overlay').classList.add('hidden')" class="px-4 py-2 bg-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-400 flex items-center transition-all">
@@ -391,9 +391,9 @@
             const isAdmin = roles.includes("ADMIN");
 
             const rolePermissions = {
-                "AKRA": ["AUDIT_TASK", "ADD_CLM", "WH_CLM"],
-                "TRD": ["ADD_RET", "QC_RET"],
-                "Cashier": ["AUDIT_CREATE", "AUDIT_TASK", "ADD_RET", "TRACK_CUST", "QC_RET", "BATCH_RET", "AUDIT_REVIEW"]
+                "AKRA": ["AUDIT_TASK", "ADD_CLM", "WH_CLM", "MANAGE_CLM"],
+                "TRD": ["ADD_RET", "QC_RET", "MANAGE_CLM"],
+                "Cashier": ["AUDIT_CREATE", "AUDIT_TASK", "ADD_RET", "TRACK_CUST", "QC_RET", "BATCH_RET", "AUDIT_REVIEW", "MANAGE_CLM"]
             };
 
             let allowedTabs = new Set();
@@ -1283,6 +1283,17 @@
             `).join('');
             lucide.createIcons();
         }
+
+        window.triggerPrint = function() {
+            try {
+                setTimeout(() => {
+                    window.focus();
+                    window.print();
+                }, 100);
+            } catch (error) {
+                Swal.fire('ข้อผิดพลาด', 'เบราว์เซอร์ไม่รองรับการสั่งพิมพ์ กรุณาใช้งานผ่านคอมพิวเตอร์ หรือ Google Chrome', 'error');
+            }
+        };
 
         function handleGlobalClicks(e) {
             const btn = e.target.closest('[data-action]');
