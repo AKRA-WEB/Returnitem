@@ -846,18 +846,23 @@
             document.getElementById('retForm').onsubmit = async e => {
                 e.preventDefault();
                 const sku = document.getElementById('ret_sku').value; if(!sku) return Swal.fire('Notice','เลือกสินค้าก่อน','warning');
-                const now = new Date(); const d = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getFullYear()).slice(-2)}`;
-                const source = rs.value; let finalReason = '-', compValue = '-', bStatus = '-', bNo = '-';
+                const now = new Date(); 
+                
+                // ใช้รูปแบบ YYYY-MM-DD เพื่อให้ Sheet ทุกเครื่องเข้าใจว่าเป็นวันที่ 100%
+                const d = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+                
+                const source = rs.value; 
+                let finalReason = '-', compValue = '-', bStatus = '-', bNo = '-', customerName = '-';
                 
                 if (source === 'หน้าร้าน/ลูกค้า') {
                     const custRaw = document.getElementById('ret_cust').value;
                     const memId = document.getElementById('ret_member_id').value;
-                    const cust = memId ? (custRaw ? `${custRaw} (${memId})` : memId) : custRaw;
+                    customerName = memId ? (custRaw ? `${custRaw} (${memId})` : memId) : (custRaw || '-');
                     
                     const mainRes = document.getElementById('ret_main_reason').value;
-                    if (!mainRes) return Swal.fire('Notice', 'เลือกสาเหตุการคืน', 'warning');
+                    if (!mainRes) return Swal.fire('Notice', 'เลือกสาเหตุหลัก', 'warning');
                     const baseReason = mainRes === 'อื่น ๆ' ? document.getElementById('ret_other_reason').value : mainRes;
-                    finalReason = cust ? `[ลูกค้า: ${cust}] ${baseReason}` : baseReason;
+                    finalReason = customerName !== '-' ? `[ลูกค้า: ${customerName}] ${baseReason}` : baseReason;
                     
                     const comp = document.getElementById('ret_compensation').value;
                     if (!comp) return Swal.fire('Notice', 'เลือกการชดเชย', 'warning');
@@ -865,9 +870,29 @@
                     
                     bStatus = document.getElementById('ret_bill_status').value || '-';
                     bNo = document.getElementById('ret_bill_no').value || '-';
-                } else { finalReason = document.getElementById('ret_remark').value || '-'; }
+                } else { 
+                    finalReason = document.getElementById('ret_remark').value || '-'; 
+                }
                 
-                const payload = { action:'addReturn', id:'RET-'+Date.now(), dateStr:d, timeStr:now.toLocaleTimeString('th-TH',{hour12:false}), sku, name:document.getElementById('ret_search').value, qty:document.getElementById('ret_qty').value, source:source, reason:finalReason, billStatus:bStatus, compensation:compValue, billNo:bNo, status:'รอ QC', qcCondition:'-', unit:document.getElementById('ret_unit').value };
+                const payload = { 
+                    action:'addReturn', 
+                    id:'RET-'+Date.now(), 
+                    dateStr:d, 
+                    timeStr:now.toLocaleTimeString('th-TH',{hour12:false}), 
+                    sku, 
+                    name:document.getElementById('ret_search').value, 
+                    qty:document.getElementById('ret_qty').value, 
+                    source:source, 
+                    reason:finalReason, 
+                    billStatus:bStatus, 
+                    compensation:compValue, 
+                    billNo:bNo, 
+                    status:'รอ QC', 
+                    qcCondition:'-', 
+                    unit:document.getElementById('ret_unit').value,
+                    customerName: customerName // เพิ่มการส่งตัวแปรนี้เข้าไป เพื่อไม่ให้ช่องหลุด
+                };
+                
                 if(await postData(payload, 'รับเข้าคลังสำเร็จ')) {
                     e.target.reset(); document.getElementById('ret_sku').value=''; rs1.classList.add('hidden'); document.getElementById('ret_other_reason_container').classList.add('hidden'); document.getElementById('ret_other_comp_container').classList.add('hidden');
                 }
