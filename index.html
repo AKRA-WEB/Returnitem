@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WMS Returns & Claims Pro</title>
+    <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Chart.js for Dashboard Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
@@ -60,7 +62,7 @@
         /* 🖨️ Print Rules */
         @media print {
             body { background-color: white !important; margin: 0; padding: 0; color: black !important; overflow: visible !important; }
-            #app-shell, #global-loader, #sidebar-overlay { display: none !important; }
+            #app-shell, #global-loader, #sidebar-overlay, #floating-wh-alert { display: none !important; }
             #print-preview-overlay { display: block !important; position: static !important; padding: 0 !important; background: white !important; overflow: visible !important; height: auto !important; }
             #print-preview-overlay > div { box-shadow: none !important; max-width: 100% !important; margin: 0 !important; }
             .print\:hidden { display: none !important; }
@@ -69,6 +71,7 @@
         }
     </style>
 
+    <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
         const ALLOWED_ROLES = ["AKRA", "ADMIN", "TRD", "Cashier"]; 
@@ -108,8 +111,20 @@
         if(!verifyAccess()) throw new Error("Access Denied"); 
     </script>
 </head>
-<body class="overflow-hidden selection:bg-indigo-500/30">
+<body class="overflow-hidden selection:bg-indigo-500/30 relative">
 
+    <!-- 🚨 Floating Alert (แสดงทุกหน้า) -->
+    <div id="floating-wh-alert" class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-[80] hidden flex-col items-end gap-2 transition-all duration-300 hover:-translate-y-1">
+        <button onclick="document.querySelector('[data-tab=\'WH_CLM\']').click()" class="bg-rose-600 hover:bg-rose-500 text-white px-5 py-3 rounded-2xl shadow-[0_10px_25px_-5px_rgba(225,29,72,0.5)] flex items-center gap-3 transition-all border border-rose-500 font-bold group">
+            <div class="relative flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+            </div>
+            <span>รอรับเข้าคลังของเสีย <span class="bg-white text-rose-600 px-2 py-0.5 rounded-md ml-1" id="floating-wh-count">0</span></span>
+        </button>
+    </div>
+
+    <!-- ⏳ Global Loader -->
     <div id="global-loader" class="fixed inset-0 z-[9999] bg-[#09090b]/70 backdrop-blur-sm hidden flex-col items-center justify-center transition-opacity duration-200">
         <div class="bg-zinc-900/90 border border-zinc-800/80 px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center">
             <div class="relative w-12 h-12 mb-4">
@@ -121,8 +136,10 @@
         </div>
     </div>
 
+    <!-- 📱 Sidebar Overlay (For Mobile) -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[55] hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
 
+    <!-- 🖨️ Print Preview Overlay -->
     <div id="print-preview-overlay" class="fixed inset-0 z-[100] bg-zinc-900/90 backdrop-blur-sm hidden overflow-y-auto pt-10 pb-20 custom-scroll">
         <div class="max-w-4xl mx-auto bg-white shadow-2xl rounded-sm">
             <div class="flex justify-between items-center p-4 bg-slate-100 border-b print:hidden sticky top-0 z-10 shadow-sm text-slate-800">
@@ -140,10 +157,13 @@
         </div>
     </div>
 
+    <!-- 📱 App Shell -->
     <div id="app-shell" class="flex flex-col md:flex-row h-screen">
         
+        <!-- 🧭 Sidebar (Desktop & Mobile Drawer) -->
         <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-[60] w-64 bg-black flex flex-col shrink-0 border-r border-zinc-800/80 transform -translate-x-full transition-transform duration-300 md:relative md:translate-x-0 shadow-2xl md:shadow-none">
             
+            <!-- Mobile Close Button -->
             <button id="close-sidebar-btn" class="md:hidden absolute top-5 right-4 p-2 bg-zinc-900 text-zinc-400 hover:text-white rounded-lg border border-zinc-800 transition-colors">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
@@ -159,10 +179,12 @@
             </div>
             
             <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto hide-scrollbar" id="desktop-nav">
+                <!-- Group 1: Dashboard -->
                 <button data-tab="DASHBOARD" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-100 bg-indigo-500/10 border border-indigo-500/20 transition-all active text-indigo-400">
                     <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ภาพรวมระบบ</span>
                 </button>
 
+                <!-- Group 2: Returns -->
                 <div id="grp-ret" class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบสินค้าคืนและสต๊อก</div>
                 <button data-tab="ADD_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
                     <i data-lucide="plus-circle" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">รับเข้าสินค้าคืน</span>
@@ -179,6 +201,7 @@
                     <i data-lucide="users" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ติดตามงานลูกค้า</span>
                 </button>
 
+                <!-- Group 3: Audit -->
                 <div id="grp-aud" class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Inventory Audit (นับสต๊อก)</div>
                 <button data-tab="AUDIT_CREATE" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
                     <i data-lucide="file-plus" class="w-5 h-5 mr-3 text-emerald-500/70"></i><span class="text-sm font-medium">สร้างใบงาน Audit</span>
@@ -191,12 +214,14 @@
                     <i data-lucide="check-square-2" class="w-5 h-5 mr-3 text-indigo-500/70"></i><span class="text-sm font-medium">ตรวจสอบใบงาน</span>
                 </button>
 
+                <!-- Group 4: Claims -->
                 <div id="grp-clm" class="pt-8 pb-3 px-4 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">ระบบเคลมชำรุด</div>
                 <button data-tab="ADD_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
                     <i data-lucide="alert-triangle" class="w-5 h-5 mr-3 text-rose-500/70"></i><span class="text-sm font-medium">แจ้งเคลมชิ้นใหม่</span>
                 </button>
-                <button data-tab="WH_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
-                    <i data-lucide="warehouse" class="w-5 h-5 mr-3 text-emerald-500/70"></i><span class="text-sm font-medium">คลังรับของเคลม</span>
+                <button data-tab="WH_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent relative group">
+                    <i data-lucide="warehouse" class="w-5 h-5 mr-3 text-emerald-500/70 group-hover:text-emerald-400 transition-colors"></i><span class="text-sm font-medium">คลังรับของเคลม</span>
+                    <span id="badge-wh-clm" class="absolute right-4 bg-rose-500/10 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-md border border-rose-500/20 hidden">0</span>
                 </button>
                 <button data-tab="MANAGE_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-all border border-transparent">
                     <i data-lucide="send" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ส่งคืน Vendor</span>
@@ -217,11 +242,13 @@
             </div>
         </aside>
 
+        <!-- 🖥️ Main Space & Header -->
         <main class="flex-1 flex flex-col overflow-hidden bg-[#09090b] relative w-full">
             <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-indigo-500/10 blur-[120px] pointer-events-none rounded-full"></div>
 
             <header class="bg-[#09090b]/80 backdrop-blur-xl h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-40 border-b border-zinc-800/80 sticky top-0 w-full">
                 <div class="flex items-center gap-3 w-3/4">
+                    <!-- Hamburger Menu Button -->
                     <button id="mobile-menu-btn" class="md:hidden p-2 -ml-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
@@ -232,8 +259,10 @@
                 </div>
             </header>
 
+            <!-- 🗂️ TAB CONTAINERS -->
             <div class="flex-1 overflow-y-auto p-4 md:p-8 relative z-10 w-full" id="tab-container">
                 
+                <!-- ================== TAB: DASHBOARD ================== -->
                 <div id="tab-DASHBOARD" class="tab-content active space-y-6">
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <div class="glass-card rounded-2xl p-5 border-t-2 border-t-indigo-500"><p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">รับคืน (รอดำเนินการ)</p><h3 class="text-3xl font-black text-zinc-100" id="kpi-ret">0</h3></div>
@@ -242,6 +271,7 @@
                         <div class="glass-card rounded-2xl p-5 border-t-2 border-t-amber-500"><p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ลูกค้า (รอชดเชย)</p><h3 class="text-3xl font-black text-zinc-100" id="kpi-cust">0</h3></div>
                     </div>
 
+                    <!-- 📊 New Dashboard Chart -->
                     <div class="glass-card rounded-2xl p-5 w-full overflow-hidden">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-[12px] font-bold text-zinc-400 uppercase tracking-widest">สถิติปริมาณงานรวม</h3>
@@ -272,6 +302,7 @@
                     </div>
                 </div>
 
+                <!-- ================== TAB: ADD_RET ================== -->
                 <div id="tab-ADD_RET" class="tab-content">
                     <div class="max-w-3xl mx-auto glass-card rounded-[24px] p-6 md:p-10 w-full">
                         <div class="mb-8"><h2 class="text-xl font-bold text-zinc-100 flex items-center"><i data-lucide="package-plus" class="mr-3 text-indigo-400"></i> ลงทะเบียนรับเข้าสินค้าคืน</h2><p class="text-xs text-zinc-500 mt-2">สแกนหรือค้นหาสินค้าคืนจากหน้าร้าน ลูกค้า หรือออนไลน์</p></div>
@@ -337,11 +368,13 @@
                     </div>
                 </div>
 
+                <!-- ================== TAB: QC_RET ================== -->
                 <div id="tab-QC_RET" class="tab-content">
                     <div class="flex items-center justify-between mb-6"><div><h2 class="text-xl font-bold text-zinc-100">ตรวจสอบสภาพสินค้า (QC)</h2><p class="text-xs text-zinc-500 mt-1">ประเมินสภาพเพื่อแยกประเภท (สินค้าสภาพดี หรือ สินค้าเสียหาย)</p></div></div>
                     <div id="qcList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
                 </div>
                 
+                <!-- ================== TAB: BATCH_RET ================== -->
                 <div id="tab-BATCH_RET" class="tab-content">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                         <div><h2 class="text-xl font-bold text-zinc-100">รอตัดรอบ POS</h2><p class="text-xs text-zinc-500 mt-1">รวมรายการสินค้าคืนสภาพดี รอโอนกลับสต๊อกขาย</p></div>
@@ -350,6 +383,7 @@
                     <div class="glass-card rounded-2xl overflow-hidden"><div class="overflow-x-auto"><table class="w-full text-left text-sm whitespace-nowrap"><thead class="bg-zinc-900/50 border-b border-zinc-800"><tr><th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">รายการสินค้า</th><th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">จำนวน / รายละเอียด</th><th class="p-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">ประเภท</th><th class="p-4"></th></tr></thead><tbody id="batchList" class="divide-y divide-zinc-800/50 text-zinc-300"></tbody></table></div></div>
                 </div>
 
+                <!-- ================== TAB: AUDIT_CREATE ================== -->
                 <div id="tab-AUDIT_CREATE" class="tab-content">
                     <div class="max-w-4xl mx-auto glass-card rounded-[24px] p-6 md:p-10 border-t-2 border-t-emerald-500 w-full">
                         <div class="mb-8"><h2 class="text-xl font-bold text-emerald-400 flex items-center"><i data-lucide="file-plus" class="mr-3 w-6 h-6"></i> สร้างใบงาน Inventory Audit</h2><p class="text-xs text-zinc-500 mt-2">เปิดใบงาน Cycle Count กำหนดสินค้าและคลังที่ต้องการให้นับ</p></div>
@@ -378,9 +412,11 @@
                     </div>
                 </div>
 
+                <!-- ================== TAB: AUDIT_TASK & REVIEW ================== -->
                 <div id="tab-AUDIT_TASK" class="tab-content"><div class="mb-6 flex justify-between items-end"><div><h2 class="text-xl font-bold text-amber-400 flex items-center"><i data-lucide="clipboard-signature" class="mr-3 w-6 h-6"></i> ใบงานนับสต๊อก (Active Tasks)</h2><p class="text-xs text-zinc-500 mt-1">กดรับใบงาน เลือกคลังที่รับผิดชอบ เพื่อเริ่มนับจำนวน</p></div></div><div id="audit_task_list" class="space-y-6"></div></div>
                 <div id="tab-AUDIT_REVIEW" class="tab-content"><div class="mb-6"><h2 class="text-xl font-bold text-indigo-400 flex items-center"><i data-lucide="check-square-2" class="mr-3 w-6 h-6"></i> ตรวจสอบผลนับสต๊อก (Review & Finalize)</h2><p class="text-xs text-zinc-500 mt-1">สรุปยอดนับจริง (TRD+AKRA) และใส่ยอดระบบเพื่อคำนวณดิฟ</p></div><div id="audit_review_list" class="space-y-6"></div></div>
 
+                <!-- ================== TAB: TRACK_CUST ================== -->
                 <div id="tab-TRACK_CUST" class="tab-content space-y-6">
                     <div class="mb-6"><h2 class="text-xl font-bold text-zinc-100 flex items-center"><i data-lucide="users" class="mr-3 text-indigo-400"></i> ติดตามงานลูกค้า (Customer Returns)</h2><p class="text-xs text-zinc-500 mt-1">ติดตามรายการฝากขาย, รอหักลดหนี้ หรือ รอเปลี่ยนสินค้าใหม่</p></div>
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -390,6 +426,7 @@
                     </div>
                 </div>
 
+                <!-- ================== TAB: ADD_CLM ================== -->
                 <div id="tab-ADD_CLM" class="tab-content">
                     <div class="max-w-4xl mx-auto space-y-6 w-full">
                         <div class="glass-card rounded-[24px] p-6 md:p-10 border-t-2 border-t-rose-500/50">
@@ -405,6 +442,7 @@
                     </div>
                 </div>
 
+                <!-- ================== TAB: WH_CLM & MANAGE & TRACK ================== -->
                 <div id="tab-WH_CLM" class="tab-content"><h2 class="text-xl font-bold text-zinc-100 mb-6">คลังรับของเคลม (รอยืนยัน)</h2><div id="wh_claim_list" class="grid md:grid-cols-2 gap-5"></div></div>
                 <div id="tab-MANAGE_CLM" class="tab-content space-y-6"><div class="flex justify-between items-end mb-4"><div><h2 class="text-xl font-bold text-zinc-100">จัดการส่งเคลม Vendor</h2><p class="text-xs text-zinc-500 mt-1">สรุปยอดเคลมและพิมพ์เอกสารแยกตามผู้ผลิต</p></div></div><div id="manage_acc" class="space-y-4"></div></div>
                 <div id="tab-TRACK_CLM" class="tab-content space-y-6">
@@ -420,6 +458,7 @@
         </main>
     </div>
 
+    <!-- 🧠 JavaScript Logic -->
     <script>
         // --- 1. CONFIG & STATE ---
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbxVij3HZ2LzqPU7mGEQjPdyJjWvHZx13MqYnviZOC10zgNTdIocl4MUbNE0wcaJadE/exec';
@@ -848,7 +887,6 @@
                 const sku = document.getElementById('ret_sku').value; if(!sku) return Swal.fire('Notice','เลือกสินค้าก่อน','warning');
                 const now = new Date(); 
                 
-                // ใช้รูปแบบ YYYY-MM-DD เพื่อให้ Sheet ทุกเครื่องเข้าใจว่าเป็นวันที่ 100%
                 const d = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
                 
                 const source = rs.value; 
@@ -890,7 +928,7 @@
                     status:'รอ QC', 
                     qcCondition:'-', 
                     unit:document.getElementById('ret_unit').value,
-                    customerName: customerName // เพิ่มการส่งตัวแปรนี้เข้าไป เพื่อไม่ให้ช่องหลุด
+                    customerName: customerName
                 };
                 
                 if(await postData(payload, 'รับเข้าคลังสำเร็จ')) {
@@ -948,6 +986,30 @@
             if(badgeQc) { const c = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length; badgeQc.innerText = c; badgeQc.classList.toggle('hidden', c===0); }
             if(badgeBatch) { const c = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED').length; badgeBatch.innerText = c; badgeBatch.classList.toggle('hidden', c===0); }
             if(badgeAudit) { const c = new Set(state.audits.filter(a => a.overallStatus !== 'Completed' && a.overallStatus !== 'Reviewing').map(a => a.taskId)).size; badgeAudit.innerText = c; badgeAudit.classList.toggle('hidden', c===0); }
+
+            // 🚨 Floating Alert System 🚨
+            const pendingWHClaims = state.claims.filter(c => c.whStatus === 'ยังไม่รับ').length;
+            const badgeWhClm = document.getElementById('badge-wh-clm');
+            if(badgeWhClm) { 
+                badgeWhClm.innerText = pendingWHClaims; 
+                badgeWhClm.classList.toggle('hidden', pendingWHClaims === 0); 
+            }
+
+            const floatingWhAlert = document.getElementById('floating-wh-alert');
+            const floatingWhCount = document.getElementById('floating-wh-count');
+            const whTabBtn = document.querySelector('[data-tab="WH_CLM"]');
+            const hasWhAccess = whTabBtn && whTabBtn.style.display !== 'none';
+            
+            if (floatingWhAlert && floatingWhCount) {
+                floatingWhCount.innerText = pendingWHClaims;
+                if (pendingWHClaims > 0 && hasWhAccess) {
+                    floatingWhAlert.classList.remove('hidden');
+                    floatingWhAlert.classList.add('flex');
+                } else {
+                    floatingWhAlert.classList.add('hidden');
+                    floatingWhAlert.classList.remove('flex');
+                }
+            }
 
             renderDashboard();
             if(document.getElementById('tab-DASHBOARD').classList.contains('active')) {
@@ -1235,6 +1297,7 @@
                                 </button>
                             </div>
                             
+                            <!-- Hidden Item List -->
                             <div class="hidden bg-[#09090b] rounded-xl p-3 border border-zinc-800/80 mb-4 max-h-40 overflow-y-auto custom-scroll animate-in fade-in slide-in-from-top-2 duration-200">
                                 <p class="text-[10px] font-bold text-zinc-500 mb-2 uppercase tracking-widest">รายการที่ต้องนับ</p>
                                 ${itemListHtml}
@@ -1454,7 +1517,6 @@
                 });
             }
 
-            // --- ส่วนของปุ่ม "ระบุ Vendor" ---
             if(action === 'set-vendor') { 
                 const existingVendors = [...new Set(state.products.map(p => p.vendor).filter(v => v && v !== 'ไม่ระบุ Vendor' && v !== '-'))].sort();
                 Swal.fire({
@@ -1719,6 +1781,7 @@
                                     </div>
                                 </div>
                                 
+                                <!-- แสดงยอดนับจริงรวมทั้งหมด (Actual) -->
                                 <div class="flex gap-2 mb-3 bg-black/40 p-2.5 rounded-lg text-[10px]">
                                     <div class="flex-1 text-right flex items-center justify-between px-2">
                                         <span class="text-zinc-500">ผลรวมการนับจริงทั้งหมด (ชิ้น):</span> 
@@ -1727,6 +1790,7 @@
                                 </div>
                                 <div class="text-[9px] mb-3 px-2">${counterTags}</div>
                                 
+                                <!-- ฟอร์มกรอกยอดจากระบบ (POS) แบบมีเครื่องคิดเลข -->
                                 <div class="bg-indigo-500/5 border border-indigo-500/20 p-3 rounded-xl mt-4">
                                     <p class="text-[10px] text-indigo-400/80 mb-2.5 font-bold uppercase tracking-widest flex items-center">
                                         <i data-lucide="calculator" class="w-3 h-3 mr-1.5"></i> แปลงยอดจากระบบ POS (เป็นชิ้น)
