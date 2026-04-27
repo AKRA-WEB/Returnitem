@@ -282,11 +282,54 @@
                             
                             <div id="ret_src1_fields" class="hidden space-y-6 mt-6 pt-6 border-t border-zinc-800/50 animate-in fade-in duration-300">
                                 <h3 class="text-sm font-bold text-indigo-400 flex items-center mb-2"><i data-lucide="store" class="w-4 h-4 mr-2"></i> รายละเอียดลูกค้า</h3>
-                                <div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ชื่อลูกค้า (ถ้ามี)</label><input type="text" id="ret_cust" class="w-full px-4 py-3 input-dark rounded-xl text-sm" placeholder="ระบุชื่อลูกค้า..."></div>
-                                <div class="grid md:grid-cols-2 gap-4"><div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">สาเหตุหลัก</label><select id="ret_main_reason" class="w-full px-4 py-3 input-dark rounded-xl text-sm"><option value="" disabled selected>-- เลือกสาเหตุ --</option><option value="สินค้าชำรุด/เสียหาย">สินค้าชำรุด/เสียหาย</option><option value="สินค้าหมดอายุ">สินค้าหมดอายุ</option><option value="สินค้าส่งผิด(ร้านส่งผิด)">สินค้าส่งผิด(ร้านส่งผิด)</option><option value="คุณภาพสินค้าผิดปกติ">คุณภาพสินค้าผิดปกติ</option><option value="สั่งสินค้าผิด">สั่งสินค้าผิด</option><option value="อื่น ๆ">อื่น ๆ</option></select></div><div id="ret_other_reason_container" class="hidden"><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ระบุสาเหตุอื่น ๆ</label><input type="text" id="ret_other_reason" class="w-full px-4 py-3 input-dark rounded-xl text-sm" placeholder="ระบุสาเหตุ..."></div></div>
-                                <div class="grid md:grid-cols-2 gap-4"><div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">สถานะบิล</label><select id="ret_bill_status" class="w-full px-4 py-3 input-dark rounded-xl text-sm"><option value="" disabled selected>-- เลือกสถานะบิล --</option><option value="รับสินค้ากลับ - ยังไม่ยกเลิกบิล">รับสินค้ากลับ - ยังไม่ยกเลิกบิล</option><option value="รับสินค้ากลับ - ยกเลิกบิลแล้ว">รับสินค้ากลับ - ยกเลิกบิลแล้ว</option></select></div><div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">การชดเชย</label><select id="ret_compensation" class="w-full px-4 py-3 input-dark rounded-xl text-sm"><option value="" disabled selected>-- เลือกการชดเชย --</option><option value="หักลดหนี้ในบิลถัดไป">หักลดหนี้ในบิลถัดไป</option><option value="เปลี่ยนสินค้าเดิมเป็นของใหม่ (ไม่แก้บิล)">เปลี่ยนสินค้าเดิมเป็นของใหม่ (ไม่แก้บิล)</option><option value="รับคืนเพื่อฝากขาย">รับคืนเพื่อฝากขาย</option><option value="อื่น ๆ">อื่น ๆ</option></select></div></div>
-                                <div id="ret_bill_container" class="hidden grid md:grid-cols-2 gap-4 p-5 rounded-xl border border-zinc-800 bg-black/40"><div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">วันที่บิล</label><input type="date" id="ret_bill_date" class="w-full px-4 py-3 input-dark rounded-xl text-sm"></div><div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">เลขที่บิล</label><input type="text" id="ret_bill_no" class="w-full px-4 py-3 input-dark rounded-xl text-sm font-mono focus:border-indigo-500" placeholder="เช่น INV-0001"></div></div>
-                                <div id="ret_other_comp_container" class="hidden"><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ระบุการชดเชยอื่น ๆ</label><input type="text" id="ret_other_comp" class="w-full px-4 py-3 input-dark rounded-xl text-sm" placeholder="ระบุรายละเอียด..."></div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">ชื่อลูกค้า (ถ้ามี)</label><input type="text" id="ret_cust" class="w-full px-4 py-3 input-dark rounded-xl text-sm" placeholder="ระบุชื่อลูกค้า..."></div>
+                                    <div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">รหัสสมาชิก</label><input type="text" id="ret_member_id" class="w-full px-4 py-3 input-dark rounded-xl text-sm" placeholder="ระบุรหัสสมาชิก..."></div>
+                                </div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">สาเหตุการคืน</label>
+                                        <select id="ret_main_reason" class="w-full px-4 py-3 input-dark rounded-xl text-sm">
+                                            <option value="" disabled selected>-- เลือกสาเหตุ --</option>
+                                            <option value="สินค้าชำรุด/เสียหาย">สินค้าชำรุด/เสียหาย</option>
+                                            <option value="สินค้าหมดอายุ">สินค้าหมดอายุ</option>
+                                            <option value="สินค้าส่งผิด(ร้านส่งผิด)">สินค้าส่งผิด(ร้านส่งผิด)</option>
+                                            <option value="คุณภาพสินค้าผิดปกติ">คุณภาพสินค้าผิดปกติ</option>
+                                            <option value="สั่งสินค้าผิด">สั่งสินค้าผิด</option>
+                                            <option value="อื่น ๆ">อื่น ๆ</option>
+                                        </select>
+                                        <div id="ret_other_reason_container" class="hidden mt-3"><input type="text" id="ret_other_reason" class="w-full px-4 py-3 input-dark rounded-xl text-sm" placeholder="ระบุสาเหตุ..."></div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">การชดเชย</label>
+                                        <select id="ret_compensation" class="w-full px-4 py-3 input-dark rounded-xl text-sm">
+                                            <option value="" disabled selected>-- เลือกการชดเชย --</option>
+                                            <option value="หักลดหนี้ในบิลถัดไป">หักลดหนี้ในบิลถัดไป</option>
+                                            <option value="เปลี่ยนสินค้าเดิมเป็นของใหม่ (ไม่แก้บิล)">เปลี่ยนสินค้าเดิมเป็นของใหม่ (ไม่แก้บิล)</option>
+                                            <option value="รับคืนเพื่อฝากขาย">รับคืนเพื่อฝากขาย</option>
+                                            <option value="อื่น ๆ">อื่น ๆ</option>
+                                        </select>
+                                        <div id="ret_other_comp_container" class="hidden mt-3"><input type="text" id="ret_other_comp" class="w-full px-4 py-3 input-dark rounded-xl text-sm" placeholder="ระบุรายละเอียด..."></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">วันที่บิล</label><input type="date" id="ret_bill_date" class="w-full px-4 py-3 input-dark rounded-xl text-sm"></div>
+                                    <div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">เลขที่บิล</label><input type="text" id="ret_bill_no" class="w-full px-4 py-3 input-dark rounded-xl text-sm font-mono focus:border-indigo-500" placeholder="เช่น INV-0001"></div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">สถานะบิล</label>
+                                    <select id="ret_bill_status" class="w-full px-4 py-3 input-dark rounded-xl text-sm">
+                                        <option value="" disabled selected>-- เลือกสถานะบิล --</option>
+                                        <option value="แก้ไขบิลแล้ว">แก้ไขบิลแล้ว</option>
+                                        <option value="ยกเลิกบิลแล้ว">ยกเลิกบิลแล้ว</option>
+                                        <option value="ไม่ต้องแก้ไขบิล">ไม่ต้องแก้ไขบิล</option>
+                                        <option value="รอหลังบ้านปรับบิล(บิลของข้ามวัน)">รอหลังบ้านปรับบิล(บิลของข้ามวัน)</option>
+                                    </select>
+                                </div>
                             </div>
                             <div id="ret_src2_fields" class="hidden space-y-4 mt-6 pt-6 border-t border-zinc-800/50 animate-in fade-in duration-300"><div><label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">หมายเหตุ / เหตุผล</label><textarea id="ret_remark" class="w-full px-4 py-3 input-dark rounded-xl text-sm" rows="3" placeholder="อธิบายสาเหตุสั้นๆ..."></textarea></div></div>
                             <div class="pt-4 mt-6 border-t border-zinc-800/50"><button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-[0_0_15px_rgba(99,102,241,0.3)] transition-all">บันทึกเข้าคลังกักกัน</button></div>
@@ -798,7 +841,7 @@
             const rs = document.getElementById('ret_source'), rs1 = document.getElementById('ret_src1_fields');
             rs.addEventListener('change', () => { if(rs.value === 'หน้าร้าน/ลูกค้า') rs1.classList.remove('hidden'); else rs1.classList.add('hidden'); });
             document.getElementById('ret_main_reason').addEventListener('change', e => { document.getElementById('ret_other_reason_container').classList.toggle('hidden', e.target.value !== 'อื่น ๆ'); });
-            document.getElementById('ret_compensation').addEventListener('change', e => { document.getElementById('ret_bill_container').classList.toggle('hidden', e.target.value !== 'หักลดหนี้ในบิลถัดไป'); document.getElementById('ret_other_comp_container').classList.toggle('hidden', e.target.value !== 'อื่น ๆ'); });
+            document.getElementById('ret_compensation').addEventListener('change', e => { document.getElementById('ret_other_comp_container').classList.toggle('hidden', e.target.value !== 'อื่น ๆ'); });
 
             document.getElementById('retForm').onsubmit = async e => {
                 e.preventDefault();
@@ -807,20 +850,26 @@
                 const source = rs.value; let finalReason = '-', compValue = '-', bStatus = '-', bNo = '-';
                 
                 if (source === 'หน้าร้าน/ลูกค้า') {
-                    const cust = document.getElementById('ret_cust').value, mainRes = document.getElementById('ret_main_reason').value;
-                    if (!mainRes) return Swal.fire('Notice', 'เลือกสาเหตุหลัก', 'warning');
+                    const custRaw = document.getElementById('ret_cust').value;
+                    const memId = document.getElementById('ret_member_id').value;
+                    const cust = memId ? (custRaw ? `${custRaw} (${memId})` : memId) : custRaw;
+                    
+                    const mainRes = document.getElementById('ret_main_reason').value;
+                    if (!mainRes) return Swal.fire('Notice', 'เลือกสาเหตุการคืน', 'warning');
                     const baseReason = mainRes === 'อื่น ๆ' ? document.getElementById('ret_other_reason').value : mainRes;
                     finalReason = cust ? `[ลูกค้า: ${cust}] ${baseReason}` : baseReason;
+                    
                     const comp = document.getElementById('ret_compensation').value;
                     if (!comp) return Swal.fire('Notice', 'เลือกการชดเชย', 'warning');
                     compValue = comp === 'อื่น ๆ' ? document.getElementById('ret_other_comp').value : comp;
+                    
                     bStatus = document.getElementById('ret_bill_status').value || '-';
-                    if (comp === 'หักลดหนี้ในบิลถัดไป') bNo = document.getElementById('ret_bill_no').value || '-';
+                    bNo = document.getElementById('ret_bill_no').value || '-';
                 } else { finalReason = document.getElementById('ret_remark').value || '-'; }
                 
                 const payload = { action:'addReturn', id:'RET-'+Date.now(), dateStr:d, timeStr:now.toLocaleTimeString('th-TH',{hour12:false}), sku, name:document.getElementById('ret_search').value, qty:document.getElementById('ret_qty').value, source:source, reason:finalReason, billStatus:bStatus, compensation:compValue, billNo:bNo, status:'รอ QC', qcCondition:'-', unit:document.getElementById('ret_unit').value };
                 if(await postData(payload, 'รับเข้าคลังสำเร็จ')) {
-                    e.target.reset(); document.getElementById('ret_sku').value=''; rs1.classList.add('hidden'); document.getElementById('ret_other_reason_container').classList.add('hidden'); document.getElementById('ret_bill_container').classList.add('hidden'); document.getElementById('ret_other_comp_container').classList.add('hidden');
+                    e.target.reset(); document.getElementById('ret_sku').value=''; rs1.classList.add('hidden'); document.getElementById('ret_other_reason_container').classList.add('hidden'); document.getElementById('ret_other_comp_container').classList.add('hidden');
                 }
             };
 
