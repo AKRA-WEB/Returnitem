@@ -582,16 +582,49 @@
         });
 
         async function fetchData(loader = true) {
+            const refreshIcon = document.querySelector('i[data-lucide="refresh-cw"]');
+
+            // 🟢 [Added] Cache First Logic: ดึงข้อมูลเก่ามาแสดงผลทันที
+            if (loader) {
+                const cachedData = localStorage.getItem('wms_app_cache');
+                if (cachedData) {
+                    try {
+                        const parsedCache = JSON.parse(cachedData);
+                        state = { ...state, ...parsedCache };
+                        renderUI(); // นำข้อมูลจาก Cache ขึ้นจอทันที
+                        loader = false; // ปิด Loader ตัวใหญ่ตรงกลางจอทิ้งไปเลย
+                    } catch (e) {
+                        console.error("Cache parsing error", e);
+                    }
+                }
+            }
+
+            // ถ้าไม่มี Cache ค่อยโชว์ Loader ใหญ่ / ถ้ามี Cache แล้วให้ปุ่ม Refresh หมุนเบาๆ แทน
             if(loader) showLoader('กำลังซิงค์ข้อมูล...');
+            else if(refreshIcon) refreshIcon.classList.add('animate-spin', 'text-[#E35205]');
+
             const cb = 'jsonp_' + Date.now();
             window[cb] = (res) => {
                 if(loader) hideLoader();
-                if(res.status === 'success') { state = { ...state, ...res.data }; renderUI(); } 
+                if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
+
+                if(res.status === 'success') { 
+                    // 🟢 [Added] อัปเดตข้อมูลใหม่ลง Cache
+                    localStorage.setItem('wms_app_cache', JSON.stringify(res.data));
+                    
+                    state = { ...state, ...res.data }; 
+                    renderUI(); // อัปเดต UI ด้วยข้อมูลใหม่ล่าสุด
+                } 
                 else { Swal.fire('Error', res.message, 'error'); }
                 delete window[cb]; document.head.removeChild(document.getElementById(cb));
             };
             const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}`;
-            script.onerror = () => { if(loader) hideLoader(); Swal.fire('Error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', 'error'); delete window[cb]; document.head.removeChild(script); };
+            script.onerror = () => { 
+                if(loader) hideLoader(); 
+                if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
+                Swal.fire('Error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', 'error'); 
+                delete window[cb]; document.head.removeChild(script); 
+            };
             document.head.appendChild(script);
         }
 
