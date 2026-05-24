@@ -620,16 +620,18 @@
             document.addEventListener('click', handleGlobalClicks);
         });
 
+        const RETURN_CACHE_TTL = 10 * 60 * 1000;
+        function getCache(key, ttlMs) { try { const raw = localStorage.getItem(key); if (!raw) return null; const w = JSON.parse(raw); if (Date.now() - (w._ts||0) > ttlMs) { localStorage.removeItem(key); return null; } return w._d; } catch(e) { localStorage.removeItem(key); return null; } }
+        function setCache(key, data) { localStorage.setItem(key, JSON.stringify({ _ts: Date.now(), _d: data })); }
         async function fetchData(loader = true) {
             const refreshIcon = document.querySelector('i[data-lucide="refresh-cw"]');
 
-            // 🟢 [Added] Cache First Logic: ดึงข้อมูลเก่ามาแสดงผลทันที
+            // Cache First: ดึงข้อมูลเก่ามาแสดงผลทันที (มี TTL)
             if (loader) {
-                const cachedData = localStorage.getItem('wms_app_cache');
+                const cachedData = getCache('wms_app_cache', RETURN_CACHE_TTL);
                 if (cachedData) {
                     try {
-                        const parsedCache = JSON.parse(cachedData);
-                        state = { ...state, ...parsedCache };
+                        state = { ...state, ...cachedData };
                         renderUI(); // นำข้อมูลจาก Cache ขึ้นจอทันที
                         loader = false; // ปิด Loader ตัวใหญ่ตรงกลางจอทิ้งไปเลย
                     } catch (e) {
@@ -649,7 +651,7 @@
 
                 if(res.status === 'success') { 
                     // 🟢 [Added] อัปเดตข้อมูลใหม่ลง Cache
-                    localStorage.setItem('wms_app_cache', JSON.stringify(res.data));
+                    setCache('wms_app_cache', res.data);
                     
                     state = { ...state, ...res.data }; 
                     renderUI(); // อัปเดต UI ด้วยข้อมูลใหม่ล่าสุด
