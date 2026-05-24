@@ -80,40 +80,76 @@
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
         const ALLOWED_ROLES = ["AKRA", "ADMIN", "TRD", "Cashier"]; 
+        const API_URL = "https://script.google.com/macros/s/AKfycbwv2oGqYocA-k-EN2qjs_rf64gc9kDCG2o2nIKlAW0BDCT0rXLvcgLurCRaQXjuC-OG/exec"; // Central SSO Backend
+        const STORAGE_KEY = "akra_sso_user_data";
         let appUser = null; 
 
-        function verifyAccess() {
-            let savedData = localStorage.getItem('akra_sso_user_data');
-            // DEV MOCK - ลบออกเมื่อใช้งานจริง
-            if (!savedData) {
+        async function verifyAccess() {
+            // Check preview environment
+            const isPreviewEnv = window.self !== window.top || window.location.hostname === "" || window.location.hostname === "localhost" || window.location.hostname.includes("googleusercontent");
+            
+            let savedData = localStorage.getItem(STORAGE_KEY);
+
+            // If no cache and it's preview/local, use mock
+            if (!savedData && isPreviewEnv) {
                 console.warn("⚠️ MOCK MODE: ไม่พบข้อมูล SSO กำลังจำลอง User เพื่อทดสอบ");
                 const mockUser = { name: "Admin (Demo)", roles: ["ADMIN"] };
-                localStorage.setItem('akra_sso_user_data', JSON.stringify(mockUser));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(mockUser));
                 savedData = JSON.stringify(mockUser);
             }
 
-            if (!savedData) {
-                alert("❌ กรุณาเข้าสู่ระบบผ่านหน้า Main Portal ก่อนใช้งาน");
-                window.location.replace(MAIN_PORTAL_URL);
-                return false;
-            }
-            try {
-                appUser = JSON.parse(savedData);
-                const hasPermission = appUser.roles.some(role => ALLOWED_ROLES.includes(role));
-                const isAdmin = appUser.roles.includes("ADMIN");
-                if (!hasPermission && !isAdmin) {
-                    alert("⛔ คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้");
+            const urlParams = new URLSearchParams(window.location.search);
+            const ssoToken = urlParams.get('sso');
+
+            if (ssoToken) {
+                try {
+                    const fixedSsoToken = ssoToken.replace(/ /g, '+');
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    const rolesParam = ALLOWED_ROLES.length ? '&roles=' + ALLOWED_ROLES.join(',') : '';
+                    const verifyURL = `${API_URL}?action=verifyToken&token=${encodeURIComponent(fixedSsoToken)}${rolesParam}`;
+                    
+                    const response = await fetch(verifyURL);
+                    if (!response.ok) throw new Error("API_ERROR");
+                    const result = await response.json();
+
+                    if (!result.valid) {
+                        localStorage.removeItem(STORAGE_KEY);
+                        alert('เกิดข้อผิดพลาดในการยืนยันตัวตน หรือคุณไม่มีสิทธิ์เข้าใช้งานระบบนี้');
+                        window.location.replace(MAIN_PORTAL_URL);
+                        return false;
+                    }
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ name: result.user.name, roles: result.user.roles }));
+                    appUser = { name: result.user.name, roles: result.user.roles };
+                    return true;
+                } catch (error) {
+                    console.error("Auth Error:", error);
+                    alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อตรวจสอบสิทธิ์ได้");
                     window.location.replace(MAIN_PORTAL_URL);
                     return false;
                 }
-                return true;
-            } catch (error) {
-                localStorage.removeItem('akra_sso_user_data');
-                window.location.replace(MAIN_PORTAL_URL);
-                return false;
+            } else {
+                if (!savedData) {
+                    alert("❌ กรุณาเข้าสู่ระบบผ่านหน้า Main Portal ก่อนใช้งาน");
+                    window.location.replace(MAIN_PORTAL_URL);
+                    return false;
+                }
+                try {
+                    appUser = JSON.parse(savedData);
+                    const hasPermission = appUser.roles.some(role => ALLOWED_ROLES.includes(role));
+                    const isAdmin = appUser.roles.includes("ADMIN");
+                    if (!hasPermission && !isAdmin) {
+                        alert("⛔ คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้");
+                        window.location.replace(MAIN_PORTAL_URL);
+                        return false;
+                    }
+                    return true;
+                } catch (error) {
+                    localStorage.removeItem(STORAGE_KEY);
+                    window.location.replace(MAIN_PORTAL_URL);
+                    return false;
+                }
             }
         }
-        if(!verifyAccess()) throw new Error("Access Denied"); 
     </script>
 </head>
 <body class="overflow-hidden selection:bg-[#171C8F]/20 relative">
@@ -130,7 +166,7 @@
     </div>
 
     <!-- ⏳ Global Loader -->
-    <div id="global-loader" class="fixed inset-0 z-[9999] bg-white/80 backdrop-blur-sm hidden flex-col items-center justify-center transition-opacity duration-200">
+    <div id="global-loader" class="fixed inset-0 z-[9999] bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center transition-opacity duration-200">
         <div class="bg-white border border-slate-200 px-8 py-6 rounded-2xl shadow-xl flex flex-col items-center">
             <div class="relative w-12 h-12 mb-4">
                 <div class="absolute inset-0 rounded-full border-t-2 border-[#171C8F] animate-spin"></div>
@@ -563,7 +599,10 @@
         }
 
         // --- 3. INIT & API ---
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            const hasAccess = await verifyAccess();
+            if (!hasAccess) return;
+
             if (appUser && appUser.name) {
                 state.user = appUser.name;
                 document.getElementById('user-display').innerText = appUser.name;
@@ -971,7 +1010,7 @@
                 clmForm.onsubmit = e => {
                     e.preventDefault(); const sku = document.getElementById('clm_sku').value; if(!sku) return;
                     const dDate = document.getElementById('clm_date').value, eDate = document.getElementById('clm_exp').value;
-                    state.drafts.push({ id: 'CLM-'+Date.now(), reportDate: dDate ? `${dDate.split('-')[2]}/${dDate.split('-')[1]}/${parseInt(dDate.split('-')[0])+543}` : '-', expDate: eDate ? `${eDate.split('-')[2]}/${eDate.split('-')[1]}/${parseInt(eDate.split('-')[0])+543}` : '-', foundLocation: document.getElementById('clm_loc').value, sku, name: document.getElementById('clm_search').value, qty: document.getElementById('clm_qty').value, unit: document.getElementById('clm_sku').dataset.unit || 'ชิ้น', reason: document.getElementById('clm_reason').value, remark: document.getElementById('clm_remark').value || '-', vendor: document.getElementById('clm_vendor').innerText, reporter: state.user });
+                    state.drafts.push({ id: 'CLM-'+Date.now(), reportDate: dDate ? `${dDate.split('-')[2]}/${dDate.split('-')[1]}/${dDate.split('-')[0]}` : '-', expDate: eDate ? `${eDate.split('-')[2]}/${eDate.split('-')[1]}/${eDate.split('-')[0]}` : '-', foundLocation: document.getElementById('clm_loc').value, sku, name: document.getElementById('clm_search').value, qty: document.getElementById('clm_qty').value, unit: document.getElementById('clm_sku').dataset.unit || 'ชิ้น', reason: document.getElementById('clm_reason').value, remark: document.getElementById('clm_remark').value || '-', vendor: document.getElementById('clm_vendor').innerText, reporter: state.user });
                     renderDrafts(); e.target.reset(); document.getElementById('clm_sku').value=''; document.getElementById('clm_vendor').innerText='-';
                 };
             }
