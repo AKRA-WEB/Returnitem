@@ -79,7 +79,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const ALLOWED_ROLES = ["AKRA", "ADMIN", "TRD", "Cashier"]; 
+        const ALLOWED_ROLES = ["AKRA", "ADMIN", "TRD", "Cashier", "SUPERVISOR"];
         const API_URL = "https://script.google.com/macros/s/AKfycbwv2oGqYocA-k-EN2qjs_rf64gc9kDCG2o2nIKlAW0BDCT0rXLvcgLurCRaQXjuC-OG/exec"; // Central SSO Backend
         const STORAGE_KEY = "akra_sso_user_data";
         let appUser = null; 
@@ -118,8 +118,8 @@
                         window.location.replace(MAIN_PORTAL_URL);
                         return false;
                     }
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ name: result.user.name, roles: result.user.roles }));
-                    appUser = { name: result.user.name, roles: result.user.roles };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ name: result.user.name, roles: result.user.roles, perms: result.user.perms || {} }));
+                    appUser = { name: result.user.name, roles: result.user.roles, perms: result.user.perms || {} };
                     return true;
                 } catch (error) {
                     console.error("Auth Error:", error);
@@ -515,20 +515,25 @@
             const roles = appUser.roles || [];
             const isAdmin = roles.includes("ADMIN");
 
-            const rolePermissions = {
-                "AKRA": ["AUDIT_TASK", "ADD_CLM", "WH_CLM", "MANAGE_CLM"],
-                "TRD": ["ADD_RET", "QC_RET", "MANAGE_CLM"],
-                "Cashier": ["AUDIT_CREATE", "AUDIT_TASK", "ADD_RET", "TRACK_CUST", "QC_RET", "BATCH_RET", "AUDIT_REVIEW", "MANAGE_CLM"]
-            };
-
             let allowedTabs = new Set();
-            if (isAdmin) return; 
+            if (isAdmin) return;
 
-            roles.forEach(role => {
-                if (rolePermissions[role]) {
-                    rolePermissions[role].forEach(tab => allowedTabs.add(tab));
-                }
-            });
+            // Use perms from token if available, else fall back to role-based map
+            const retPerms = (appUser.perms && appUser.perms["app-ret"]) || [];
+            if (retPerms.length > 0) {
+                retPerms.forEach(p => allowedTabs.add(p));
+            } else {
+                // backward compat: no perms in token
+                const rolePermissions = {
+                    "AKRA":       ["AUDIT_TASK", "ADD_CLM", "WH_CLM", "MANAGE_CLM"],
+                    "TRD":        ["ADD_RET", "QC_RET", "MANAGE_CLM"],
+                    "Cashier":    ["AUDIT_CREATE", "AUDIT_TASK", "ADD_RET", "TRACK_CUST", "QC_RET", "BATCH_RET", "AUDIT_REVIEW", "MANAGE_CLM"],
+                    "SUPERVISOR": ["ADD_RET","QC_RET","ADD_CLM","WH_CLM","MANAGE_CLM","AUDIT_CREATE","AUDIT_TASK","AUDIT_REVIEW","BATCH_RET","TRACK_CUST"]
+                };
+                roles.forEach(role => {
+                    if (rolePermissions[role]) rolePermissions[role].forEach(tab => allowedTabs.add(tab));
+                });
+            }
 
             document.querySelectorAll('[data-tab]').forEach(btn => {
                 const tabName = btn.dataset.tab;
