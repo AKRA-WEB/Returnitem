@@ -638,7 +638,8 @@
                     try {
                         state = { ...state, ...cachedData };
                         renderUI(); // นำข้อมูลจาก Cache ขึ้นจอทันที
-                        loader = false; // ปิด Loader ตัวใหญ่ตรงกลางจอทิ้งไปเลย
+                        hideLoader(); // 🟢 [Fixed] ปิด Loader ตัวใหญ่ตรงกลางจอทันที
+                        loader = false; 
                     } catch (e) {
                         console.error("Cache parsing error", e);
                     }
@@ -651,7 +652,7 @@
 
             const cb = 'jsonp_' + Date.now();
             window[cb] = (res) => {
-                if(loader) hideLoader();
+                hideLoader(); // 🟢 [Fixed] ซ่อน Loader ทุกกรณีเมื่อข้อมูลเสร็จสิ้น
                 if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
 
                 if(res.status === 'success') { 
@@ -666,7 +667,7 @@
             };
             const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}`;
             script.onerror = () => { 
-                if(loader) hideLoader(); 
+                hideLoader(); // 🟢 [Fixed] ซ่อน Loader เมื่อเกิด Error
                 if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
                 Swal.fire('Error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', 'error'); 
                 delete window[cb]; document.head.removeChild(script); 
