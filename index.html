@@ -79,7 +79,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260602.01";
+        const CURRENT_VERSION = "20260604.01";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -838,12 +838,17 @@
             const val = inp.value.trim().toLowerCase(); 
             list.innerHTML = '';
             if(!val) { list.classList.add('hidden'); row.querySelector('.audit-sku').value=''; row.querySelector('.audit-unit').value=''; return; }
-            const matches = state.products.filter(p => p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val)).slice(0, 6);
+            const allMatches = state.products.filter(p => p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val));
+            const matches = allMatches.slice(0, 30);
             if(matches.length) {
-                list.innerHTML = matches.map(m => {
+                let html = matches.map(m => {
                     const safeName = m.name.replace(/'/g, "\\'").replace(/"/g, "&quot;");
                     return `<li class="p-3.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-sm text-slate-700" onclick="selectAuditItem(this, '${safeName}','${m.sku}','${m.unit || 'ชิ้น'}')"><strong class="text-[#171C8F] font-mono text-xs">${m.sku}</strong><br><span class="mt-1 block truncate">${m.name}</span></li>`;
                 }).join('');
+                if (allMatches.length > 30) {
+                    html += `<li class="p-2 text-center text-xs text-slate-400 bg-slate-50 italic cursor-default">พบสินค้ามากกว่า 30 รายการ กรุณาพิมพ์คำค้นหาเพิ่มเติม...</li>`;
+                }
+                list.innerHTML = html;
                 list.classList.remove('hidden');
             }
         }
@@ -923,13 +928,18 @@
                 inp.oninput = () => {
                     const val = inp.value.trim().toLowerCase(); list.innerHTML = '';
                     if(!val) { list.classList.add('hidden'); return; }
-                    const matches = state.products.filter(p => p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val)).slice(0, 6);
+                    const allMatches = state.products.filter(p => p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val));
+                    const matches = allMatches.slice(0, 30);
                     if(matches.length) {
-                        list.innerHTML = matches.map(m => {
+                        let html = matches.map(m => {
                             const safeName = m.name.replace(/'/g, "\\'").replace(/"/g, "&quot;");
                             const safeVendor = (m.vendor || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
                             return `<li class="p-3.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-sm text-slate-700" onclick="selectItem('${inpId}','${listId}','${skuId}','${unitId || ''}', '${vendId || ''}','${safeName}','${m.sku}','${m.unit || ''}', '${safeVendor}')"><strong class="text-[#171C8F] font-mono text-xs">${m.sku}</strong><br><span class="mt-1 block truncate">${m.name}</span></li>`;
                         }).join('');
+                        if (allMatches.length > 30) {
+                            html += `<li class="p-2 text-center text-xs text-slate-400 bg-slate-50 italic cursor-default">พบสินค้ามากกว่า 30 รายการ กรุณาพิมพ์คำค้นหาเพิ่มเติม...</li>`;
+                        }
+                        list.innerHTML = html;
                         list.classList.remove('hidden');
                     }
                 };
