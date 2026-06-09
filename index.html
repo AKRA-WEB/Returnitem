@@ -49,6 +49,17 @@
         .glass-card { background: var(--card-bg); border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
         .input-ci { background: #F1F5F9; border: 1px solid #CBD5E1; color: #0F172A; transition: all 0.2s; }
         .input-ci:focus { border-color: var(--ci-blue); box-shadow: 0 0 0 2px rgba(23, 28, 143, 0.1); background: var(--ci-white); outline: none; }
+        :where(button, input, select, textarea, [role="button"], [tabindex]):focus-visible { outline: 3px solid rgba(227, 82, 5, 0.55); outline-offset: 2px; }
+        .field-invalid { border-color: #E11D48 !important; box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.12) !important; background: #FFF1F2 !important; }
+        .field-error { color: #BE123C; font-size: 0.75rem; font-weight: 700; margin-top: 0.35rem; }
+        .combo-option.is-active { background: rgba(23, 28, 143, 0.08); }
+        .qc-choice { border: 1px solid transparent; transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease; }
+        .qc-choice.is-active { box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12); transform: translateY(-1px); }
+        .qc-choice small { display: block; margin-top: 0.25rem; font-size: 0.72rem; font-weight: 700; line-height: 1.2; opacity: 0.9; text-align: center; }
+        .qc-choice[data-qc-choice="A"].is-active { border-color: rgba(16, 185, 129, 0.45); background: #16a34a; color: #fff; }
+        .qc-choice[data-qc-choice="C"].is-active { border-color: rgba(248, 113, 113, 0.45); background: #dc2626; color: #fff; }
+        .qc-choice[data-qc-choice="A"]:not(.is-active) { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+        .qc-choice[data-qc-choice="C"]:not(.is-active) { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
         
         /* 🎨 Custom SweetAlert2 (Light/CI Theme) */
         div:where(.swal2-container) div:where(.swal2-popup) { background-color: var(--ci-white); color: #1E293B; border-radius: 1.25rem; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); border: 1px solid #E2E8F0; }
@@ -63,6 +74,10 @@
         .accordion-content.expanded { max-height: 2500px; opacity: 1; padding-bottom: 1.5rem; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+        }
 
         /* 🖨️ Print Rules */
         @media print {
@@ -79,7 +94,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260608.01";
+        const CURRENT_VERSION = "20260609.12";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -104,25 +119,27 @@
 
         async function verifyAccess() {
             // Check preview environment
-            const isPreviewEnv = window.self !== window.top || window.location.hostname === "" || window.location.hostname === "localhost" || window.location.hostname.includes("googleusercontent");
+            const isPreviewEnv = window.self !== window.top || window.location.hostname === "" || ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname) || window.location.hostname.includes("googleusercontent");
             
             let savedData = localStorage.getItem(STORAGE_KEY);
 
-            // If no cache and it's preview/local, use mock
-            if (!savedData && isPreviewEnv) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const ssoToken = urlParams.get('sso');
+
+            // Local/preview should not get stuck on a stale SSO cache while testing.
+            if (!ssoToken && isPreviewEnv) {
                 console.warn("⚠️ MOCK MODE: ไม่พบข้อมูล SSO กำลังจำลอง User เพื่อทดสอบ");
                 const mockUser = { name: "Admin (Demo)", roles: ["ADMIN"] };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(mockUser));
                 savedData = JSON.stringify(mockUser);
             }
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const ssoToken = urlParams.get('sso');
-
             if (ssoToken) {
                 try {
                     const fixedSsoToken = ssoToken.replace(/ /g, '+');
-                    window.history.replaceState({}, document.title, window.location.pathname);
+                    urlParams.delete('sso');
+                    const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+                    window.history.replaceState({}, document.title, cleanUrl);
                     const rolesParam = ALLOWED_ROLES.length ? '&roles=' + ALLOWED_ROLES.join(',') : '';
                     const verifyURL = `${API_URL}?action=verifyToken&token=${encodeURIComponent(fixedSsoToken)}${rolesParam}`;
                     
@@ -190,7 +207,7 @@
                 <div class="absolute inset-0 rounded-full border-t-2 border-[#171C8F] animate-spin"></div>
                 <div class="absolute inset-2 rounded-full border-t-2 border-[#E35205] animate-spin" style="animation-direction: reverse; animation-duration: 1.5s;"></div>
             </div>
-            <p id="global-loader-text" class="text-xs font-bold text-[#171C8F] tracking-widest uppercase">กำลังประมวลผล...</p>
+            <p id="global-loader-text" role="status" aria-live="polite" class="text-xs font-bold text-[#171C8F] tracking-widest uppercase">กำลังประมวลผล...</p>
         </div>
     </div>
 
@@ -222,7 +239,7 @@
         <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-[60] w-64 bg-[#171C8F] flex flex-col shrink-0 border-r border-[#171C8F] transform -translate-x-full transition-transform duration-300 md:relative md:translate-x-0 shadow-2xl md:shadow-none">
             
             <!-- Mobile Close Button -->
-            <button id="close-sidebar-btn" class="md:hidden absolute top-5 right-4 p-2 bg-white/10 text-white/70 hover:text-white rounded-lg transition-colors">
+            <button id="close-sidebar-btn" aria-label="ปิดเมนู" class="md:hidden absolute top-5 right-4 p-2 bg-white/10 text-white/70 hover:text-white rounded-lg transition-colors">
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
 
@@ -248,7 +265,7 @@
                     <i data-lucide="plus-circle" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">รับเข้าสินค้าคืน</span>
                 </button>
                 <button data-tab="QC_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all border border-transparent relative group">
-                    <i data-lucide="shield-check" class="w-5 h-5 mr-3 group-hover:text-[#E35205] transition-colors"></i><span class="text-sm font-medium">รอตรวจสภาพ</span>
+                    <i data-lucide="shield-check" class="w-5 h-5 mr-3 group-hover:text-[#E35205] transition-colors"></i><span class="text-sm font-medium">ยังไม่ตรวจสภาพ</span>
                     <span id="badge-qc" class="absolute right-4 bg-[#E35205] text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm hidden">0</span>
                 </button>
                 <button data-tab="BATCH_RET" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all border border-transparent relative group">
@@ -305,13 +322,13 @@
             <header class="bg-white/90 backdrop-blur-xl h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-40 border-b border-slate-200 sticky top-0 w-full shadow-sm">
                 <div class="flex items-center gap-3 w-3/4">
                     <!-- Hamburger Menu Button -->
-                    <button id="mobile-menu-btn" class="md:hidden p-2 -ml-2 text-slate-500 hover:text-[#171C8F] hover:bg-slate-100 rounded-lg transition-colors">
+                    <button id="mobile-menu-btn" aria-label="เปิดเมนู" class="md:hidden p-2 -ml-2 text-slate-500 hover:text-[#171C8F] hover:bg-slate-100 rounded-lg transition-colors">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
                     <h2 class="font-bold text-lg text-[#171C8F] tracking-tight truncate" id="active-tab-title">ภาพรวมระบบ</h2>
                 </div>
                 <div class="flex items-center space-x-3 shrink-0">
-                    <button onclick="fetchData()" class="p-2.5 text-slate-400 hover:text-[#E35205] hover:bg-[#E35205]/10 rounded-lg transition-all"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
+                    <button onclick="fetchData()" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" class="p-2.5 text-slate-400 hover:text-[#E35205] hover:bg-[#E35205]/10 rounded-lg transition-all"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
                 </div>
             </header>
 
@@ -320,11 +337,69 @@
                 
                 <!-- ================== TAB: DASHBOARD ================== -->
                 <div id="tab-DASHBOARD" class="tab-content active space-y-6">
+                    <div class="md:hidden glass-card rounded-[30px] p-5 border border-slate-100 bg-white shadow-[0_14px_40px_rgba(15,23,42,0.08)]">
+                        <div class="flex flex-col items-center text-center pt-2">
+                            <div class="w-20 h-20 rounded-full bg-[#171C8F]/10 flex items-center justify-center shadow-inner">
+                                <i data-lucide="truck" class="w-9 h-9 text-[#171C8F]"></i>
+                            </div>
+                            <h3 class="mt-5 text-[22px] font-black text-[#171C8F] tracking-tight">เลือกเมนูการทำงาน</h3>
+                            <p class="mt-2 text-sm text-slate-400">เลือกระบบที่คุณต้องการเข้าใช้งาน</p>
+                        </div>
+
+                        <div class="mt-7 space-y-4">
+                            <button type="button" id="mobile-action-ret" onclick="activateTab('ADD_RET')" class="w-full min-h-[72px] rounded-[22px] bg-[#171C8F] px-5 py-4 text-white shadow-[0_14px_30px_rgba(23,28,143,0.22)] transition-transform active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-4 text-left">
+                                <span class="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                                    <i data-lucide="package-plus" class="w-5 h-5 text-white"></i>
+                                </span>
+                                <span class="text-[18px] leading-tight font-black">รับเข้าสินค้าคืน</span>
+                            </button>
+                            <button type="button" id="mobile-action-audit" onclick="activateTab('AUDIT_TASK')" class="w-full min-h-[72px] rounded-[22px] bg-[#171C8F] px-5 py-4 text-white shadow-[0_14px_30px_rgba(23,28,143,0.22)] transition-transform active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-4 text-left">
+                                <span class="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                                    <i data-lucide="clipboard-check" class="w-5 h-5 text-white"></i>
+                                </span>
+                                <span class="text-[18px] leading-tight font-black">ตรวจนับสต๊อก</span>
+                            </button>
+                            <button type="button" id="mobile-action-claim" onclick="activateTab('ADD_CLM')" class="w-full min-h-[72px] rounded-[22px] bg-emerald-600 px-5 py-4 text-white shadow-[0_14px_30px_rgba(5,150,105,0.22)] transition-transform active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-4 text-left">
+                                <span class="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                                    <i data-lucide="alert-triangle" class="w-5 h-5 text-white"></i>
+                                </span>
+                                <span class="text-[18px] leading-tight font-black">แจ้งเคลมสินค้าเสียหาย</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <div class="glass-card rounded-2xl p-5 border-t-4 border-t-[#171C8F]"><p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">รับคืน (รอดำเนินการ)</p><h3 class="text-3xl font-black text-[#171C8F]" id="kpi-ret">0</h3></div>
                         <div class="glass-card rounded-2xl p-5 border-t-4 border-t-[#E35205]"><p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Audit (รอตรวจ/นับ)</p><h3 class="text-3xl font-black text-[#E35205]" id="kpi-audit">0</h3></div>
                         <div class="glass-card rounded-2xl p-5 border-t-4 border-t-[#171C8F]"><p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">เคลมชำรุด (ค้างส่ง)</p><h3 class="text-3xl font-black text-[#171C8F]" id="kpi-clm">0</h3></div>
                         <div class="glass-card rounded-2xl p-5 border-t-4 border-t-[#E35205]"><p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">ลูกค้า (รอชดเชย)</p><h3 class="text-3xl font-black text-[#E35205]" id="kpi-cust">0</h3></div>
+                    </div>
+
+                    <div class="glass-card rounded-2xl p-5">
+                        <div class="flex items-center justify-between gap-4 mb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-[#171C8F]">คิวงานที่ต้องทำต่อ</h3>
+                                <p class="text-xs text-slate-500 mt-1">กดเข้า queue ที่เกี่ยวข้องได้จากหน้าแรก</p>
+                            </div>
+                        </div>
+                        <div class="grid md:grid-cols-4 gap-3">
+                            <button type="button" id="queue-btn-qc" onclick="activateTab('QC_RET')" class="text-left p-4 rounded-xl border border-slate-200 bg-slate-50 hover:border-[#171C8F]/40 hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">ยังไม่ตรวจ</span>
+                                <strong class="mt-1 block text-2xl text-[#171C8F]" id="queue-qc">0</strong>
+                            </button>
+                            <button type="button" id="queue-btn-wh" onclick="activateTab('WH_CLM')" class="text-left p-4 rounded-xl border border-slate-200 bg-slate-50 hover:border-[#E35205]/40 hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">รอคลังรับเคลม</span>
+                                <strong class="mt-1 block text-2xl text-[#E35205]" id="queue-wh">0</strong>
+                            </button>
+                            <button type="button" id="queue-btn-vendor" onclick="activateTab('MANAGE_CLM')" class="text-left p-4 rounded-xl border border-slate-200 bg-slate-50 hover:border-[#171C8F]/40 hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">รอจัดส่ง Vendor</span>
+                                <strong class="mt-1 block text-2xl text-[#171C8F]" id="queue-vendor">0</strong>
+                            </button>
+                            <button type="button" id="queue-btn-cust" onclick="activateTab('TRACK_CUST')" class="text-left p-4 rounded-xl border border-slate-200 bg-slate-50 hover:border-[#E35205]/40 hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <span class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">รอปิดงานลูกค้า</span>
+                                <strong class="mt-1 block text-2xl text-[#E35205]" id="queue-cust">0</strong>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- 📊 New Dashboard Chart -->
@@ -360,7 +435,7 @@
 
                 <!-- ================== TAB: ADD_RET ================== -->
                 <div id="tab-ADD_RET" class="tab-content">
-                    <div class="max-w-3xl mx-auto glass-card rounded-[24px] p-6 md:p-10 w-full">
+                    <div class="max-w-5xl mx-auto glass-card rounded-[24px] p-5 sm:p-6 lg:p-10 w-full">
                         <div class="mb-8"><h2 class="text-xl font-bold text-[#171C8F] flex items-center"><i data-lucide="package-plus" class="mr-3 text-[#E35205]"></i> ลงทะเบียนรับเข้าสินค้าคืน</h2><p class="text-xs text-slate-500 mt-2">สแกนหรือค้นหาสินค้าคืนจากหน้าร้าน ลูกค้า หรือออนไลน์</p></div>
                         <form id="retForm" class="space-y-6">
                             <div class="relative"><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">ค้นหาสินค้าจากฐานข้อมูล</label><div class="relative group"><i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#171C8F] transition-colors"></i><input type="text" id="ret_search" class="w-full pl-11 pr-4 py-3.5 input-ci rounded-xl font-medium text-sm" placeholder="พิมพ์ชื่อสินค้าหรือ SKU..."><ul id="ret_list" class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-auto hidden"></ul></div></div>
@@ -420,6 +495,47 @@
                                 </div>
                             </div>
                             <div id="ret_src2_fields" class="hidden space-y-4 mt-6 pt-6 border-t border-slate-200 animate-in fade-in duration-300"><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">หมายเหตุ / เหตุผล</label><textarea id="ret_remark" class="w-full px-4 py-3 input-ci rounded-xl text-sm" rows="3" placeholder="อธิบายสาเหตุสั้นๆ..."></textarea></div></div>
+                            <div class="mt-6 pt-6 border-t border-slate-200">
+                                <h3 class="text-sm font-bold text-[#171C8F] flex items-center mb-3"><i data-lucide="shield-check" class="w-4 h-4 mr-2 text-[#E35205]"></i> ผลตรวจสภาพตอนรับเข้า</h3>
+                                <input type="hidden" id="ret_qc_result" value="A">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">ผลตรวจสภาพ</label>
+                                        <div class="grid sm:grid-cols-2 gap-3" role="group" aria-label="ผลตรวจสภาพตอนรับเข้า">
+                                            <button type="button" data-qc-choice="A" aria-pressed="true" class="qc-choice is-active w-full min-h-[86px] rounded-2xl px-4 py-4 font-black flex flex-col items-center justify-center text-center gap-0.5">
+                                                <span class="text-[18px] leading-tight">สภาพดี</span>
+                                                <small>(ขายต่อได้)</small>
+                                            </button>
+                                            <button type="button" data-qc-choice="C" aria-pressed="false" class="qc-choice w-full min-h-[86px] rounded-2xl px-4 py-4 font-black flex flex-col items-center justify-center text-center gap-0.5">
+                                                <span class="text-[18px] leading-tight">สินค้าเสียหาย</span>
+                                                <small>(ขายต่อไม่ได้)</small>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="ret_qc_detail_container" class="hidden rounded-2xl border border-rose-100 bg-rose-50/60 p-4">
+                                        <div class="grid lg:grid-cols-[minmax(0,1fr)_9rem_9rem] gap-3 items-end">
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">รายละเอียดความเสียหาย</label>
+                                                <input type="text" id="ret_qc_detail" class="w-full px-4 py-3 input-ci rounded-xl text-sm" placeholder="เช่น ยกลัง แต่เสียหาย 2 ถุง">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">จำนวนส่งเคลม</label>
+                                                <input type="number" id="ret_claim_qty" min="0.01" step="0.01" class="w-full px-4 py-3 input-ci rounded-xl text-sm font-bold text-rose-600" placeholder="เช่น 2">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">หน่วยส่งเคลม</label>
+                                                <input type="text" id="ret_claim_unit" class="w-full px-4 py-3 input-ci rounded-xl text-sm" placeholder="เช่น ถุง">
+                                            </div>
+                                        </div>
+                                        <p class="mt-2 text-[11px] text-slate-500">ใช้กับกรณีเสียหายบางส่วน หรืออยากระบุสภาพบรรจุภัณฑ์เพิ่มเติม</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">หมายเหตุผลตรวจ</label>
+                                        <input type="text" id="ret_qc_remark" class="w-full px-4 py-3 input-ci rounded-xl text-sm" placeholder="ระบุหมายเหตุถ้ามี...">
+                                    </div>
+                                </div>
+                                <p id="ret_qc_hint" class="text-[11px] text-slate-500 mt-3">บันทึกแล้วจะไปรอ ตัดรอบ POS ทันที</p>
+                            </div>
                             <div class="pt-4 mt-6 border-t border-slate-200"><button type="submit" class="w-full py-3.5 bg-[#171C8F] hover:bg-[#12167A] text-white rounded-xl font-bold text-sm shadow-md transition-all">บันทึกเข้าคลังกักกัน</button></div>
                         </form>
                     </div>
@@ -427,7 +543,7 @@
 
                 <!-- ================== TAB: QC_RET ================== -->
                 <div id="tab-QC_RET" class="tab-content">
-                    <div class="flex items-center justify-between mb-6"><div><h2 class="text-xl font-bold text-[#171C8F]">ตรวจสอบสภาพสินค้า (QC)</h2><p class="text-xs text-slate-500 mt-1">ประเมินสภาพเพื่อแยกประเภท (สินค้าสภาพดี หรือ สินค้าเสียหาย)</p></div></div>
+                    <div class="flex items-center justify-between mb-6"><div><h2 class="text-xl font-bold text-[#171C8F]">รายการที่ยังไม่ตรวจสภาพ</h2><p class="text-xs text-slate-500 mt-1">ใช้เฉพาะรายการที่รับเข้าไว้ก่อนและยังไม่ได้ประเมินสภาพ</p></div></div>
                     <div id="qcList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
                 </div>
                 
@@ -491,7 +607,7 @@
                             <form id="clmForm" class="space-y-6">
                                 <div class="grid md:grid-cols-2 gap-6"><div class="relative"><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">ค้นหาสินค้าเคลม</label><div class="relative group"><i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#171C8F] transition-colors"></i><input type="text" id="clm_search" class="w-full pl-11 pr-4 py-3.5 input-ci rounded-xl font-medium text-sm focus:border-[#171C8F]" placeholder="พิมพ์ชื่อหรือ SKU..."><ul id="clm_list" class="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-auto hidden"></ul></div></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">SKU</label><input type="text" id="clm_sku" readonly class="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-500 text-sm cursor-not-allowed"></div><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Vendor</label><div id="clm_vendor" class="px-4 py-3.5 bg-[#171C8F]/10 border border-[#171C8F]/20 text-[#171C8F] rounded-xl text-sm font-bold truncate">-</div></div></div></div>
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4"><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">วันที่พบ</label><input type="date" id="clm_date" class="w-full px-3 py-3 input-ci rounded-xl text-sm focus:border-[#171C8F]"></div><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Exp.Date</label><input type="date" id="clm_exp" class="w-full px-3 py-3 input-ci rounded-xl text-sm focus:border-[#171C8F]"></div><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">จำนวน</label><input type="number" id="clm_qty" value="1" min="1" class="w-full px-3 py-3 input-ci rounded-xl font-bold text-[#E35205] text-base text-center focus:border-[#171C8F]"></div><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">ที่พบ</label><select id="clm_loc" class="w-full px-3 py-3 input-ci rounded-xl text-sm focus:border-[#171C8F]"><option value="ภายในคลัง">ภายในคลัง</option><option value="หน้าร้าน">หน้าร้าน</option></select></div></div>
-                                <div class="grid md:grid-cols-2 gap-4"><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">สาเหตุการเคลม</label><select id="clm_reason" class="w-full px-4 py-3.5 input-ci rounded-xl text-sm focus:border-[#171C8F]"><option value="ขนส่ง (Vendor)">ขนส่ง (Vendor)</option><option value="โรงงานผลิตสินค้า">โรงงานผลิตสินค้า</option><option value="อื่นๆ">อื่นๆ</option></select></div><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">หมายเหตุ</label><input type="text" id="clm_remark" class="w-full px-4 py-3.5 input-ci rounded-xl text-sm focus:border-[#171C8F]" placeholder="รายละเอียดเพิ่มเติม..."></div></div>
+                                <div class="grid md:grid-cols-2 gap-4"><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">สาเหตุการเคลม</label><select id="clm_reason" class="w-full px-4 py-3.5 input-ci rounded-xl text-sm focus:border-[#171C8F]"><option value="สินค้าเสียหาย">สินค้าเสียหาย</option><option value="สินค้าหมดอายุ">สินค้าหมดอายุ</option><option value="อื่น ๆ">อื่น ๆ</option></select><div id="clm_other_reason_container" class="hidden mt-3"><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2" for="clm_other_reason">ระบุสาเหตุอื่น ๆ</label><input type="text" id="clm_other_reason" class="w-full px-4 py-3.5 input-ci rounded-xl text-sm focus:border-[#171C8F]" placeholder="ระบุสาเหตุการเคลม..."></div></div><div><label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">หมายเหตุ</label><input type="text" id="clm_remark" class="w-full px-4 py-3.5 input-ci rounded-xl text-sm focus:border-[#171C8F]" placeholder="รายละเอียดเพิ่มเติม..."></div></div>
                                 <div class="pt-4"><button type="submit" class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center shadow-md"><i data-lucide="plus" class="w-4 h-4 mr-2"></i> เพิ่มลงตะกร้าเคลม</button></div>
                             </form>
                         </div>
@@ -591,6 +707,98 @@
         // escape ข้อมูลจาก Sheet ก่อน inject เข้า innerHTML กัน UI แตก/markup หลุด
         const esc = (v) => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const attr = (v) => esc(v).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+        function showToast(icon, title, text = '') {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon,
+                title,
+                text,
+                timer: 2200,
+                showConfirmButton: false,
+                timerProgressBar: true
+            });
+        }
+
+        function getFirstVisibleTab() {
+            return document.querySelector('#desktop-nav [data-tab]:not([style*="display: none"])')?.dataset.tab || 'DASHBOARD';
+        }
+
+        function updateRouteState(changes = {}, replace = false) {
+            const url = new URL(window.location.href);
+            Object.entries(changes).forEach(([key, value]) => {
+                if (value == null || value === '') url.searchParams.delete(key);
+                else url.searchParams.set(key, value);
+            });
+            const next = url.toString();
+            if (next !== window.location.href) {
+                window.history[replace ? 'replaceState' : 'pushState']({}, document.title, next);
+            }
+        }
+
+        function clearFieldError(el) {
+            if (!el) return;
+            el.classList.remove('field-invalid');
+            el.removeAttribute('aria-invalid');
+            const err = document.getElementById(el.id + '-error');
+            if (err) err.remove();
+        }
+
+        function showFieldError(el, message) {
+            if (!el) return false;
+            clearFieldError(el);
+            el.classList.add('field-invalid');
+            el.setAttribute('aria-invalid', 'true');
+            const err = document.createElement('p');
+            err.id = el.id + '-error';
+            err.className = 'field-error';
+            err.setAttribute('role', 'alert');
+            err.textContent = message;
+            el.insertAdjacentElement('afterend', err);
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => el.focus({ preventScroll: true }), 180);
+            return false;
+        }
+
+        function setRetQcChoice(value) {
+            const input = document.getElementById('ret_qc_result');
+            const hint = document.getElementById('ret_qc_hint');
+            const detailWrap = document.getElementById('ret_qc_detail_container');
+            const detailInput = document.getElementById('ret_qc_detail');
+            const claimQtyInput = document.getElementById('ret_claim_qty');
+            const claimUnitInput = document.getElementById('ret_claim_unit');
+            if (input) input.value = value;
+            document.querySelectorAll('[data-qc-choice]').forEach(btn => {
+                const isActive = btn.dataset.qcChoice === value;
+                btn.classList.toggle('is-active', isActive);
+                btn.setAttribute('aria-pressed', String(isActive));
+            });
+            if (detailWrap) detailWrap.classList.toggle('hidden', value !== 'C');
+            if (value === 'C') {
+                const retQty = document.getElementById('ret_qty');
+                const retUnit = document.getElementById('ret_unit');
+                if (claimQtyInput && !claimQtyInput.value && retQty) claimQtyInput.value = retQty.value || '';
+                if (claimUnitInput && !claimUnitInput.value && retUnit) claimUnitInput.value = retUnit.value || '';
+            } else {
+                if (detailInput) detailInput.value = '';
+                if (claimQtyInput) claimQtyInput.value = '';
+                if (claimUnitInput) claimUnitInput.value = '';
+            }
+            if (hint) {
+                const hintMap = {
+                    A: 'บันทึกแล้วจะไปรอ ตัดรอบ POS ทันที',
+                    C: 'บันทึกแล้วจะส่งเข้าคลังรับของเคลมทันที'
+                };
+                hint.innerText = hintMap[value] || '';
+            }
+        }
+
+        function attachErrorReset(form) {
+            if (!form) return;
+            form.addEventListener('input', e => clearFieldError(e.target));
+            form.addEventListener('change', e => clearFieldError(e.target));
+        }
 
         function showLoader(text = 'กำลังประมวลผล...') {
             document.getElementById('global-loader-text').innerText = text;
@@ -717,7 +925,7 @@
                 const result = await response.json();
                 hideLoader();
                 if(result.status === 'success') {
-                    if(successMsg) Swal.fire({ icon: 'success', title: 'Complete', text: successMsg, timer: 1500, showConfirmButton: false });
+                    if(successMsg) showToast('success', successMsg, 'ข้อมูลถูกซิงค์แล้ว');
                     setTimeout(() => fetchData(false), 800);
                     return true;
                 } else throw new Error(result.message);
@@ -729,29 +937,47 @@
         }
 
         // --- 4. NAVIGATION & INTERACTIONS ---
+        function activateTab(target, replaceRoute = false) {
+            const tabEl = document.getElementById(`tab-${target}`);
+            const btn = document.querySelector(`#desktop-nav [data-tab="${target}"]`);
+            if (!tabEl || !btn || btn.style.display === 'none') return false;
+
+            document.querySelectorAll('[data-tab]').forEach(b => {
+                b.classList.remove('bg-white/10', 'text-[#E35205]', 'font-bold', 'shadow-sm');
+                b.classList.add('text-white/70', 'border-transparent');
+            });
+            btn.classList.remove('text-white/70', 'border-transparent');
+            btn.classList.add('text-[#E35205]', 'bg-white/10', 'font-bold', 'shadow-sm');
+
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tabEl.classList.add('active');
+            document.getElementById('active-tab-title').innerText = btn.querySelector('span')?.innerText || 'WMS';
+            updateRouteState({ tab: target }, replaceRoute);
+
+            if(target === 'DASHBOARD') {
+                renderDashboard();
+                drawDashboardChart();
+            }
+
+            if(window.closeMobileSidebar) window.closeMobileSidebar();
+            return true;
+        }
+
         function setupNav() {
             document.querySelectorAll('[data-tab]').forEach(btn => {
                 btn.onclick = () => {
-                    const target = btn.dataset.tab;
-                    document.querySelectorAll('[data-tab]').forEach(b => { 
-                        b.classList.remove('bg-white/10', 'text-[#E35205]', 'font-bold', 'shadow-sm'); 
-                        b.classList.add('text-white/70', 'border-transparent'); 
-                    });
-                    btn.classList.remove('text-white/70', 'border-transparent');
-                    btn.classList.add('text-[#E35205]', 'bg-white/10', 'font-bold', 'shadow-sm');
-                    
-                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                    document.getElementById(`tab-${target}`).classList.add('active');
-                    document.getElementById('active-tab-title').innerText = btn.querySelector('span')?.innerText || 'WMS';
-                    
-                    if(target === 'DASHBOARD') {
-                        renderDashboard();
-                        drawDashboardChart();
-                    }
-                    
-                    if(window.closeMobileSidebar) window.closeMobileSidebar();
+                    activateTab(btn.dataset.tab);
                 };
             });
+
+            const params = new URLSearchParams(window.location.search);
+            const routeTab = params.get('tab');
+            const initialTab = routeTab || getFirstVisibleTab();
+            if (!activateTab(initialTab, true)) activateTab(getFirstVisibleTab(), true);
+            window.onpopstate = () => {
+                const tab = new URLSearchParams(window.location.search).get('tab') || getFirstVisibleTab();
+                activateTab(tab, true);
+            };
         }
 
         function setupDashboardNav() {
@@ -766,12 +992,29 @@
                     btn.classList.add('bg-[#171C8F]/10', 'text-[#171C8F]');
                     document.querySelectorAll('.dash-view').forEach(v => v.classList.remove('active'));
                     document.getElementById(`dash-view-${view}`).classList.add('active');
+                    updateRouteState({ dash: view });
                 };
             });
+
+            const params = new URLSearchParams(window.location.search);
+            const routeView = params.get('dash');
+            if (routeView) {
+                const dashBtn = document.querySelector(`.dash-nav[data-dashview="${routeView}"]`);
+                if (dashBtn) dashBtn.click();
+            }
+            const routeSearch = params.get('search');
+            if (routeSearch) {
+                const dashSearch = document.getElementById('dash-search');
+                if (dashSearch) {
+                    dashSearch.value = routeSearch;
+                    dashFilterText = routeSearch.toLowerCase();
+                }
+            }
         }
 
         window.filterDashboard = function() {
             dashFilterText = document.getElementById('dash-search').value.toLowerCase();
+            updateRouteState({ search: dashFilterText });
             renderDashboard();
         }
 
@@ -939,34 +1182,104 @@
             const bind = (inpId, listId, skuId, unitId, vendId) => {
                 const inp = document.getElementById(inpId); const list = document.getElementById(listId);
                 if(!inp || !list) return;
+                let matches = [];
+                let activeIndex = -1;
+
+                inp.setAttribute('role', 'combobox');
+                inp.setAttribute('aria-autocomplete', 'list');
+                inp.setAttribute('aria-expanded', 'false');
+                inp.setAttribute('aria-controls', listId);
+                list.setAttribute('role', 'listbox');
+
+                const setActive = (nextIndex) => {
+                    activeIndex = nextIndex;
+                    list.querySelectorAll('.combo-option').forEach((item, idx) => {
+                        const isActive = idx === activeIndex;
+                        item.classList.toggle('is-active', isActive);
+                        item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                        if (isActive) inp.setAttribute('aria-activedescendant', item.id);
+                    });
+                    if (activeIndex < 0) inp.removeAttribute('aria-activedescendant');
+                };
+
+                const closeList = () => {
+                    list.classList.add('hidden');
+                    inp.setAttribute('aria-expanded', 'false');
+                    inp.removeAttribute('aria-activedescendant');
+                    activeIndex = -1;
+                };
+
+                const selectMatch = (idx) => {
+                    const item = matches[idx];
+                    if (!item) return;
+                    selectItem(inpId, listId, skuId, unitId || '', vendId || '', item.name, item.sku, item.unit || '', item.vendor || '');
+                    closeList();
+                };
+
                 inp.oninput = () => {
+                    clearFieldError(inp);
                     const val = inp.value.trim().toLowerCase(); list.innerHTML = '';
-                    if(!val) { list.classList.add('hidden'); return; }
+                    activeIndex = -1;
+                    if(!val) { closeList(); return; }
                     const allMatches = state.products.filter(p => p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val));
-                    const matches = allMatches.slice(0, 30);
+                    matches = allMatches.slice(0, 30);
                     if(matches.length) {
-                        let html = matches.map(m => {
-                            const safeName = m.name.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-                            const safeVendor = (m.vendor || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
-                            return `<li class="p-3.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-sm text-slate-700" onclick="selectItem('${inpId}','${listId}','${skuId}','${unitId || ''}', '${vendId || ''}','${safeName}','${m.sku}','${m.unit || ''}', '${safeVendor}')"><strong class="text-[#171C8F] font-mono text-xs">${m.sku}</strong><br><span class="mt-1 block truncate">${m.name}</span></li>`;
+                        let html = matches.map((m, idx) => {
+                            return `<li id="${listId}-option-${idx}" role="option" aria-selected="false" data-idx="${idx}" class="combo-option p-3.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-sm text-slate-700"><strong class="text-[#171C8F] font-mono text-xs">${esc(m.sku)}</strong><br><span class="mt-1 block truncate">${esc(m.name)}</span></li>`;
                         }).join('');
                         if (allMatches.length > 30) {
-                            html += `<li class="p-2 text-center text-xs text-slate-400 bg-slate-50 italic cursor-default">พบสินค้ามากกว่า 30 รายการ กรุณาพิมพ์คำค้นหาเพิ่มเติม...</li>`;
+                            html += `<li role="presentation" class="p-2 text-center text-xs text-slate-400 bg-slate-50 italic cursor-default">พบสินค้ามากกว่า 30 รายการ กรุณาพิมพ์คำค้นหาเพิ่มเติม...</li>`;
                         }
                         list.innerHTML = html;
                         list.classList.remove('hidden');
+                        inp.setAttribute('aria-expanded', 'true');
+                    } else {
+                        list.innerHTML = '<li role="presentation" class="p-3 text-center text-xs text-slate-400 bg-slate-50">ไม่พบสินค้า</li>';
+                        list.classList.remove('hidden');
+                        inp.setAttribute('aria-expanded', 'true');
                     }
                 };
+
+                inp.onkeydown = (e) => {
+                    if (list.classList.contains('hidden')) return;
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setActive(Math.min(activeIndex + 1, matches.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setActive(Math.max(activeIndex - 1, 0));
+                    } else if (e.key === 'Enter' && activeIndex >= 0) {
+                        e.preventDefault();
+                        selectMatch(activeIndex);
+                    } else if (e.key === 'Escape') {
+                        closeList();
+                    }
+                };
+
+                list.addEventListener('mousedown', e => e.preventDefault());
+                list.addEventListener('click', e => {
+                    const option = e.target.closest('.combo-option');
+                    if (!option) return;
+                    selectMatch(Number(option.dataset.idx));
+                });
             };
             bind('ret_search', 'ret_list', 'ret_sku', 'ret_unit', null);
             bind('clm_search', 'clm_list', 'clm_sku', null, 'clm_vendor');
-            document.addEventListener('click', e => { if(!e.target.closest('input')) { document.querySelectorAll('ul[id$="_list"], .audit-list').forEach(u => u.classList.add('hidden')); } });
+            document.addEventListener('click', e => {
+                if(!e.target.closest('input') && !e.target.closest('ul[id$="_list"]')) {
+                    document.querySelectorAll('ul[id$="_list"], .audit-list').forEach(u => u.classList.add('hidden'));
+                    document.querySelectorAll('[role="combobox"]').forEach(inp => inp.setAttribute('aria-expanded', 'false'));
+                }
+            });
         }
         window.selectItem = function(inpId, listId, skuId, unitId, vendId, name, sku, unit, vendor) {
-            document.getElementById(inpId).value = name; document.getElementById(skuId).value = sku;
+            const inputEl = document.getElementById(inpId);
+            inputEl.value = name;
+            clearFieldError(inputEl);
+            document.getElementById(skuId).value = sku;
             if(unitId && unitId !== 'null' && unitId !== '') document.getElementById(unitId).value = unit || 'ชิ้น';
             if(vendId && vendId !== 'null' && vendId !== '') {
-                const vendEl = document.getElementById(vendId); 
+                const vendEl = document.getElementById(vendId);
                 vendEl.innerText = vendor && vendor !== '-' && vendor !== 'ไม่ระบุ Vendor' ? vendor : 'ไม่ระบุ Vendor';
                 document.getElementById(skuId).dataset.unit = unit || 'ชิ้น';
             }
@@ -1021,31 +1334,72 @@
             const rc = document.getElementById('ret_compensation');
             if(rc) rc.addEventListener('change', e => { document.getElementById('ret_other_comp_container').classList.toggle('hidden', e.target.value !== 'อื่น ๆ'); });
 
+            const rq = document.getElementById('ret_qc_result');
+            if(rq) {
+                setRetQcChoice(rq.value || 'A');
+                document.querySelectorAll('[data-qc-choice]').forEach(btn => {
+                    btn.addEventListener('click', () => setRetQcChoice(btn.dataset.qcChoice));
+                });
+            }
+
+            const cr = document.getElementById('clm_reason');
+            if(cr) cr.addEventListener('change', e => {
+                const otherWrap = document.getElementById('clm_other_reason_container');
+                otherWrap.classList.toggle('hidden', e.target.value !== 'อื่น ๆ');
+                if (e.target.value !== 'อื่น ๆ') {
+                    const otherInput = document.getElementById('clm_other_reason');
+                    otherInput.value = '';
+                    clearFieldError(otherInput);
+                }
+            });
             const retForm = document.getElementById('retForm');
             if(retForm) {
+                attachErrorReset(retForm);
                 retForm.onsubmit = async e => {
                     e.preventDefault();
-                    const sku = document.getElementById('ret_sku').value; if(!sku) return Swal.fire('Notice','เลือกสินค้าก่อน','warning');
-                    const source = rs.value; if(!source) return Swal.fire('Notice','เลือกแหล่งที่มา','warning');
-                    if(!(Number(document.getElementById('ret_qty').value) > 0)) return Swal.fire('Notice','จำนวนต้องมากกว่า 0','warning');
+                    retForm.querySelectorAll('.field-invalid').forEach(clearFieldError);
+                    const retSearch = document.getElementById('ret_search');
+                    const retQty = document.getElementById('ret_qty');
+                    const sku = document.getElementById('ret_sku').value;
+                    if(!sku) return showFieldError(retSearch, 'เลือกสินค้าจากรายการค้นหาก่อนบันทึก');
+                    const source = rs.value;
+                    if(!source) return showFieldError(rs, 'เลือกแหล่งที่มาของสินค้าคืน');
+                    if(!(Number(retQty.value) > 0)) return showFieldError(retQty, 'จำนวนต้องมากกว่า 0');
                     const now = new Date();
                     const d = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
                     let finalReason = '-', compValue = '-', bStatus = '-', bNo = '-', bDate = '-', customerName = '-';
+                    const qcResult = document.getElementById('ret_qc_result').value;
+                    const qcDetail = document.getElementById('ret_qc_detail').value.trim();
+                    const claimQtyEl = document.getElementById('ret_claim_qty');
+                    const claimUnitEl = document.getElementById('ret_claim_unit');
+                    const claimQty = qcResult === 'C' ? (claimQtyEl.value || retQty.value) : '';
+                    const claimUnit = qcResult === 'C' ? (claimUnitEl.value.trim() || document.getElementById('ret_unit').value) : '';
+                    if(qcResult === 'C' && !(Number(claimQty) > 0)) return showFieldError(claimQtyEl, 'จำนวนส่งเคลมต้องมากกว่า 0');
+                    if(qcResult === 'C' && !claimUnit) return showFieldError(claimUnitEl, 'ระบุหน่วยส่งเคลม');
+                    const qcRemark = document.getElementById('ret_qc_remark').value.trim();
+                    const qcBase = qcResult === 'C' ? 'สินค้าเสียหาย' : (qcResult === 'A' ? 'สินค้าสภาพดี' : '-');
+                    const qcExtra = [qcDetail, qcRemark].filter(Boolean).join(' | ');
+                    const qcCondition = qcExtra && qcBase !== '-' ? `${qcBase} (${qcExtra})` : qcBase;
+                    const returnStatus = qcResult === 'A' ? 'รอตัดรอบ' : (qcResult === 'C' ? 'ส่งเคลมแล้ว' : 'รอ QC');
 
                     if (source === 'หน้าร้าน/ลูกค้า') {
                         const custRaw = document.getElementById('ret_cust').value;
                         const memId = document.getElementById('ret_member_id').value;
                         customerName = memId ? (custRaw ? `${custRaw} (${memId})` : memId) : (custRaw || '-');
-                        
+
                         const mainRes = document.getElementById('ret_main_reason').value;
-                        if (!mainRes) return Swal.fire('Notice', 'เลือกสาเหตุหลัก', 'warning');
-                        const baseReason = mainRes === 'อื่น ๆ' ? document.getElementById('ret_other_reason').value : mainRes;
+                        if (!mainRes) return showFieldError(document.getElementById('ret_main_reason'), 'เลือกสาเหตุการคืน');
+                        const otherReasonEl = document.getElementById('ret_other_reason');
+                        const baseReason = mainRes === 'อื่น ๆ' ? otherReasonEl.value.trim() : mainRes;
+                        if (mainRes === 'อื่น ๆ' && !baseReason) return showFieldError(otherReasonEl, 'ระบุสาเหตุอื่น ๆ');
                         finalReason = customerName !== '-' ? `[ลูกค้า: ${customerName}] ${baseReason}` : baseReason;
-                        
+
                         const comp = document.getElementById('ret_compensation').value;
-                        if (!comp) return Swal.fire('Notice', 'เลือกการชดเชย', 'warning');
-                        compValue = comp === 'อื่น ๆ' ? document.getElementById('ret_other_comp').value : comp;
-                        
+                        if (!comp) return showFieldError(document.getElementById('ret_compensation'), 'เลือกวิธีการชดเชย');
+                        const otherCompEl = document.getElementById('ret_other_comp');
+                        compValue = comp === 'อื่น ๆ' ? otherCompEl.value.trim() : comp;
+                        if (comp === 'อื่น ๆ' && !compValue) return showFieldError(otherCompEl, 'ระบุรายละเอียดการชดเชย');
+
                         bStatus = document.getElementById('ret_bill_status').value || '-';
                         bNo = document.getElementById('ret_bill_no').value || '-';
                         bDate = document.getElementById('ret_bill_date').value || '-';
@@ -1053,25 +1407,42 @@
                         finalReason = document.getElementById('ret_remark').value || '-'; 
                     }
                     
-                    const payload = { 
-                        action:'addReturn', id:'RET-'+Date.now(), dateStr:d, timeStr:now.toLocaleTimeString('th-TH',{hour12:false}), 
-                        sku, name:document.getElementById('ret_search').value, qty:document.getElementById('ret_qty').value, 
-                        source:source, reason:finalReason, billStatus:bStatus, compensation:compValue, billNo:bNo, billDate:bDate, status:'รอ QC', qcCondition:'-',
+                    const payload = {
+                        action:'addReturn', id:'RET-'+Date.now(), dateStr:d, timeStr:now.toLocaleTimeString('th-TH',{hour12:false}),
+                        sku, name:document.getElementById('ret_search').value, qty:document.getElementById('ret_qty').value,
+                        source:source, reason:finalReason, billStatus:bStatus, compensation:compValue, billNo:bNo, billDate:bDate, status:returnStatus, qcCondition:qcCondition,
                         unit:document.getElementById('ret_unit').value, customerName: customerName
                     };
-                    if(await postData(payload, 'รับเข้าคลังสำเร็จ')) {
-                        e.target.reset(); document.getElementById('ret_sku').value=''; rs1.classList.add('hidden'); rs2.classList.add('hidden'); document.getElementById('ret_other_reason_container').classList.add('hidden'); document.getElementById('ret_other_comp_container').classList.add('hidden');
+                    if(await postData(payload, null)) {
+                        if(qcResult === 'C') {
+                            const qcOk = await postData({ action:'updateReturnQC', id: payload.id, grade: 'C', status: 'ส่งเคลมแล้ว', qcCondition, sku: payload.sku, name: payload.name, qty: payload.qty, unit: payload.unit, claimQty, claimUnit, source: payload.source, reason: payload.reason, user: state.user }, 'รับเข้าและส่งเข้าคลังเคลมแล้ว');
+                            if(!qcOk) return;
+                        } else {
+                            showToast('success', qcResult === 'A' ? 'รับเข้าและส่งไปรอตัดรอบ POS แล้ว' : 'รับเข้าและส่งไปรอตรวจสภาพแล้ว', 'ข้อมูลถูกซิงค์แล้ว');
+                        }
+                        e.target.reset(); document.getElementById('ret_sku').value=''; rs1.classList.add('hidden'); rs2.classList.add('hidden'); document.getElementById('ret_other_reason_container').classList.add('hidden'); document.getElementById('ret_other_comp_container').classList.add('hidden'); setRetQcChoice('A');
                     }
                 };
             }
 
             const clmForm = document.getElementById('clmForm');
             if(clmForm) {
+                attachErrorReset(clmForm);
                 clmForm.onsubmit = e => {
-                    e.preventDefault(); const sku = document.getElementById('clm_sku').value; if(!sku) return;
+                    e.preventDefault();
+                    clmForm.querySelectorAll('.field-invalid').forEach(clearFieldError);
+                    const clmSearch = document.getElementById('clm_search');
+                    const clmQty = document.getElementById('clm_qty');
+                    const sku = document.getElementById('clm_sku').value;
+                    if(!sku) return showFieldError(clmSearch, 'เลือกสินค้าเคลมจากรายการค้นหาก่อนเพิ่มลงตะกร้า');
+                    if(!(Number(clmQty.value) > 0)) return showFieldError(clmQty, 'จำนวนต้องมากกว่า 0');
+                    const reasonSelect = document.getElementById('clm_reason');
+                    const otherReason = document.getElementById('clm_other_reason');
+                    const reason = reasonSelect.value === 'อื่น ๆ' ? otherReason.value.trim() : reasonSelect.value;
+                    if(reasonSelect.value === 'อื่น ๆ' && !reason) return showFieldError(otherReason, 'ระบุสาเหตุการเคลม');
                     const dDate = document.getElementById('clm_date').value, eDate = document.getElementById('clm_exp').value;
-                    state.drafts.push({ id: 'CLM-'+Date.now(), reportDate: dDate ? `${dDate.split('-')[2]}/${dDate.split('-')[1]}/${dDate.split('-')[0]}` : '-', expDate: eDate ? `${eDate.split('-')[2]}/${eDate.split('-')[1]}/${eDate.split('-')[0]}` : '-', foundLocation: document.getElementById('clm_loc').value, sku, name: document.getElementById('clm_search').value, qty: document.getElementById('clm_qty').value, unit: document.getElementById('clm_sku').dataset.unit || 'ชิ้น', reason: document.getElementById('clm_reason').value, remark: document.getElementById('clm_remark').value || '-', vendor: document.getElementById('clm_vendor').innerText, reporter: state.user });
-                    renderDrafts(); e.target.reset(); document.getElementById('clm_sku').value=''; document.getElementById('clm_vendor').innerText='-';
+                    state.drafts.push({ id: 'CLM-'+Date.now(), reportDate: dDate ? `${dDate.split('-')[2]}/${dDate.split('-')[1]}/${dDate.split('-')[0]}` : '-', expDate: eDate ? `${eDate.split('-')[2]}/${eDate.split('-')[1]}/${eDate.split('-')[0]}` : '-', foundLocation: document.getElementById('clm_loc').value, sku, name: document.getElementById('clm_search').value, qty: document.getElementById('clm_qty').value, unit: document.getElementById('clm_sku').dataset.unit || 'ชิ้น', reason, remark: document.getElementById('clm_remark').value || '-', vendor: document.getElementById('clm_vendor').innerText, reporter: state.user });
+                    renderDrafts(); showToast('success', 'เพิ่มลงตะกร้าเคลมแล้ว', 'ตรวจรายการก่อนส่งข้อมูลทั้งหมด'); e.target.reset(); document.getElementById('clm_sku').value=''; document.getElementById('clm_vendor').innerText='-'; document.getElementById('clm_other_reason_container').classList.add('hidden');
                 };
             }
             
@@ -1120,12 +1491,32 @@
         // --- 8. RENDER UI ---
         function renderUI() {
             const badgeQc = document.getElementById('badge-qc'), badgeBatch = document.getElementById('badge-batch'), badgeAudit = document.getElementById('badge-audit');
-            if(badgeQc) { const c = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length; badgeQc.innerText = c; badgeQc.classList.toggle('hidden', c===0); }
+            const qcCount = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length;
+            if(badgeQc) { badgeQc.innerText = qcCount; badgeQc.classList.toggle('hidden', qcCount===0); }
             if(badgeBatch) { const c = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED').length; badgeBatch.innerText = c; badgeBatch.classList.toggle('hidden', c===0); }
             if(badgeAudit) { const c = new Set(state.audits.filter(a => a.overallStatus !== 'Completed' && a.overallStatus !== 'Reviewing').map(a => a.taskId)).size; badgeAudit.innerText = c; badgeAudit.classList.toggle('hidden', c===0); }
 
             // 🚨 Floating Alert System 🚨
             const pendingWHClaims = state.claims.filter(c => c.whStatus === 'ยังไม่รับ').length;
+            const pendingVendorClaims = state.claims.filter(c => c.whStatus !== 'ยังไม่รับ' && c.status !== 'สำเร็จแล้ว' && c.status !== 'เคลมแล้ว' && c.status !== 'รอรับสินค้าใหม่').length;
+            const pendingCustReturns = state.returns.filter(i => i.source === 'หน้าร้าน/ลูกค้า' && i.compensation && i.compensation !== '-' && !i.customerStatus).length;
+            const queueMap = { 'queue-qc': qcCount, 'queue-wh': pendingWHClaims, 'queue-vendor': pendingVendorClaims, 'queue-cust': pendingCustReturns };
+            Object.entries(queueMap).forEach(([id, count]) => {
+                const el = document.getElementById(id);
+                if(el) el.innerText = count;
+            });
+            const queueTargets = { 'queue-btn-qc': 'QC_RET', 'queue-btn-wh': 'WH_CLM', 'queue-btn-vendor': 'MANAGE_CLM', 'queue-btn-cust': 'TRACK_CUST' };
+            Object.entries(queueTargets).forEach(([btnId, tab]) => {
+                const btn = document.getElementById(btnId);
+                const nav = document.querySelector(`#desktop-nav [data-tab="${tab}"]`);
+                if(btn) btn.disabled = !!(nav && nav.style.display === 'none');
+            });
+            const mobileActionTargets = { 'mobile-action-ret': 'ADD_RET', 'mobile-action-audit': 'AUDIT_TASK', 'mobile-action-claim': 'ADD_CLM' };
+            Object.entries(mobileActionTargets).forEach(([btnId, tab]) => {
+                const btn = document.getElementById(btnId);
+                const nav = document.querySelector(`#desktop-nav [data-tab="${tab}"]`);
+                if(btn) btn.disabled = !!(nav && nav.style.display === 'none');
+            });
             const badgeWhClm = document.getElementById('badge-wh-clm');
             if(badgeWhClm) { 
                 badgeWhClm.innerText = pendingWHClaims; 
@@ -1189,7 +1580,7 @@
                             '<td class="p-4"><p class="font-bold text-sm text-slate-800">'+esc(r.name)+'</p><p class="text-[10px] text-slate-500 font-mono mt-0.5">'+esc(r.sku)+'</p></td>',
                             '<td class="p-4 text-center font-black text-[#171C8F]">'+esc(r.qty)+'</td>',
                             '<td class="p-4"><span class="text-[10px] font-bold px-2 py-1 rounded bg-emerald-50 text-emerald-600 border border-emerald-200 block w-fit max-w-[200px] whitespace-normal break-words leading-tight">'+esc(r.qcCondition && r.qcCondition !== '-' ? r.qcCondition : 'สินค้าสภาพดี')+'</span></td>',
-                            '<td class="p-4 text-right"><button onclick="postData({action:\'updateReturnBatch\', ids:[\''+r.id+'\']}, \'นำเข้าระบบสำเร็จ\')" class="text-slate-400 hover:text-emerald-500 p-2 transition-colors"><i data-lucide="check-square" class="w-5 h-5"></i></button></td>',
+                            '<td class="p-4 text-right"><button aria-label="นำเข้าระบบ POS รายการ '+attr(r.sku)+'" title="นำเข้าระบบ POS" onclick="postData({action:\'updateReturnBatch\', ids:[\''+r.id+'\']}, \'นำเข้าระบบสำเร็จ\')" class="text-slate-400 hover:text-emerald-500 p-2 transition-colors"><i data-lucide="check-square" class="w-5 h-5"></i></button></td>',
                         '</tr>'
                     ].join('');
                 }).join('') : '<tr><td colspan="4" class="py-16 text-center text-slate-400">ไม่มีข้อมูลรอจัดการ</td></tr>';
@@ -1201,7 +1592,7 @@
                 whClaimListEl.innerHTML = pWH.length ? pWH.map(c => {
                     return [
                         '<div class="glass-card p-5 rounded-[20px] relative group border-l-4 border-l-[#E35205]">',
-                            '<button data-action="del-clm" data-id="'+c.id+'" class="absolute top-4 right-4 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="w-4 h-4"></i></button>',
+                            '<button data-action="del-clm" data-id="'+c.id+'" aria-label="ลบรายการเคลม '+attr(c.sku)+'" title="ลบรายการ" class="absolute top-4 right-4 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>',
                             '<div class="pr-6">',
                                 '<span class="text-[10px] font-mono text-slate-400 block mb-1">'+esc(c.sku)+'</span>',
                                 '<h4 class="font-bold text-slate-800 text-sm leading-snug mb-3">'+esc(c.name)+'</h4>',
@@ -1323,7 +1714,7 @@
                             '<td class="p-4"><p class="font-mono text-xs text-[#171C8F] font-bold">'+(r.billNo !== '-' ? r.billNo : r.source)+'</p>'+(r.customerName && r.customerName !== '-' ? '<p class="text-[10px] text-slate-500">ลูกค้า: '+r.customerName+'</p>' : '')+'</td>',
                             '<td class="p-4"><p class="font-bold text-slate-800 text-sm truncate max-w-[200px]">'+r.name+'</p><p class="text-[10px] text-slate-500 font-mono">'+r.sku+' • <span class="font-black text-[#171C8F]">'+r.qty+' '+r.unit+'</span></p></td>',
                             '<td class="p-4 text-center">'+badge+'</td>',
-                            '<td class="p-4 text-center"><button data-action="view-details" data-type="return" data-id="'+r.id+'" class="p-2 bg-[#171C8F]/10 hover:bg-[#171C8F]/20 text-[#171C8F] rounded-lg transition-all shadow-sm"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>',
+                            '<td class="p-4 text-center"><button data-action="view-details" data-type="return" data-id="'+r.id+'" aria-label="ดูรายละเอียดรับคืน '+attr(r.sku)+'" title="ดูรายละเอียด" class="p-2 bg-[#171C8F]/10 hover:bg-[#171C8F]/20 text-[#171C8F] rounded-lg transition-all shadow-sm"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>',
                         '</tr>'
                     ].join('');
                 }).join('') : '<tr><td colspan="5" class="py-10 text-center text-slate-400">ไม่พบข้อมูลที่ค้นหา</td></tr>';
@@ -1340,7 +1731,7 @@
                             '<td class="p-4"><p class="font-bold text-sm text-slate-800">'+m.createdDate+'</p><p class="text-[10px] text-slate-500 mt-0.5">เปิดโดย: '+m.createdBy+'</p></td>',
                             '<td class="p-4"><p class="font-bold text-slate-800 text-sm">'+items.length+' รายการ</p></td>',
                             '<td class="p-4 text-center">'+(m.overallStatus === 'Completed' ? '<span class="px-2 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded text-[10px] font-bold">ปิดจ๊อบแล้ว</span>' : '<span class="px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded text-[10px] font-bold">ยังไม่เสร็จ</span>')+'</td>',
-                            '<td class="p-4 text-center"><button data-action="view-details" data-type="audit" data-id="'+taskId+'" class="p-2 bg-[#171C8F]/10 hover:bg-[#171C8F]/20 text-[#171C8F] rounded-lg transition-all shadow-sm"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>',
+                            '<td class="p-4 text-center"><button data-action="view-details" data-type="audit" data-id="'+taskId+'" aria-label="ดูรายละเอียดใบงาน '+attr(taskId)+'" title="ดูรายละเอียด" class="p-2 bg-[#171C8F]/10 hover:bg-[#171C8F]/20 text-[#171C8F] rounded-lg transition-all shadow-sm"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>',
                         '</tr>'
                     ].join('');
                 }).join('') : '<tr><td colspan="5" class="py-10 text-center text-slate-400">ไม่พบประวัติการนับสต๊อก</td></tr>';
@@ -1359,7 +1750,7 @@
                             '<td class="p-4"><p class="font-bold text-xs text-[#E35205] truncate max-w-[150px]">'+(c.vendor || 'ไม่ระบุ')+'</p><p class="text-[10px] text-slate-500 font-mono mt-0.5">บิล: '+(c.claimBillNo && c.claimBillNo !== '-' ? c.claimBillNo : 'ยังไม่มี')+'</p></td>',
                             '<td class="p-4"><p class="font-bold text-slate-800 text-sm truncate max-w-[200px]">'+c.name+'</p><p class="text-[10px] text-slate-500 font-mono">'+c.sku+' • <span class="font-black text-[#171C8F]">'+c.qty+' '+(c.unit || 'ชิ้น')+'</span></p></td>',
                             '<td class="p-4 text-center">'+badge+'</td>',
-                            '<td class="p-4 text-center"><button data-action="view-details" data-type="claim" data-id="'+c.id+'" class="p-2 bg-[#171C8F]/10 hover:bg-[#171C8F]/20 text-[#171C8F] rounded-lg transition-all shadow-sm"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>',
+                            '<td class="p-4 text-center"><button data-action="view-details" data-type="claim" data-id="'+c.id+'" aria-label="ดูรายละเอียดเคลม '+attr(c.sku)+'" title="ดูรายละเอียด" class="p-2 bg-[#171C8F]/10 hover:bg-[#171C8F]/20 text-[#171C8F] rounded-lg transition-all shadow-sm"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>',
                         '</tr>'
                     ].join('');
                 }).join('') : '<tr><td colspan="5" class="py-10 text-center text-slate-400">ไม่พบข้อมูลที่ค้นหา</td></tr>';
@@ -1783,8 +2174,12 @@
             });
         }
 
-        window.executePrintPreview = function(vendor) {
-            const items = state.claims.filter(c => (c.vendor || 'รอระบุ Vendor') === vendor && c.status !== 'สำเร็จแล้ว' && c.status !== 'เคลมแล้ว' && c.whStatus !== 'ยังไม่รับ');
+        window.executePrintPreview = function(vendor, includeTracked = false) {
+            const items = state.claims.filter(c => {
+                const sameVendor = (c.vendor || 'รอระบุ Vendor') === vendor;
+                if (!sameVendor || c.whStatus === 'ยังไม่รับ') return false;
+                return includeTracked || (c.status !== 'สำเร็จแล้ว' && c.status !== 'เคลมแล้ว');
+            });
             if(!items.length) return Swal.fire('Notice', 'ไม่มีรายการรอส่งเคลม', 'info');
             
             const trs = items.map((i, idx) => {
@@ -1877,16 +2272,18 @@
                 const typeIcon = isRejected ? 'x-circle' : 'check-circle-2';
 
                 let actionBtn = '';
+                const printBtn = '<button data-action="print-track" data-vendor="' + safeVendor + '" class="w-full py-2.5 border border-[#171C8F]/20 text-[#171C8F] bg-white hover:bg-[#171C8F]/5 rounded-xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center"><i data-lucide="printer" class="w-3.5 h-3.5 mr-2 pointer-events-none"></i> พิมพ์ใบเคลมสินค้า</button>';
                 if(actionType === 'wait') {
-                    actionBtn = '<button data-action="track-notify" data-vendor="' + safeVendor + '" class="w-full py-2.5 bg-[#171C8F] hover:bg-[#12167A] text-white rounded-xl text-xs font-bold transition-colors shadow-sm">แจ้งเคลม Vendor แล้ว</button>';
+                    actionBtn = printBtn + '<button data-action="track-notify" data-vendor="' + safeVendor + '" class="w-full mt-2 py-2.5 bg-[#171C8F] hover:bg-[#12167A] text-white rounded-xl text-xs font-bold transition-colors shadow-sm">แจ้งเคลม Vendor แล้ว</button>';
                 } else if(actionType === 'process') {
-                    actionBtn = '<button data-action="track-resolve" data-vendor="' + safeVendor + '" class="w-full py-2.5 bg-[#E35205] hover:bg-[#c94503] text-white rounded-xl text-xs font-bold shadow-md transition-colors">บันทึกผลการเคลม</button>';
+                    actionBtn = printBtn + '<button data-action="track-resolve" data-vendor="' + safeVendor + '" class="w-full mt-2 py-2.5 bg-[#E35205] hover:bg-[#c94503] text-white rounded-xl text-xs font-bold shadow-md transition-colors">บันทึกผลการเคลม</button>';
                 } else if(actionType === 'await') {
                     actionBtn = [
                         '<div class="bg-amber-50 rounded-xl p-3 border border-amber-200 mb-2 shadow-sm">',
                             '<p class="text-[11px] font-bold text-amber-600 flex items-center"><i data-lucide="clock" class="w-3.5 h-3.5 mr-1.5 inline"></i> เปลี่ยนสินค้า รอรับสินค้าใหม่</p>',
                         '</div>',
-                        '<button data-action="track-receive-new" data-vendor="' + safeVendor + '" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors">รับสินค้าใหม่แล้ว / ปิดงาน</button>'
+                        printBtn,
+                        '<button data-action="track-receive-new" data-vendor="' + safeVendor + '" class="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors">รับสินค้าใหม่แล้ว / ปิดงาน</button>'
                     ].join('');
                 } else {
                     let itemsHtml = items.map(i => '<div class="flex justify-between text-[10px] text-slate-600 border-b border-slate-100 pb-1.5 last:border-0"><span class="truncate pr-2 font-medium">' + esc(i.name) + '</span><span class="font-bold text-[#E35205] whitespace-nowrap">' + esc(i.qty) + ' ' + esc(i.unit || 'ชิ้น') + '</span></div>').join('');
@@ -1907,6 +2304,7 @@
                             rejectReasonHtml,
                             '<button class="w-full mt-3 py-1.5 border border-slate-200 text-[#171C8F] bg-white rounded-lg text-[10px] font-bold hover:bg-slate-100 transition-colors shadow-sm" onclick="this.nextElementSibling.classList.toggle(\'hidden\')">ดูรายการสินค้าในบิลนี้</button>',
                             '<div class="hidden mt-2 space-y-1.5 pt-3 border-t border-slate-200 max-h-32 overflow-y-auto custom-scroll pr-1">' + itemsHtml + '</div>',
+                            '<div class="mt-3">' + printBtn + '</div>',
                         '</div>'
                     ].join('');
                 }
@@ -2174,7 +2572,7 @@
             const action = btn.dataset.action;
 
             // Action guard: กันการ trigger ผ่าน console/ปุ่มที่ซ่อนไว้
-            const ACTION_PERM = { 'qc':'QC_RET', 'wh-in':'WH_CLM', 'del-clm':'WH_CLM', 'bulk-done':'MANAGE_CLM', 'print':'MANAGE_CLM', 'set-vendor':'MANAGE_CLM', 'track-notify':'TRACK_CLM', 'track-resolve':'TRACK_CLM', 'track-receive-new':'TRACK_CLM', 'close-cust':'TRACK_CUST' };
+            const ACTION_PERM = { 'qc':'QC_RET', 'wh-in':'WH_CLM', 'del-clm':'WH_CLM', 'bulk-done':'MANAGE_CLM', 'print':'MANAGE_CLM', 'print-track':'TRACK_CLM', 'set-vendor':'MANAGE_CLM', 'track-notify':'TRACK_CLM', 'track-resolve':'TRACK_CLM', 'track-receive-new':'TRACK_CLM', 'close-cust':'TRACK_CUST' };
             const needPerm = ACTION_PERM[action];
             if(needPerm && !can(needPerm)) return Swal.fire('ไม่มีสิทธิ์', 'บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้', 'warning');
 
@@ -2206,6 +2604,7 @@
             if(action === 'wh-in') { Swal.fire({title:'รับเข้าคลัง', html:'<input id="sw-loc" class="swal2-input" placeholder="โลเคชั่น"><input id="sw-user" class="swal2-input" placeholder="ผู้รับเข้า">', preConfirm:()=>{ const whLocation=document.getElementById('sw-loc').value.trim(), whReceiver=document.getElementById('sw-user').value.trim(); if(!whLocation || !whReceiver){ Swal.showValidationMessage('กรุณากรอกโลเคชั่นและผู้รับเข้า'); return false; } return {whLocation, whReceiver}; }}).then(r=>{if(r.isConfirmed) postData({action:'confirmWHReceive', id:btn.dataset.id, ...r.value}, 'รับเข้าคลังสำเร็จ');}); }
             if(action === 'bulk-done') { const vendor = btn.dataset.vendor; const ids = state.claims.filter(c => (c.vendor || 'รอระบุ Vendor') === vendor && c.status !== 'สำเร็จแล้ว' && c.status !== 'รอรับสินค้าใหม่' && c.whStatus !== 'ยังไม่รับ').map(i=>i.id); if(ids.length) Swal.fire({title:'จบงาน ' + vendor + '?', showCancelButton:true, confirmButtonColor: '#E35205'}).then(r=>{if(r.isConfirmed) postData({action:'bulkUpdateStatus', ids, status:'สำเร็จแล้ว', isFinancial:false});}); }
             if(action === 'print') { executePrintPreview(btn.dataset.vendor); }
+            if(action === 'print-track') { executePrintPreview(btn.dataset.vendor, true); }
             if(action === 'toggle-acc') { btn.nextElementSibling.classList.toggle('expanded'); }
             
             if(action === 'track-notify') { 
