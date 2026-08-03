@@ -94,7 +94,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260702.01";
+        const CURRENT_VERSION = "20260801.01";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -1813,7 +1813,7 @@
                 }, {});
                 
                 manageAccEl.innerHTML = Object.keys(grouped).map(v => {
-                    const wItems = grouped[v].filter(i => i.status !== 'สำเร็จแล้ว' && i.status !== 'เคลมแล้ว' && i.status !== 'รอรับสินค้าใหม่');
+                    const wItems = grouped[v].filter(i => i.status === 'รอเคลม');
                     if(!wItems.length) return ''; 
                     
                     const isNoVendor = (v === 'รอระบุ Vendor');
@@ -1854,7 +1854,7 @@
                             '<div class="accordion-content bg-white px-5">',
                                 '<div class="flex justify-end gap-3 py-4 border-b border-slate-200 mb-2">',
                                     (!isNoVendor 
-                                        ? '<button data-action="print" data-vendor="'+safeVendor+'" class="px-4 py-2 bg-[#171C8F] hover:bg-[#12167A] text-white font-bold text-xs rounded-lg flex items-center transition-colors shadow-sm"><i data-lucide="printer" class="w-3.5 h-3.5 mr-2 pointer-events-none"></i> ดูใบส่งเคลม</button>' 
+                                        ? '<button data-action="print" data-vendor="'+safeVendor+'" data-claim-ids="'+claimIdsAttr(wItems)+'" class="px-4 py-2 bg-[#171C8F] hover:bg-[#12167A] text-white font-bold text-xs rounded-lg flex items-center transition-colors shadow-sm"><i data-lucide="printer" class="w-3.5 h-3.5 mr-2 pointer-events-none"></i> ดูใบส่งเคลม</button>'
                                         : '<span class="text-xs text-[#E35205] font-bold flex items-center bg-[#E35205]/10 px-3 py-1.5 rounded-lg"><i data-lucide="alert-circle" class="w-3.5 h-3.5 mr-1.5"></i> กรุณาระบุ Vendor ก่อนพิมพ์ใบส่งเคลม</span>'
                                     ),
                                 '</div>',
@@ -2372,13 +2372,26 @@
             });
         }
 
-        window.executePrintPreview = function(vendor, includeTracked = false) {
+        function claimIdsAttr(items) {
+            return attr(encodeURIComponent(JSON.stringify(items.map(i => String(i.id)))));
+        }
+
+        function parseClaimIds(value) {
+            try {
+                const ids = JSON.parse(decodeURIComponent(value || ''));
+                return Array.isArray(ids) ? ids.map(String) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        window.executePrintPreview = function(vendor, claimIds) {
+            const selectedIds = new Set((Array.isArray(claimIds) ? claimIds : []).map(String));
             const items = state.claims.filter(c => {
                 const sameVendor = (c.vendor || 'รอระบุ Vendor') === vendor;
-                if (!sameVendor || !inVendorPipeline(c)) return false;
-                return includeTracked || (c.status !== 'สำเร็จแล้ว' && c.status !== 'เคลมแล้ว');
+                return sameVendor && selectedIds.has(String(c.id)) && inVendorPipeline(c);
             });
-            if(!items.length) return Swal.fire('Notice', 'ไม่มีรายการรอส่งเคลม', 'info');
+            if(!items.length) return Swal.fire('Notice', 'ไม่พบรายการในใบเคลมที่เลือก กรุณารีเฟรชข้อมูลแล้วลองใหม่', 'info');
             
             const trs = items.map((i, idx) => {
                 const rText = (i.reason && i.reason !== 'undefined' && String(i.reason).trim() !== '') ? i.reason : '-';
@@ -2403,7 +2416,7 @@
                     '<div class="w-3/4">',
                         '<h2 class="text-2xl font-bold mb-1 text-[#171C8F]">ใบส่งคืนสินค้าชำรุด</h2>',
                         '<p class="text-sm text-[#E35205] uppercase tracking-widest mb-4 font-bold">Damage Goods Return</p>',
-                        '<p class="text-sm mb-1"><strong>ผู้จัดจำหน่าย (Vendor):</strong> ' + vendor + '</p>',
+                        '<p class="text-sm mb-1"><strong>ผู้จัดจำหน่าย (Vendor):</strong> ' + esc(vendor) + '</p>',
                         '<p class="text-sm mb-1"><strong>รวมจำนวนที่ส่งคืน:</strong> <span class="font-black text-lg text-[#171C8F]">' + totalQtySum + '</span> รายการ</p>',
                     '</div>',
                     '<div class="w-1/4 text-right text-sm">',
@@ -2457,6 +2470,14 @@
             trackDoneCountEl.innerText = doneList.length;
             
             const groupClaims = (list) => list.reduce((acc, c) => { const v = c.vendor || 'ไม่ระบุ Vendor'; if(!acc[v]) acc[v] = []; acc[v].push(c); return acc; }, {});
+            const completedGroups = Object.values(doneList.reduce((acc, c) => {
+                const vendor = c.vendor || 'ไม่ระบุ Vendor';
+                const completedDate = c.returnDate || c.reportDate || 'ไม่ระบุวันที่';
+                const key = [vendor, c.status || '', completedDate, c.claimType || '', c.claimBillNo || '', c.claimAmount || ''].join('\u001f');
+                if(!acc[key]) acc[key] = { vendor, items: [] };
+                acc[key].items.push(c);
+                return acc;
+            }, {}));
 
             const genVendorCard = (vendor, items, actionType) => {
                 const totalQty = items.reduce((s, i) => s + Number(i.qty), 0);
@@ -2470,7 +2491,7 @@
                 const typeIcon = isRejected ? 'x-circle' : 'check-circle-2';
 
                 let actionBtn = '';
-                const printBtn = '<button data-action="print-track" data-vendor="' + safeVendor + '" class="w-full py-2.5 border border-[#171C8F]/20 text-[#171C8F] bg-white hover:bg-[#171C8F]/5 rounded-xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center"><i data-lucide="printer" class="w-3.5 h-3.5 mr-2 pointer-events-none"></i> พิมพ์ใบเคลมสินค้า</button>';
+                const printBtn = '<button data-action="print-track" data-vendor="' + safeVendor + '" data-claim-ids="' + claimIdsAttr(items) + '" class="w-full py-2.5 border border-[#171C8F]/20 text-[#171C8F] bg-white hover:bg-[#171C8F]/5 rounded-xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center"><i data-lucide="printer" class="w-3.5 h-3.5 mr-2 pointer-events-none"></i> พิมพ์ใบเคลมสินค้า</button>';
                 if(actionType === 'wait') {
                     actionBtn = printBtn + '<button data-action="track-notify" data-vendor="' + safeVendor + '" class="w-full mt-2 py-2.5 bg-[#171C8F] hover:bg-[#12167A] text-white rounded-xl text-xs font-bold transition-colors shadow-sm">แจ้งเคลม Vendor แล้ว</button>';
                 } else if(actionType === 'process') {
@@ -2513,6 +2534,7 @@
                             '<h4 class="font-bold text-[#171C8F] text-sm truncate pr-2">' + esc(vendor) + '</h4>',
                             '<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded-md border border-slate-200 whitespace-nowrap font-bold">' + items.length + ' รายการ</span>',
                         '</div>',
+                        (actionType === 'done' ? '<p class="text-[10px] text-slate-500 mb-1">ปิดงาน: <strong class="text-slate-700">' + esc(items[0].returnDate || items[0].reportDate || '-') + '</strong></p>' : ''),
                         '<p class="text-xs text-slate-500 mb-4">ยอดรวม: <strong class="text-slate-800 text-sm">' + totalQty + ' ชิ้น</strong></p>',
                         actionBtn,
                     '</div>'
@@ -2522,7 +2544,7 @@
             document.getElementById('track_wait_list').innerHTML = Object.keys(groupClaims(waitList)).length ? Object.keys(groupClaims(waitList)).map(v => genVendorCard(v, groupClaims(waitList)[v], 'wait')).join('') : '<div class="py-10 text-center"><p class="text-xs text-slate-400 font-medium">ไม่มีรายการ</p></div>';
             const processHtml = Object.keys(groupClaims(processList)).map(v => genVendorCard(v, groupClaims(processList)[v], 'process')).join('') + Object.keys(groupClaims(awaitList)).map(v => genVendorCard(v, groupClaims(awaitList)[v], 'await')).join('');
             document.getElementById('track_process_list').innerHTML = processHtml || '<div class="py-10 text-center"><p class="text-xs text-slate-400 font-medium">ไม่มีรายการ</p></div>';
-            document.getElementById('track_done_list').innerHTML = Object.keys(groupClaims(doneList)).length ? Object.keys(groupClaims(doneList)).map(v => genVendorCard(v, groupClaims(doneList)[v], 'done')).join('') : '<div class="py-10 text-center"><p class="text-xs text-slate-400 font-medium">ไม่มีรายการ</p></div>';
+            document.getElementById('track_done_list').innerHTML = completedGroups.length ? completedGroups.map(group => genVendorCard(group.vendor, group.items, 'done')).join('') : '<div class="py-10 text-center"><p class="text-xs text-slate-400 font-medium">ไม่มีรายการ</p></div>';
             lucide.createIcons();
         }
 
@@ -2803,8 +2825,8 @@
             if(action === 'triage-claim') { Swal.fire({title:'ส่งเข้าคลังของเคลม?', text:'รายการนี้จะเข้าสู่ขั้นตอนส่งเคลม Vendor', icon:'question', showCancelButton:true, confirmButtonColor:'#171C8F'}).then(r=>{if(r.isConfirmed) postData({action:'triageClaim', id:btn.dataset.id, decision:'claim', user:state.user}, 'ส่งเข้าคลังของเคลมสำเร็จ');}); }
             if(action === 'triage-scrap') { Swal.fire({title:'เข้าคลังของเสีย (ไม่เคลม)?', text:'รายการนี้จะถูกปิดเป็นของเสียที่ไม่เคลม', icon:'warning', showCancelButton:true, confirmButtonColor:'#e11d48'}).then(r=>{if(r.isConfirmed) postData({action:'triageClaim', id:btn.dataset.id, decision:'scrap', user:state.user}, 'บันทึกเข้าคลังของเสียสำเร็จ');}); }
             if(action === 'bulk-done') { const vendor = btn.dataset.vendor; const ids = state.claims.filter(c => (c.vendor || 'รอระบุ Vendor') === vendor && c.status !== 'สำเร็จแล้ว' && c.status !== 'รอรับสินค้าใหม่' && inVendorPipeline(c)).map(i=>i.id); if(ids.length) Swal.fire({title:'จบงาน ' + vendor + '?', showCancelButton:true, confirmButtonColor: '#E35205'}).then(r=>{if(r.isConfirmed) postData({action:'bulkUpdateStatus', ids, status:'สำเร็จแล้ว', isFinancial:false});}); }
-            if(action === 'print') { executePrintPreview(btn.dataset.vendor); }
-            if(action === 'print-track') { executePrintPreview(btn.dataset.vendor, true); }
+            if(action === 'print') { executePrintPreview(btn.dataset.vendor, parseClaimIds(btn.dataset.claimIds)); }
+            if(action === 'print-track') { executePrintPreview(btn.dataset.vendor, parseClaimIds(btn.dataset.claimIds)); }
             if(action === 'toggle-acc') { btn.nextElementSibling.classList.toggle('expanded'); }
             
             if(action === 'track-notify') { 
