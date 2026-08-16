@@ -94,7 +94,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260816.06";
+        const CURRENT_VERSION = "20260816.07";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -787,7 +787,7 @@
     <!-- 🧠 JavaScript Logic -->
     <script>
         // --- 1. CONFIG & STATE ---
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzf-jhrfpqZSKmNTY5fvwM7nAluHMcRzUzBklNOVJPHymXRKLg4i8jrWW4jOE30jbA/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxpCu71JGbGcBDO_v3wrAs9eT3efh1aSQK4m7VhoOU5K5EO4GTGVWFNdPA-R6icQXA/exec';
         let state = { products: [], claims: [], claimStock: [], claimBills: [], claimBillLines: [], claimBillReady: false, claimBillHistoryNextOffset: 0, claimBillHistoryHasMore: false, claimBillHistoryLoading: false, returns: [], audits: [], drafts: [], user: 'Admin', productsLoading: false };
         let dashFilterText = '';
         let dashboardChartInstance = null; 

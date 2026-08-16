@@ -73,7 +73,7 @@ const currentVersion = html.match(/const CURRENT_VERSION = "([^"]+)"/);
 const version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'version.json'), 'utf8')).version;
 assert.ok(currentVersion);
 assert.strictEqual(currentVersion[1], version, 'CURRENT_VERSION and version.json must match');
-assert.match(html, /const GAS_URL = 'https:\/\/script\.google\.com\/macros\/s\/AKfycbzf-jhrfpqZSKmNTY5fvwM7nAluHMcRzUzBklNOVJPHymXRKLg4i8jrWW4jOE30jbA\/exec';/, 'frontend must use the replacement GAS deployment');
-assert.strictEqual(version, '20260816.06', 'replacement GAS deployment requires frontend version 20260816.06');
+assert.match(html, /const GAS_URL = 'https:\/\/script\.google\.com\/macros\/s\/AKfycbxpCu71JGbGcBDO_v3wrAs9eT3efh1aSQK4m7VhoOU5K5EO4GTGVWFNdPA-R6icQXA\/exec';/, 'frontend must use the verified backend `.08` GAS deployment');
+assert.strictEqual(version, '20260816.07', 'verified backend `.08` deployment requires frontend version 20260816.07');
 
 console.log('claim bill frontend static contract passed');

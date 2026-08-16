@@ -325,7 +325,7 @@ assert.strictEqual(post({ action: 'updateVendor', claimId: 'SRC-OLD', sku: 'SKU-
 assert.strictEqual(post({ action: 'bulkUpdateStatus', ids: ['SRC-OLD'], status: 'สำเร็จแล้ว', isFinancial: false }).status, 'error', 'legacy status changes must not mutate allocated source rows');
 
 let claimData = readClaimData();
-assert.strictEqual(claimData.claimBillRevision, '20260816.07-claim-bills');
+assert.strictEqual(claimData.claimBillRevision, '20260816.08-claim-bills');
 assert.deepStrictEqual(JSON.parse(JSON.stringify(claimData.claimStock.find(item => item.sku === 'SKU-1'))), {
   vendor: 'Vendor A', sku: 'SKU-1', name: 'แป้งดาว', unit: 'ลัง', receivedQty: 50, allocatedQty: 35, availableQty: 15
 }, 'legacy notified rows must not enter stock and available quantity must be derived');
