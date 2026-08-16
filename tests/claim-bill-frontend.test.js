@@ -74,6 +74,6 @@ const version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'version.j
 assert.ok(currentVersion);
 assert.strictEqual(currentVersion[1], version, 'CURRENT_VERSION and version.json must match');
 assert.match(html, /const GAS_URL = 'https:\/\/script\.google\.com\/macros\/s\/AKfycbxpCu71JGbGcBDO_v3wrAs9eT3efh1aSQK4m7VhoOU5K5EO4GTGVWFNdPA-R6icQXA\/exec';/, 'frontend must use the verified backend `.08` GAS deployment');
-assert.strictEqual(version, '20260816.07', 'verified backend `.08` deployment requires frontend version 20260816.07');
+assert.strictEqual(version, '20260816.08', 'first-use claim-bill setup requires frontend version 20260816.08');
 
 console.log('claim bill frontend static contract passed');

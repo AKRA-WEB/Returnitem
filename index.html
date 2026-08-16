@@ -94,7 +94,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260816.07";
+        const CURRENT_VERSION = "20260816.08";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -752,7 +752,7 @@
                         <div><h2 class="text-xl font-bold text-[#171C8F]">คลังสินค้าชำรุด</h2><p class="text-xs text-slate-500 mt-1">ดูยอดคงเหลือแยก Vendor และเลือกจำนวนเพื่อออกใบส่งเคลมเป็นบิล</p></div>
                         <div class="flex gap-2 text-[11px] font-bold"><span class="px-3 py-2 rounded-lg bg-slate-100 text-slate-600">รับเข้า <strong id="claim-stock-received" class="text-[#171C8F]">0</strong></span><span class="px-3 py-2 rounded-lg bg-[#E35205]/10 text-[#E35205]">คงเหลือ <strong id="claim-stock-available">0</strong></span></div>
                     </div>
-                    <div id="claim-bill-setup-warning" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700" role="status">ระบบบิลเคลมยังไม่พร้อม กรุณาเตรียม ClaimBill และ ClaimBillLine ก่อนออกบิล</div>
+                    <div id="claim-bill-setup-warning" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700" role="status">ระบบบิลเคลมยังไม่พร้อม ระบบจะเตรียม ClaimBill, ClaimBillLine และ ClaimMutation อัตโนมัติเมื่อออกใบเคลมครั้งแรก</div>
                     <div><label for="claim-stock-search" class="block text-xs font-bold text-slate-600 mb-2">ค้นหาคลังสินค้าชำรุด</label><input id="claim-stock-search" type="search" placeholder="ค้นหา Vendor, SKU หรือชื่อสินค้า" class="w-full min-h-12 rounded-xl border border-slate-300 px-4 text-base focus:outline-none focus:ring-2 focus:ring-[#171C8F]/30"></div>
                     <div id="manage_acc" class="space-y-4"></div>
                     <section class="border-t border-slate-200 pt-6"><h3 class="font-bold text-[#171C8F] mb-1">ใบเคลมพร้อมส่ง</h3><p class="text-xs text-slate-500 mb-4">พิมพ์ใบเคลมที่เพิ่งออกจากคลังสินค้าชำรุดได้จากหน้านี้</p><div id="manage_ready_bills" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4"></div></section>
@@ -1170,7 +1170,7 @@
             if (!state.products.length && !productsLoadInFlight) loadProductsBackground();
         }
 
-        async function postData(payload, successMsg) {
+        async function postData(payload, successMsg, options = {}) {
             if (await AppVersionGuard.blockIfStale()) return false;
             showLoader('กำลังบันทึก...');
             postData.lastFailureAmbiguous = false;
@@ -1181,7 +1181,7 @@
                 hideLoader();
                 if(result.status === 'success') {
                     if(successMsg) showToast('success', successMsg, 'ข้อมูลถูกซิงค์แล้ว');
-                    setTimeout(() => fetchData(false), 800);
+                    if(options.refresh !== false) setTimeout(() => fetchData(false), 800);
                     return result.data || true;
                 } else {
                     const maybeCommitted = result.reason === 'maybe_committed';
@@ -1985,7 +1985,7 @@
                         '</div>',
                         (noVendor
                             ? '<div class="bg-amber-50 border-y border-amber-200 px-5 py-3 text-xs font-bold text-amber-700">ต้องระบุ Vendor ก่อนจึงจะเลือกสินค้าออกใบเคลมได้</div><div>'+rows+'</div>'
-                            : '<form data-claim-bill-form data-vendor="'+attr(vendor)+'" method="post"><fieldset><legend class="sr-only">เลือกสินค้าออกใบเคลมสำหรับ '+esc(vendor)+'</legend><div>'+rows+'</div><div class="p-4 bg-slate-50 flex justify-end"><button type="submit" '+(!state.claimBillReady ? 'disabled' : '')+' class="min-h-12 px-5 py-3 rounded-xl bg-[#E35205] hover:bg-[#c94503] text-white text-sm font-bold shadow-md disabled:opacity-40 disabled:cursor-not-allowed"><i data-lucide="file-plus-2" class="w-4 h-4 inline mr-2"></i>ออกใบส่งเคลมจากจำนวนที่เลือก</button></div></fieldset></form>'),
+                            : '<form data-claim-bill-form data-vendor="'+attr(vendor)+'" method="post"><fieldset><legend class="sr-only">เลือกสินค้าออกใบเคลมสำหรับ '+esc(vendor)+'</legend><div>'+rows+'</div><div class="p-4 bg-slate-50 flex justify-end"><button type="submit" class="min-h-12 px-5 py-3 rounded-xl bg-[#E35205] hover:bg-[#c94503] text-white text-sm font-bold shadow-md disabled:opacity-40 disabled:cursor-not-allowed"><i data-lucide="file-plus-2" class="w-4 h-4 inline mr-2"></i>ออกใบส่งเคลมจากจำนวนที่เลือก</button></div></fieldset></form>'),
                     '</section>'
                 ].join('');
             }).join('');
@@ -2040,7 +2040,6 @@
             if(!form) return;
             e.preventDefault();
             if(!can('MANAGE_CLM')) return Swal.fire('ไม่มีสิทธิ์', 'บัญชีนี้ไม่มีสิทธิ์ออกใบเคลม', 'warning');
-            if(!state.claimBillReady) return Swal.fire('ระบบยังไม่พร้อม', 'กรุณาเตรียม ClaimBill และ ClaimBillLine ก่อน', 'warning');
             const items = [];
             let invalidInput = null;
             form.querySelectorAll('input[name="claimQty"]').forEach(input => {
@@ -2060,6 +2059,11 @@
             const confirmed = await Swal.fire({ title:'ออกใบส่งเคลมให้ '+vendor+'?', html:'เลือกแล้ว <strong>'+items.length+'</strong> รายการ ระบบจะตัดยอดจากคลังตามล็อตเก่าสุด', icon:'question', showCancelButton:true, confirmButtonText:'ออกใบเคลม', confirmButtonColor:'#E35205' });
             if(!confirmed.isConfirmed) { submit.disabled = false; return; }
             try {
+                if(!state.claimBillReady) {
+                    const setupResult = await postData({ action:'initClaimBillSheets', user:state.user }, '', { refresh:false });
+                    if(!setupResult) return;
+                    state.claimBillReady = true;
+                }
                 const result = await postClaimMutation('create:'+vendor, { action:'createClaimBill', vendor, items, user:state.user }, 'สร้างใบเคลมสำเร็จ');
                 if(result && result.billId) {
                     form.reset();
