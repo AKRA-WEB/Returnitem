@@ -73,5 +73,7 @@ const currentVersion = html.match(/const CURRENT_VERSION = "([^"]+)"/);
 const version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'version.json'), 'utf8')).version;
 assert.ok(currentVersion);
 assert.strictEqual(currentVersion[1], version, 'CURRENT_VERSION and version.json must match');
+assert.match(html, /const GAS_URL = 'https:\/\/script\.google\.com\/macros\/s\/AKfycbzf-jhrfpqZSKmNTY5fvwM7nAluHMcRzUzBklNOVJPHymXRKLg4i8jrWW4jOE30jbA\/exec';/, 'frontend must use the replacement GAS deployment');
+assert.strictEqual(version, '20260816.06', 'replacement GAS deployment requires frontend version 20260816.06');
 
 console.log('claim bill frontend static contract passed');

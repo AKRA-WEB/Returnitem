@@ -193,7 +193,14 @@ const context = {
     getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} })
   },
   UrlFetchApp: {
-    fetch: url => new TextOutput(JSON.stringify(url.includes('token=VALID_TOKEN') ? {
+    fetch: url => {
+      if (!url.includes('appId=app-damage')) {
+        return new TextOutput(JSON.stringify({ valid: false, reason: 'permission_denied' }));
+      }
+      return new TextOutput(JSON.stringify(url.includes('token=NO_ENTRY_ACCESS') ? {
+      valid: false,
+      reason: 'permission_denied'
+    } : url.includes('token=VALID_TOKEN') ? {
       valid: true,
       user: { id: 'verified-id', name: 'Verified User', roles: ['ADMIN'], perms: { 'app-ret': ['ADD_RET', 'QC_RET', 'ADD_CLM', 'MANAGE_CLM', 'TRACK_CLM', 'WH_CLM'] } }
     } : url.includes('token=RENAMED_VALID_TOKEN') ? {
@@ -223,7 +230,8 @@ const context = {
     } : url.includes('token=SPLIT_ADD_ONLY') ? {
       valid: true,
       user: { id: 'split-user', name: 'Split User', roles: ['TRD'], perms: { 'app-ret': ['ADD_RET'] } }
-    } : { valid: false, reason: 'invalid_or_expired_token' }))
+    } : { valid: false, reason: 'invalid_or_expired_token' }));
+    }
   }
 };
 vm.createContext(context);
@@ -238,6 +246,17 @@ function postRaw(payload) {
   const output = context.doPost({ postData: { contents: JSON.stringify(payload) } });
   return JSON.parse(output.getContent());
 }
+
+assert.strictEqual(
+  postRaw({ token:'VALID_TOKEN', action:'initClaimBillSheets' }).status,
+  'success',
+  'protected Returnitem actions must verify the app-damage entry while reading granular permissions from app-ret'
+);
+assert.deepStrictEqual(
+  postRaw({ token:'NO_ENTRY_ACCESS', action:'initClaimBillSheets' }),
+  { status:'error', message:'ไม่มีสิทธิ์เข้าใช้งานแอปส่งคืนและเคลมสินค้า', reason:'permission_denied' },
+  'Main entry denial must stay permission_denied instead of being reported as an expired session'
+);
 
 const intakeDraft = {
   id:'SRC-DRAFT-IDEMPOTENT', reportDate:'16/08/2026', sku:'SKU-DRAFT', name:'สินค้าทดสอบรับเข้า', qty:2,
@@ -306,7 +325,7 @@ assert.strictEqual(post({ action: 'updateVendor', claimId: 'SRC-OLD', sku: 'SKU-
 assert.strictEqual(post({ action: 'bulkUpdateStatus', ids: ['SRC-OLD'], status: 'สำเร็จแล้ว', isFinancial: false }).status, 'error', 'legacy status changes must not mutate allocated source rows');
 
 let claimData = readClaimData();
-assert.strictEqual(claimData.claimBillRevision, '20260816.06-claim-bills');
+assert.strictEqual(claimData.claimBillRevision, '20260816.07-claim-bills');
 assert.deepStrictEqual(JSON.parse(JSON.stringify(claimData.claimStock.find(item => item.sku === 'SKU-1'))), {
   vendor: 'Vendor A', sku: 'SKU-1', name: 'แป้งดาว', unit: 'ลัง', receivedQty: 50, allocatedQty: 35, availableQty: 15
 }, 'legacy notified rows must not enter stock and available quantity must be derived');
