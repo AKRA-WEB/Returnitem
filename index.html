@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- Chart.js for Dashboard Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
         
@@ -94,7 +94,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260801.01";
+        const CURRENT_VERSION = "20260816.05";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -224,8 +224,19 @@
 
         const ALLOWED_ROLES = ["AKRA", "ADMIN", "TRD", "Cashier", "SUPERVISOR"];
         const API_URL = "https://script.google.com/macros/s/AKfycbyQJLwb5HTexG6gxqTehGWlAxfSXVT--CpWnnp2JTcP4xCcMA1vUjSY_eWqPjUKwzq7/exec"; // Central SSO Backend
-        const STORAGE_KEY = "akra_sso_user_data";
-        let appUser = null; 
+        const STORAGE_KEY = "akra_returnitem_session";
+        let appUser = null;
+
+        function buildVerifiedSessionUser(user, token) {
+            const verifiedUser = {
+                id: user.id || user.name,
+                name: user.name,
+                roles: user.roles,
+                token
+            };
+            if(user.perms && typeof user.perms === 'object') verifiedUser.perms = user.perms;
+            return verifiedUser;
+        }
 
         async function verifyAccess() {
             // Check preview environment
@@ -239,7 +250,7 @@
             // Local/preview should not get stuck on a stale SSO cache while testing.
             if (!ssoToken && isPreviewEnv) {
                 console.warn("⚠️ MOCK MODE: ไม่พบข้อมูล SSO กำลังจำลอง User เพื่อทดสอบ");
-                const mockUser = { name: "Admin (Demo)", roles: ["ADMIN"] };
+                const mockUser = { id: "preview-admin", name: "Admin (Demo)", roles: ["ADMIN"], token: "" };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(mockUser));
                 savedData = JSON.stringify(mockUser);
             }
@@ -263,8 +274,8 @@
                         window.location.replace(MAIN_PORTAL_URL);
                         return false;
                     }
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ name: result.user.name, roles: result.user.roles, perms: result.user.perms || {} }));
-                    appUser = { name: result.user.name, roles: result.user.roles, perms: result.user.perms || {} };
+                    appUser = buildVerifiedSessionUser(result.user, fixedSsoToken);
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser));
                     return true;
                 } catch (error) {
                     console.error("Auth Error:", error);
@@ -280,6 +291,11 @@
                 }
                 try {
                     appUser = JSON.parse(savedData);
+                    if(!isPreviewEnv && !appUser.token) {
+                        localStorage.removeItem(STORAGE_KEY);
+                        window.location.replace(MAIN_PORTAL_URL);
+                        return false;
+                    }
                     const hasPermission = appUser.roles.some(role => ALLOWED_ROLES.includes(role));
                     const isAdmin = appUser.roles.includes("ADMIN");
                     if (!hasPermission && !isAdmin) {
@@ -405,11 +421,11 @@
                     <i data-lucide="alert-triangle" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">แจ้งเคลมชิ้นใหม่</span>
                 </button>
                 <button data-tab="WH_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all border border-transparent relative group">
-                    <i data-lucide="warehouse" class="w-5 h-5 mr-3 group-hover:text-[#E35205] transition-colors"></i><span class="text-sm font-medium">คลังรับของเคลม</span>
+                    <i data-lucide="warehouse" class="w-5 h-5 mr-3 group-hover:text-[#E35205] transition-colors"></i><span class="text-sm font-medium">คลังรับและตรวจสอบ</span>
                     <span id="badge-wh-clm" class="absolute right-4 bg-[#E35205] text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm hidden">0</span>
                 </button>
                 <button data-tab="MANAGE_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all border border-transparent">
-                    <i data-lucide="send" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ส่งคืน Vendor</span>
+                    <i data-lucide="package-open" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">คลังสินค้าชำรุด</span>
                 </button>
                 <button data-tab="TRACK_CLM" class="nav-link w-full flex items-center px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all border border-transparent">
                     <i data-lucide="clipboard-list" class="w-5 h-5 mr-3"></i><span class="text-sm font-medium">ติดตามสถานะเคลม</span>
@@ -731,13 +747,36 @@
                     <div><h2 class="text-xl font-bold text-[#171C8F] mb-2 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#E35205]"></span> รอรับเข้าคลังพักสินค้า</h2><p class="text-xs text-slate-500 mb-6 border-b border-slate-200 pb-3">ยืนยันรับของชำรุดเข้าคลังพักสินค้าเพื่อรอพิจารณา</p><div id="wh_claim_list" class="grid md:grid-cols-2 gap-5"></div></div>
                     <div><h2 class="text-xl font-bold text-[#171C8F] mb-2 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> รอพิจารณา (คลังพักสินค้า)</h2><p class="text-xs text-slate-500 mb-6 border-b border-slate-200 pb-3">ตัดสินใจส่งเข้าคลังของเคลม หรือเข้าคลังของเสีย (ไม่เคลม)</p><div id="wh_triage_list" class="grid md:grid-cols-2 gap-5"></div></div>
                 </div>
-                <div id="tab-MANAGE_CLM" class="tab-content space-y-6"><div class="flex justify-between items-end mb-4 border-b border-slate-200 pb-3"><div><h2 class="text-xl font-bold text-[#171C8F]">จัดการส่งเคลม Vendor</h2><p class="text-xs text-slate-500 mt-1">สรุปยอดเคลมและพิมพ์เอกสารแยกตามผู้ผลิต</p></div></div><div id="manage_acc" class="space-y-4"></div></div>
+                <div id="tab-MANAGE_CLM" class="tab-content space-y-6">
+                    <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-slate-200 pb-4">
+                        <div><h2 class="text-xl font-bold text-[#171C8F]">คลังสินค้าชำรุด</h2><p class="text-xs text-slate-500 mt-1">ดูยอดคงเหลือแยก Vendor และเลือกจำนวนเพื่อออกใบส่งเคลมเป็นบิล</p></div>
+                        <div class="flex gap-2 text-[11px] font-bold"><span class="px-3 py-2 rounded-lg bg-slate-100 text-slate-600">รับเข้า <strong id="claim-stock-received" class="text-[#171C8F]">0</strong></span><span class="px-3 py-2 rounded-lg bg-[#E35205]/10 text-[#E35205]">คงเหลือ <strong id="claim-stock-available">0</strong></span></div>
+                    </div>
+                    <div id="claim-bill-setup-warning" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700" role="status">ระบบบิลเคลมยังไม่พร้อม กรุณาเตรียม ClaimBill และ ClaimBillLine ก่อนออกบิล</div>
+                    <div><label for="claim-stock-search" class="block text-xs font-bold text-slate-600 mb-2">ค้นหาคลังสินค้าชำรุด</label><input id="claim-stock-search" type="search" placeholder="ค้นหา Vendor, SKU หรือชื่อสินค้า" class="w-full min-h-12 rounded-xl border border-slate-300 px-4 text-base focus:outline-none focus:ring-2 focus:ring-[#171C8F]/30"></div>
+                    <div id="manage_acc" class="space-y-4"></div>
+                    <section class="border-t border-slate-200 pt-6"><h3 class="font-bold text-[#171C8F] mb-1">ใบเคลมพร้อมส่ง</h3><p class="text-xs text-slate-500 mb-4">พิมพ์ใบเคลมที่เพิ่งออกจากคลังสินค้าชำรุดได้จากหน้านี้</p><div id="manage_ready_bills" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4"></div></section>
+                </div>
                 <div id="tab-TRACK_CLM" class="tab-content space-y-6">
                     <div class="mb-6 border-b border-slate-200 pb-3"><h2 class="text-xl font-bold text-[#171C8F] flex items-center"><i data-lucide="clipboard-list" class="mr-3 text-[#E35205]"></i> ติดตามสถานะการเคลม</h2><p class="text-xs text-slate-500 mt-1">อัปเดตและติดตามผลการเคลมสินค้าจาก Vendor</p></div>
+                    <div>
+                        <h3 class="font-bold text-[#171C8F] mb-4">ใบเคลมระบบใหม่</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="space-y-4"><div class="flex items-center justify-between pb-2 border-b border-slate-200"><h4 class="font-bold text-slate-700 text-sm">พร้อมส่ง Vendor</h4><span id="bill-wait-count" class="text-[10px] font-bold bg-slate-100 px-2.5 py-1 rounded-full">0</span></div><div id="bill_wait_list" class="space-y-3"></div></div>
+                            <div class="space-y-4"><div class="flex items-center justify-between pb-2 border-b border-slate-200"><h4 class="font-bold text-[#171C8F] text-sm">กำลังดำเนินการ</h4><span id="bill-process-count" class="text-[10px] font-bold bg-[#171C8F]/10 text-[#171C8F] px-2.5 py-1 rounded-full">0</span></div><div id="bill_process_list" class="space-y-3"></div></div>
+                            <div class="space-y-4"><div class="flex items-center justify-between pb-2 border-b border-slate-200"><h4 class="font-bold text-emerald-600 text-sm">ปิดงาน/ยกเลิก</h4><span id="bill-done-count" class="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-full">0</span></div><div id="bill_done_list" class="space-y-3"></div></div>
+                        </div>
+                        <div class="mt-5 text-center">
+                            <button id="claim-history-load-more" type="button" class="hidden min-h-11 rounded-xl border border-[#171C8F]/20 bg-white px-5 py-2.5 text-sm font-bold text-[#171C8F] transition hover:bg-[#171C8F]/5 disabled:cursor-wait disabled:opacity-60">โหลดประวัติบิลเพิ่มเติม</button>
+                        </div>
+                    </div>
+                    <div class="border-t border-slate-200 pt-6">
+                        <h3 class="font-bold text-slate-600 mb-1">งานเดิมก่อนใช้ระบบบิล</h3><p class="text-xs text-slate-400 mb-4">แสดงเฉพาะรายการที่แจ้ง Vendor แล้วหรือปิดงานแล้ว โดยไม่รวมยอดเข้าคลังสินค้าชำรุดใหม่</p>
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="space-y-4"><div class="flex items-center justify-between pb-2 border-b border-slate-200"><h3 class="font-bold text-slate-700 text-sm flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 mr-2"></span> รอเคลม Vendor</h3><span class="text-[10px] font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200" id="track-wait-count">0</span></div><div id="track_wait_list" class="space-y-3"></div></div>
+                        <div class="hidden"><span id="track-wait-count">0</span><div id="track_wait_list"></div></div>
                         <div class="space-y-4"><div class="flex items-center justify-between pb-2 border-b border-slate-200"><h3 class="font-bold text-[#171C8F] text-sm flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-[#171C8F] mr-2"></span> แจ้งเคลมแล้ว</h3><span class="text-[10px] font-bold text-[#171C8F] bg-[#171C8F]/10 px-2.5 py-1 rounded-full border border-[#171C8F]/20" id="track-process-count">0</span></div><div id="track_process_list" class="space-y-3"></div></div>
                         <div class="space-y-4"><div class="flex items-center justify-between pb-2 border-b border-slate-200"><h3 class="font-bold text-emerald-600 text-sm flex items-center"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2"></span> ปิดจ๊อบเคลม</h3><span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200" id="track-done-count">0</span></div><div id="track_done_list" class="space-y-3"></div></div>
+                    </div>
                     </div>
                 </div>
 
@@ -749,7 +788,7 @@
     <script>
         // --- 1. CONFIG & STATE ---
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbzTlWNWc7iRBTG6oTOuEMWud42tL3LTOu6o5Lp9kh02F3UWh8fsBuvJu3SgLUWJMUU/exec';
-        let state = { products: [], claims: [], returns: [], audits: [], drafts: [], user: 'Admin', productsLoading: false };
+        let state = { products: [], claims: [], claimStock: [], claimBills: [], claimBillLines: [], claimBillReady: false, claimBillHistoryNextOffset: 0, claimBillHistoryHasMore: false, claimBillHistoryLoading: false, returns: [], audits: [], drafts: [], user: 'Admin', productsLoading: false };
         let dashFilterText = '';
         let dashboardChartInstance = null; 
 
@@ -763,31 +802,34 @@
         // An item is in the vendor pipeline only after triage moves it past holding (and not scrapped).
         function inVendorPipeline(c){ return c.whStatus !== 'ยังไม่รับ' && c.status !== ST_HOLDING && c.status !== ST_SCRAP; }
 
+        const LEGACY_ROLE_PERMISSIONS = {
+            "AKRA":       ["AUDIT_TASK", "ADD_CLM", "WH_CLM", "MANAGE_CLM"],
+            "TRD":        ["ADD_RET", "QC_RET", "MANAGE_CLM"],
+            "Cashier":    ["AUDIT_CREATE", "AUDIT_TASK", "ADD_RET", "TRACK_CUST", "QC_RET", "BATCH_RET", "AUDIT_REVIEW", "MANAGE_CLM"],
+            "SUPERVISOR": ["ADD_RET","QC_RET","ADD_CLM","WH_CLM","MANAGE_CLM","AUDIT_CREATE","AUDIT_TASK","AUDIT_REVIEW","BATCH_RET","TRACK_CUST"]
+        };
+
+        function returnitemPermissionsForUser() {
+            if(!appUser) return new Set();
+            const hasPermissionContract = appUser.perms && typeof appUser.perms === 'object';
+            if(hasPermissionContract) return new Set((appUser.perms['app-ret'] || []).map(String));
+            const permissions = new Set();
+            (appUser.roles || []).forEach(role => (LEGACY_ROLE_PERMISSIONS[role] || []).forEach(permission => permissions.add(permission)));
+            return permissions;
+        }
+
         // --- จัดการสิทธิ์การมองเห็นเมนู (Role Permissions) ---
         function applyRolePermissions() {
             if (!appUser) return;
             const roles = appUser.roles || [];
             const isAdmin = roles.includes("ADMIN");
+            const hasPermissionContract = appUser.perms && typeof appUser.perms === 'object';
 
             let allowedTabs = new Set();
-            if (isAdmin) return;
+            if (isAdmin && !hasPermissionContract) return;
 
-            // Use perms from token if available, else fall back to role-based map
-            const retPerms = (appUser.perms && appUser.perms["app-ret"]) || [];
-            if (retPerms.length > 0) {
-                retPerms.forEach(p => allowedTabs.add(p));
-            } else {
-                // backward compat: no perms in token
-                const rolePermissions = {
-                    "AKRA":       ["AUDIT_TASK", "ADD_CLM", "WH_CLM", "MANAGE_CLM"],
-                    "TRD":        ["ADD_RET", "QC_RET", "MANAGE_CLM"],
-                    "Cashier":    ["AUDIT_CREATE", "AUDIT_TASK", "ADD_RET", "TRACK_CUST", "QC_RET", "BATCH_RET", "AUDIT_REVIEW", "MANAGE_CLM"],
-                    "SUPERVISOR": ["ADD_RET","QC_RET","ADD_CLM","WH_CLM","MANAGE_CLM","AUDIT_CREATE","AUDIT_TASK","AUDIT_REVIEW","BATCH_RET","TRACK_CUST"]
-                };
-                roles.forEach(role => {
-                    if (rolePermissions[role]) rolePermissions[role].forEach(tab => allowedTabs.add(tab));
-                });
-            }
+            returnitemPermissionsForUser().forEach(permission => allowedTabs.add(permission));
+            if(allowedTabs.has('MANAGE_CLM')) allowedTabs.add('TRACK_CLM');
 
             document.querySelectorAll('[data-tab]').forEach(btn => {
                 const tabName = btn.dataset.tab;
@@ -813,14 +855,13 @@
             }
         }
 
-        // เช็กสิทธิ์ระดับ action (ไม่ใช่แค่ซ่อนเมนู). ADMIN/SUPERVISOR ผ่านเสมอ; token เก่าที่ไม่มี perms ใช้ fallback การมองเห็นเมนู
+        // เช็กสิทธิ์ระดับ action (ไม่ใช่แค่ซ่อนเมนู). token เก่าที่ไม่มี permission contract เท่านั้นจึงใช้ role fallback
         function can(perm) {
             if (!appUser) return false;
             const roles = appUser.roles || [];
-            if (roles.includes('ADMIN') || roles.includes('SUPERVISOR')) return true;
-            const retPerms = (appUser.perms && appUser.perms['app-ret']) || [];
-            if (retPerms.length === 0) return true; // backward compat
-            return retPerms.includes(perm);
+            const hasPermissionContract = appUser.perms && typeof appUser.perms === 'object';
+            if (!hasPermissionContract && (roles.includes('ADMIN') || roles.includes('SUPERVISOR'))) return true;
+            return returnitemPermissionsForUser().has(perm);
         }
 
         // --- 2. GLOBAL UI UTILS ---
@@ -987,15 +1028,29 @@
             setupForms();
             fetchData();
             document.addEventListener('click', handleGlobalClicks);
+            document.addEventListener('submit', handleClaimBillSubmit);
+            document.getElementById('claim-stock-search')?.addEventListener('input', renderClaimStock);
+            document.getElementById('claim-history-load-more')?.addEventListener('click', loadMoreClaimBillHistory);
         });
 
         const RETURN_CACHE_TTL = 10 * 60 * 1000;
         const PRODUCTS_CACHE_KEY = 'wms_ret_products_v1';
         const PRODUCTS_CACHE_TTL = 2 * 60 * 60 * 1000;
         const ACTIVE_CACHE_KEY = 'wms_ret_active_v1';
+        function activeCacheKey() {
+            const identity = String((appUser && (appUser.id || appUser.name)) || 'anonymous');
+            const authorization = Array.from(returnitemPermissionsForUser()).sort().join(',');
+            return ACTIVE_CACHE_KEY + ':' + encodeURIComponent(identity) + ':' + encodeURIComponent(authorization);
+        }
+        function cacheSafeActiveData(data) {
+            if(!data || typeof data !== 'object') return null;
+            const safe = { ...data };
+            ['claimStock', 'claimBills', 'claimBillLines', 'claimBillReady', 'claimBillHistoryNextOffset', 'claimBillHistoryHasMore', 'claimBillAccess', 'claimBillAuthError', 'claimBillRevision'].forEach(key => delete safe[key]);
+            return safe;
+        }
         function getCache(key, ttlMs) { try { const raw = localStorage.getItem(key); if (!raw) return null; const w = JSON.parse(raw); if (Date.now() - (w._ts||0) > ttlMs) { localStorage.removeItem(key); return null; } return w._d; } catch(e) { localStorage.removeItem(key); return null; } }
         function setCache(key, data) { try { localStorage.setItem(key, JSON.stringify({ _ts: Date.now(), _d: data })); } catch(e) { console.error('setCache failed', key, e); } }
-        try { localStorage.removeItem('wms_app_cache'); } catch(e) {}
+        try { localStorage.removeItem('wms_app_cache'); localStorage.removeItem(ACTIVE_CACHE_KEY); } catch(e) {}
 
         function setAutocompleteLoading(isLoading) {
             state.productsLoading = isLoading;
@@ -1003,6 +1058,31 @@
                 if (!inp.dataset.defaultPlaceholder) inp.dataset.defaultPlaceholder = inp.placeholder;
                 inp.placeholder = isLoading ? 'กำลังโหลดข้อมูลสินค้า...' : inp.dataset.defaultPlaceholder;
             });
+        }
+
+        function handleClaimBillAuthError(error, allowOrdinaryData = false) {
+            if(!error) return false;
+            const terminalReasons = ['no_token', 'invalid_or_expired_token', 'mandatory_password_change_required'];
+            if(!terminalReasons.includes(error.reason) && !['permission_denied','verify_failed'].includes(error.reason)) return false;
+            state.claimBillReady = false;
+            state.claimBills = [];
+            state.claimBillLines = [];
+            state.claimStock = [];
+            try { localStorage.removeItem(activeCacheKey()); } catch(e) {}
+            if(terminalReasons.includes(error.reason)) {
+                localStorage.removeItem(STORAGE_KEY);
+                Swal.fire('เซสชันหมดอายุ', error.message || 'กรุณาเข้าสู่ระบบใหม่', 'warning').then(() => window.location.replace(MAIN_PORTAL_URL));
+                return true;
+            }
+            if(error.reason === 'permission_denied') {
+                if(!allowOrdinaryData) {
+                    renderUI();
+                    Swal.fire('ไม่มีสิทธิ์เข้าถึงข้อมูลเคลม', error.message || 'บัญชีนี้ไม่มีสิทธิ์ดูคลังสินค้าชำรุดและใบเคลม', 'warning');
+                }
+                return !allowOrdinaryData;
+            }
+            if(error.reason === 'verify_failed') showToast('error', 'ตรวจสอบสิทธิ์ข้อมูลเคลมไม่สำเร็จ', 'กรุณาลองรีเฟรชอีกครั้ง');
+            return false;
         }
 
         let productsLoadInFlight = false;
@@ -1040,7 +1120,7 @@
 
             // Cache First: ดึงข้อมูลเก่ามาแสดงผลทันที (มี TTL)
             if (loader) {
-                const cachedActive = getCache(ACTIVE_CACHE_KEY, RETURN_CACHE_TTL);
+                const cachedActive = cacheSafeActiveData(getCache(activeCacheKey(), RETURN_CACHE_TTL));
                 const cachedProducts = getCache(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_TTL);
                 if (cachedProducts) state.products = cachedProducts;
                 if (cachedActive) {
@@ -1065,8 +1145,12 @@
                 if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
 
                 if(res.status === 'success') {
+                    if(res.data && res.data.claimBillAuthError && handleClaimBillAuthError(res.data.claimBillAuthError, true)) {
+                        delete window[cb]; document.head.removeChild(document.getElementById(cb));
+                        return;
+                    }
                     // 🟢 [Added] อัปเดตข้อมูลใหม่ลง Cache (active data only; products handled separately)
-                    setCache(ACTIVE_CACHE_KEY, res.data);
+                    setCache(activeCacheKey(), cacheSafeActiveData(res.data));
 
                     state = { ...state, ...res.data };
                     renderUI(); // อัปเดต UI ด้วยข้อมูลใหม่ล่าสุด
@@ -1074,7 +1158,7 @@
                 else { Swal.fire('Error', res.message, 'error'); }
                 delete window[cb]; document.head.removeChild(document.getElementById(cb));
             };
-            const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}&includeProducts=0`;
+            const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}&includeProducts=0&token=${encodeURIComponent((appUser && appUser.token) || '')}`;
             script.onerror = () => {
                 hideLoader(); // 🟢 [Fixed] ซ่อน Loader เมื่อเกิด Error
                 if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
@@ -1089,21 +1173,29 @@
         async function postData(payload, successMsg) {
             if (await AppVersionGuard.blockIfStale()) return false;
             showLoader('กำลังบันทึก...');
+            postData.lastFailureAmbiguous = false;
             try {
-                const response = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+                const securedPayload = { ...payload, token: (appUser && appUser.token) || '' };
+                const response = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(securedPayload) });
                 const result = await response.json();
                 hideLoader();
                 if(result.status === 'success') {
                     if(successMsg) showToast('success', successMsg, 'ข้อมูลถูกซิงค์แล้ว');
                     setTimeout(() => fetchData(false), 800);
-                    return true;
-                } else throw new Error(result.message);
+                    return result.data || true;
+                } else {
+                    const maybeCommitted = result.reason === 'maybe_committed';
+                    postData.lastFailureAmbiguous = maybeCommitted;
+                    throw Object.assign(new Error(result.message), { definitiveResponse: !maybeCommitted });
+                }
             } catch (e) {
                 hideLoader();
+                postData.lastFailureAmbiguous = !e.definitiveResponse;
                 Swal.fire('Failed', e.message || 'เกิดข้อผิดพลาด', 'error');
                 return false;
             }
         }
+        postData.lastFailureAmbiguous = false;
 
         // --- 4. NAVIGATION & INTERACTIONS ---
         function activateTab(target, replaceRoute = false) {
@@ -1581,18 +1673,16 @@
                     }
                     
                     const payload = {
-                        action:'addReturn', id:'RET-'+Date.now(), dateStr:d, timeStr:now.toLocaleTimeString('th-TH',{hour12:false}),
+                        action:qcResult === 'C' ? 'addReturnWithClaim' : 'addReturn', id:qcResult === 'C' ? '' : 'RET-'+Date.now(), dateStr:d, timeStr:now.toLocaleTimeString('th-TH',{hour12:false}),
                         sku, name:document.getElementById('ret_search').value, qty:document.getElementById('ret_qty').value,
                         source:source, reason:finalReason, billStatus:bStatus, compensation:compValue, billNo:bNo, billDate:bDate, status:returnStatus, qcCondition:qcCondition,
-                        unit:document.getElementById('ret_unit').value, customerName: customerName
+                        unit:document.getElementById('ret_unit').value, customerName: customerName, claimQty, claimUnit
                     };
-                    if(await postData(payload, null)) {
-                        if(qcResult === 'C') {
-                            const qcOk = await postData({ action:'updateReturnQC', id: payload.id, grade: 'C', status: 'ส่งเคลมแล้ว', qcCondition, sku: payload.sku, name: payload.name, qty: payload.qty, unit: payload.unit, claimQty, claimUnit, source: payload.source, reason: payload.reason, user: state.user }, 'รับเข้าและส่งเข้าคลังเคลมแล้ว');
-                            if(!qcOk) return;
-                        } else {
-                            showToast('success', qcResult === 'A' ? 'รับเข้าและส่งไปรอตัดรอบ POS แล้ว' : 'รับเข้าและส่งไปรอตรวจสภาพแล้ว', 'ข้อมูลถูกซิงค์แล้ว');
-                        }
+                    const successMessage = qcResult === 'C' ? 'รับเข้าและส่งเข้าคลังเคลมแล้ว' : (qcResult === 'A' ? 'รับเข้าและส่งไปรอตัดรอบ POS แล้ว' : 'รับเข้าและส่งไปรอตรวจสภาพแล้ว');
+                    const saved = qcResult === 'C'
+                        ? await postClaimMutation('return-with-claim', payload, successMessage, { ...payload, dateStr:'', timeStr:'' })
+                        : await postData(payload, successMessage);
+                    if(saved) {
                         e.target.reset(); document.getElementById('ret_sku').value=''; rs1.classList.add('hidden'); rs2.classList.add('hidden'); document.getElementById('ret_other_reason_container').classList.add('hidden'); document.getElementById('ret_other_comp_container').classList.add('hidden'); setRetQcChoice('A');
                     }
                 };
@@ -1621,7 +1711,20 @@
             
             const btnSubmitDrafts = document.getElementById('btn_submit_drafts');
             if(btnSubmitDrafts) {
-                btnSubmitDrafts.onclick = async () => { if(state.drafts.length && await postData({ action:'addDrafts', drafts: state.drafts }, 'ส่งเคลมสำเร็จ')) { state.drafts = []; renderDrafts(); } };
+                btnSubmitDrafts.onclick = async () => {
+                    if(btnSubmitDrafts.disabled || !state.drafts.length) return;
+                    const submittedDrafts = state.drafts.slice();
+                    btnSubmitDrafts.disabled = true;
+                    try {
+                        if(await postData({ action:'addDrafts', drafts: submittedDrafts }, 'ส่งเคลมสำเร็จ')) {
+                            const submittedIds = new Set(submittedDrafts.map(draft => String(draft.id || '')));
+                            state.drafts = state.drafts.filter(draft => !submittedIds.has(String(draft.id || '')));
+                            renderDrafts();
+                        }
+                    } finally {
+                        btnSubmitDrafts.disabled = false;
+                    }
+                };
             }
             
             const btnExport = document.getElementById('btn-export');
@@ -1672,7 +1775,7 @@
             // 🚨 Floating Alert System 🚨
             const pendingWHClaims = state.claims.filter(c => c.whStatus === 'ยังไม่รับ').length;
             const pendingTriage = state.claims.filter(c => c.status === ST_HOLDING).length;
-            const pendingVendorClaims = state.claims.filter(c => inVendorPipeline(c) && c.status !== 'สำเร็จแล้ว' && c.status !== 'เคลมแล้ว' && c.status !== 'รอรับสินค้าใหม่').length;
+            const pendingVendorClaims = (state.claimStock || []).filter(item => Number(item.availableQty || 0) > 0).length;
             const pendingCustReturns = state.returns.filter(i => i.source === 'หน้าร้าน/ลูกค้า' && i.compensation && i.compensation !== '-' && !i.customerStatus).length;
             const queueMap = { 'queue-qc': qcCount, 'queue-wh': pendingWHClaims, 'queue-vendor': pendingVendorClaims, 'queue-cust': pendingCustReturns };
             Object.entries(queueMap).forEach(([id, count]) => {
@@ -1719,6 +1822,7 @@
                 drawDashboardChart();
             }
             renderAuditUI();
+            renderClaimBills();
             renderTrackClaim();
             renderTrackCust();
             renderDrafts();
@@ -1804,75 +1908,263 @@
 
             const manageAccEl = document.getElementById('manage_acc');
             if(manageAccEl) {
-                const grouped = state.claims.filter(inVendorPipeline).reduce((a, c) => {
-                    let v = c.vendor || 'รอระบุ Vendor';
-                    if(v === '-' || v.trim() === '' || v === 'ไม่ระบุ' || v === 'ไม่ระบุ Vendor') v = 'รอระบุ Vendor'; 
-                    if(!a[v]) a[v]=[]; 
-                    a[v].push(c); 
-                    return a; 
-                }, {});
-                
-                manageAccEl.innerHTML = Object.keys(grouped).map(v => {
-                    const wItems = grouped[v].filter(i => i.status === 'รอเคลม');
-                    if(!wItems.length) return ''; 
-                    
-                    const isNoVendor = (v === 'รอระบุ Vendor');
-                    
-                    const list = wItems.map(i => {
-                        const rText = (i.reason && i.reason !== 'undefined' && String(i.reason).trim() !== '') ? i.reason : '-';
-                        const mText = (i.remark && i.remark !== 'undefined' && String(i.remark).trim() !== '') ? i.remark : '-';
-                        return [
-                            '<div class="flex justify-between items-center p-4 border-b border-slate-100 text-sm hover:bg-slate-50 transition-colors">',
-                                '<div class="w-2/3 pr-4">',
-                                    '<span class="text-slate-800 font-bold block truncate">'+esc(i.name)+'</span>',
-                                    '<div class="flex items-center gap-2 mt-1">',
-                                        '<span class="text-[10px] text-slate-500 font-mono bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">'+esc(i.sku)+'</span>',
-                                    '</div>',
-                                    '<p class="text-[10px] text-slate-500 mt-1.5 line-clamp-1"><span class="text-rose-500 font-bold">สาเหตุ:</span> '+esc(rText)+' <span class="text-slate-300 mx-1">|</span> <span class="text-amber-500 font-bold">หมายเหตุ:</span> '+esc(mText)+'</p>',
-                                '</div>',
-                                '<div class="w-1/3 text-right flex flex-col items-end justify-center gap-2">',
-                                    '<span class="font-mono font-black text-[#E35205] bg-[#E35205]/10 border border-[#E35205]/20 px-2 py-1 rounded-md">'+esc(i.qty)+' <span class="font-normal text-[10px]">'+esc(i.unit || 'ชิ้น')+'</span></span>',
-                                    (isNoVendor ? '<button data-action="set-vendor" data-id="'+i.id+'" data-sku="'+attr(i.sku)+'" class="px-2 py-1.5 bg-[#171C8F] text-white text-[10px] rounded hover:bg-[#12167A] transition-colors font-bold whitespace-nowrap shadow-sm"><i data-lucide="edit-3" class="w-3 h-3 inline mr-1 pointer-events-none"></i>ระบุ Vendor</button>' : ''),
-                                '</div>',
-                            '</div>'
-                        ].join('');
-                    }).join('');
-                    
-                    const safeVendor = attr(v);
-
-                    return [
-                        '<div class="glass-card rounded-[20px] mb-4 overflow-hidden border border-slate-200">',
-                            '<div data-action="toggle-acc" class="p-5 bg-slate-50 flex justify-between items-center cursor-pointer hover:bg-slate-100 transition-colors">',
-                                '<div>',
-                                    '<h4 class="font-bold text-lg '+(isNoVendor ? 'text-[#E35205]' : 'text-[#171C8F]')+'">'+esc(v)+'</h4>',
-                                    '<p class="text-[10px] font-bold text-slate-500 mt-0.5">'+wItems.length+' รายการที่รอจัดการ</p>',
-                                '</div>',
-                                '<div class="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center pointer-events-none shadow-sm">',
-                                    '<i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>',
-                                '</div>',
-                            '</div>',
-                            '<div class="accordion-content bg-white px-5">',
-                                '<div class="flex justify-end gap-3 py-4 border-b border-slate-200 mb-2">',
-                                    (!isNoVendor 
-                                        ? '<button data-action="print" data-vendor="'+safeVendor+'" data-claim-ids="'+claimIdsAttr(wItems)+'" class="px-4 py-2 bg-[#171C8F] hover:bg-[#12167A] text-white font-bold text-xs rounded-lg flex items-center transition-colors shadow-sm"><i data-lucide="printer" class="w-3.5 h-3.5 mr-2 pointer-events-none"></i> ดูใบส่งเคลม</button>'
-                                        : '<span class="text-xs text-[#E35205] font-bold flex items-center bg-[#E35205]/10 px-3 py-1.5 rounded-lg"><i data-lucide="alert-circle" class="w-3.5 h-3.5 mr-1.5"></i> กรุณาระบุ Vendor ก่อนพิมพ์ใบส่งเคลม</span>'
-                                    ),
-                                '</div>',
-                                list,
-                            '</div>',
-                        '</div>'
-                    ].join('');
-                }).join('');
+                renderClaimStock();
             }
             
             lucide.createIcons();
+        }
+
+        function roundClaimQty(value) {
+            const qty = Number(value || 0);
+            return Number.isFinite(qty) ? Math.round(qty * 1000000) / 1000000 : 0;
+        }
+
+        function formatClaimUnitTotals(items, qtyKey) {
+            const totals = (items || []).reduce((acc, item) => {
+                const qty = roundClaimQty(item[qtyKey]);
+                if(!qty) return acc;
+                const unit = String(item.unit || 'ชิ้น');
+                acc[unit] = roundClaimQty(Number(acc[unit] || 0) + qty);
+                return acc;
+            }, {});
+            const parts = Object.keys(totals).sort().map(unit => roundClaimQty(totals[unit]) + ' ' + unit);
+            return parts.length ? parts.join(' · ') : '0';
+        }
+
+        function renderClaimStock() {
+            const container = document.getElementById('manage_acc');
+            if(!container) return;
+            const stock = Array.isArray(state.claimStock) ? state.claimStock : [];
+            const received = formatClaimUnitTotals(stock, 'receivedQty');
+            const available = formatClaimUnitTotals(stock, 'availableQty');
+            const receivedEl = document.getElementById('claim-stock-received'), availableEl = document.getElementById('claim-stock-available');
+            if(receivedEl) receivedEl.innerText = received;
+            if(availableEl) availableEl.innerText = available;
+            const warning = document.getElementById('claim-bill-setup-warning');
+            if(warning) warning.classList.toggle('hidden', Boolean(state.claimBillReady));
+
+            renderManageReadyBills();
+            const search = String(document.getElementById('claim-stock-search')?.value || '').trim().toLowerCase();
+            const visible = stock.filter(item => Number(item.availableQty || 0) > 0 && (!search || [item.vendor, item.sku, item.name, item.unit].join(' ').toLowerCase().includes(search)));
+            const grouped = visible.reduce((acc, item) => {
+                const vendor = item.vendor || 'รอระบุ Vendor';
+                if(!acc[vendor]) acc[vendor] = [];
+                acc[vendor].push(item);
+                return acc;
+            }, {});
+            if(!Object.keys(grouped).length) {
+                container.innerHTML = '<div class="glass-card rounded-[20px] py-16 text-center text-slate-400"><i data-lucide="package-check" class="w-10 h-10 mx-auto mb-3"></i><p class="font-bold">ไม่มีสินค้าชำรุดคงเหลือที่พร้อมออกใบเคลม</p></div>';
+                return;
+            }
+
+            container.innerHTML = Object.keys(grouped).sort().map((vendor, vendorIndex) => {
+                const items = grouped[vendor];
+                const noVendor = vendor === 'รอระบุ Vendor';
+                const totalAvailable = formatClaimUnitTotals(items, 'availableQty');
+                const rows = items.map((item, itemIndex) => {
+                    const inputId = 'claim-qty-' + vendorIndex + '-' + itemIndex;
+                    return [
+                        '<div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_auto] gap-3 md:items-center p-4 border-b border-slate-100 last:border-0">',
+                            '<div class="min-w-0"><p class="font-bold text-slate-800">'+esc(item.name)+'</p><p class="text-[10px] font-mono text-slate-500 mt-1">'+esc(item.sku)+' · '+esc(item.unit)+'</p></div>',
+                            '<div class="grid grid-cols-3 gap-2 text-center text-[10px] min-w-[210px]">',
+                                '<span class="rounded-lg bg-slate-50 border border-slate-200 px-2 py-2 text-slate-500">รับเข้า<br><strong class="text-slate-800 text-sm">'+esc(item.receivedQty)+'</strong></span>',
+                                '<span class="rounded-lg bg-slate-50 border border-slate-200 px-2 py-2 text-slate-500">ออกบิลแล้ว<br><strong class="text-[#171C8F] text-sm">'+esc(item.allocatedQty)+'</strong></span>',
+                                '<span class="rounded-lg bg-[#E35205]/10 border border-[#E35205]/20 px-2 py-2 text-[#E35205]">คงเหลือ<br><strong class="text-sm">'+esc(item.availableQty)+'</strong></span>',
+                            '</div>',
+                            (noVendor
+                                ? '<button type="button" data-action="assign-stock-vendor" data-sku="'+attr(item.sku)+'" data-unit="'+attr(item.unit)+'" class="min-h-12 px-4 py-2 rounded-xl bg-[#171C8F] text-white text-xs font-bold">ระบุ Vendor</button>'
+                                : '<div class="min-w-[150px]"><label for="'+inputId+'" class="block text-xs font-bold text-slate-600 mb-1">จำนวนออกใบเคลม</label><input id="'+inputId+'" name="claimQty" data-sku="'+attr(item.sku)+'" data-unit="'+attr(item.unit)+'" type="number" inputmode="decimal" min="0" max="'+attr(item.availableQty)+'" step="any" value="0" aria-describedby="'+inputId+'-help" class="w-full min-h-12 rounded-xl border border-slate-300 px-3 text-base font-bold text-[#171C8F] focus:outline-none focus:ring-2 focus:ring-[#171C8F]/30"><p id="'+inputId+'-help" class="text-[10px] text-slate-400 mt-1">สูงสุด '+esc(item.availableQty)+' '+esc(item.unit)+'</p></div>'),
+                        '</div>'
+                    ].join('');
+                }).join('');
+                return [
+                    '<section class="glass-card rounded-[20px] overflow-hidden border border-slate-200">',
+                        '<div class="p-5 bg-slate-50 flex items-center justify-between gap-3">',
+                            '<div><h3 class="font-bold text-lg '+(noVendor ? 'text-[#E35205]' : 'text-[#171C8F]')+'">'+esc(vendor)+'</h3><p class="text-xs text-slate-500 mt-1">'+items.length+' สินค้า · คงเหลือรวม '+esc(totalAvailable)+'</p></div>',
+                            '<i data-lucide="warehouse" class="w-6 h-6 '+(noVendor ? 'text-[#E35205]' : 'text-[#171C8F]')+'"></i>',
+                        '</div>',
+                        (noVendor
+                            ? '<div class="bg-amber-50 border-y border-amber-200 px-5 py-3 text-xs font-bold text-amber-700">ต้องระบุ Vendor ก่อนจึงจะเลือกสินค้าออกใบเคลมได้</div><div>'+rows+'</div>'
+                            : '<form data-claim-bill-form data-vendor="'+attr(vendor)+'" method="post"><fieldset><legend class="sr-only">เลือกสินค้าออกใบเคลมสำหรับ '+esc(vendor)+'</legend><div>'+rows+'</div><div class="p-4 bg-slate-50 flex justify-end"><button type="submit" '+(!state.claimBillReady ? 'disabled' : '')+' class="min-h-12 px-5 py-3 rounded-xl bg-[#E35205] hover:bg-[#c94503] text-white text-sm font-bold shadow-md disabled:opacity-40 disabled:cursor-not-allowed"><i data-lucide="file-plus-2" class="w-4 h-4 inline mr-2"></i>ออกใบส่งเคลมจากจำนวนที่เลือก</button></div></fieldset></form>'),
+                    '</section>'
+                ].join('');
+            }).join('');
+        }
+
+        function renderManageReadyBills() {
+            const container = document.getElementById('manage_ready_bills');
+            if(!container) return;
+            const bills = (state.claimBills || []).filter(bill => bill.status === 'พร้อมส่งเคลม').sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+            container.innerHTML = bills.length ? bills.map(bill => {
+                const lines = mergeClaimBillLines(billLines(bill.billId));
+                const summary = lines.map(line => esc(line.name)+' '+esc(line.qty)+' '+esc(line.unit)).join(' · ');
+                return '<article class="glass-card rounded-[18px] p-4 border-l-4 border-l-[#171C8F]"><p class="font-bold text-[#171C8F]">'+esc(bill.vendor)+'</p><p class="text-[10px] font-mono text-slate-400 mt-1">'+esc(bill.billId)+'</p><p class="text-xs text-slate-600 mt-3 line-clamp-2">'+summary+'</p><button data-action="claim-bill-print" data-bill-id="'+attr(bill.billId)+'" aria-label="'+attr('พิมพ์ใบเคลม '+bill.billId)+'" class="mt-4 w-full min-h-12 rounded-xl bg-[#171C8F] text-white text-sm font-bold">พิมพ์ใบเคลม</button></article>';
+            }).join('') : '<div class="md:col-span-2 xl:col-span-3 py-8 text-center text-xs text-slate-400">ไม่มีใบเคลมพร้อมส่ง</div>';
+        }
+
+        function makeMutationId() {
+            if(window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+            return 'mut-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+        }
+
+        const PENDING_CLAIM_MUTATIONS_KEY = 'returnitem_pending_claim_mutations_v1';
+        const pendingClaimMutations = (() => {
+            try {
+                const saved = JSON.parse(sessionStorage.getItem(PENDING_CLAIM_MUTATIONS_KEY) || '{}');
+                return new Map(Object.entries(saved));
+            } catch (e) {
+                return new Map();
+            }
+        })();
+        function persistPendingClaimMutations() {
+            try { sessionStorage.setItem(PENDING_CLAIM_MUTATIONS_KEY, JSON.stringify(Object.fromEntries(pendingClaimMutations))); } catch (e) { console.warn('Pending mutation session cache skipped', e); }
+        }
+        async function postClaimMutation(key, payload, successMsg, requestIdentity = payload) {
+            const requestJson = JSON.stringify(requestIdentity);
+            const saved = pendingClaimMutations.get(key);
+            const reuseSaved = saved && saved.requestJson === requestJson;
+            const mutationId = reuseSaved ? saved.mutationId : makeMutationId();
+            const requestPayload = reuseSaved && saved.payload ? saved.payload : payload;
+            pendingClaimMutations.set(key, { mutationId, requestJson, payload:requestPayload });
+            persistPendingClaimMutations();
+            const result = await postData({ ...requestPayload, mutationId }, successMsg);
+            if(result || !postData.lastFailureAmbiguous) {
+                pendingClaimMutations.delete(key);
+                persistPendingClaimMutations();
+            }
+            return result;
+        }
+
+        async function handleClaimBillSubmit(e) {
+            const form = e.target.closest('[data-claim-bill-form]');
+            if(!form) return;
+            e.preventDefault();
+            if(!can('MANAGE_CLM')) return Swal.fire('ไม่มีสิทธิ์', 'บัญชีนี้ไม่มีสิทธิ์ออกใบเคลม', 'warning');
+            if(!state.claimBillReady) return Swal.fire('ระบบยังไม่พร้อม', 'กรุณาเตรียม ClaimBill และ ClaimBillLine ก่อน', 'warning');
+            const items = [];
+            let invalidInput = null;
+            form.querySelectorAll('input[name="claimQty"]').forEach(input => {
+                input.setCustomValidity('');
+                const qty = Number(input.value || 0), max = Number(input.max || 0);
+                if(!Number.isFinite(qty) || qty < 0 || qty > max) {
+                    input.setCustomValidity('จำนวนต้องอยู่ระหว่าง 0 ถึง ' + max);
+                    invalidInput = invalidInput || input;
+                } else if(qty > 0) items.push({ sku: input.dataset.sku, unit: input.dataset.unit, qty });
+            });
+            if(invalidInput) return invalidInput.reportValidity();
+            if(!items.length) return Swal.fire('ยังไม่ได้เลือกสินค้า', 'กรุณาระบุจำนวนอย่างน้อย 1 รายการ', 'info');
+            const vendor = form.dataset.vendor;
+            const submit = form.querySelector('button[type="submit"]');
+            if(submit.disabled) return;
+            submit.disabled = true;
+            const confirmed = await Swal.fire({ title:'ออกใบส่งเคลมให้ '+vendor+'?', html:'เลือกแล้ว <strong>'+items.length+'</strong> รายการ ระบบจะตัดยอดจากคลังตามล็อตเก่าสุด', icon:'question', showCancelButton:true, confirmButtonText:'ออกใบเคลม', confirmButtonColor:'#E35205' });
+            if(!confirmed.isConfirmed) { submit.disabled = false; return; }
+            try {
+                const result = await postClaimMutation('create:'+vendor, { action:'createClaimBill', vendor, items, user:state.user }, 'สร้างใบเคลมสำเร็จ');
+                if(result && result.billId) {
+                    form.reset();
+                    showToast('success', 'เลขที่ '+result.billId, 'ติดตามและพิมพ์เอกสารได้ในเมนูติดตามสถานะเคลม');
+                }
+            } finally {
+                submit.disabled = false;
+            }
+        }
+
+        function billLines(billId) {
+            return (state.claimBillLines || []).filter(line => String(line.billId) === String(billId) && line.lineStatus === 'Active');
+        }
+
+        function mergeClaimBillLines(lines) {
+            const grouped = lines.reduce((acc, line) => {
+                const key = [line.sku, line.unit, line.reason || '', line.remark || '', line.expDate || ''].join('\u001f');
+                if(!acc[key]) acc[key] = { ...line, qty:0 };
+                acc[key].qty = roundClaimQty(acc[key].qty + Number(line.qty || 0));
+                return acc;
+            }, {});
+            return Object.values(grouped);
+        }
+
+        function renderClaimBills() {
+            const waitEl = document.getElementById('bill_wait_list'), processEl = document.getElementById('bill_process_list'), doneEl = document.getElementById('bill_done_list');
+            if(!waitEl || !processEl || !doneEl) return;
+            const historyButton = document.getElementById('claim-history-load-more');
+            if(historyButton) {
+                historyButton.classList.toggle('hidden', !state.claimBillHistoryHasMore);
+                historyButton.disabled = Boolean(state.claimBillHistoryLoading);
+                historyButton.textContent = state.claimBillHistoryLoading ? 'กำลังโหลดประวัติ...' : 'โหลดประวัติบิลเพิ่มเติม';
+            }
+            const bills = Array.isArray(state.claimBills) ? state.claimBills.slice().sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))) : [];
+            const wait = bills.filter(b => b.status === 'พร้อมส่งเคลม');
+            const process = bills.filter(b => b.status === 'แจ้งเคลมแล้ว' || b.status === 'รอรับสินค้าใหม่');
+            const done = bills.filter(b => b.status === 'ปิดงานแล้ว' || b.status === 'ยกเลิก');
+            document.getElementById('bill-wait-count').innerText = wait.length;
+            document.getElementById('bill-process-count').innerText = process.length;
+            document.getElementById('bill-done-count').innerText = done.length;
+
+            const card = bill => {
+                const lines = mergeClaimBillLines(billLines(bill.billId)), total = formatClaimUnitTotals(lines, 'qty');
+                const itemHtml = lines.map(line => '<div class="flex justify-between gap-2 text-[11px] border-b border-slate-100 py-1.5 last:border-0"><span class="truncate">'+esc(line.name)+' <span class="text-slate-400">('+esc(line.sku)+')</span></span><strong class="text-[#E35205] whitespace-nowrap">'+esc(line.qty)+' '+esc(line.unit)+'</strong></div>').join('');
+                let actions = bill.status === 'ยกเลิก' ? '' : '<button data-action="claim-bill-print" data-bill-id="'+attr(bill.billId)+'" aria-label="'+attr('พิมพ์ใบเคลม '+bill.billId)+'" class="min-h-11 px-3 py-2 rounded-lg border border-[#171C8F]/20 text-[#171C8F] text-xs font-bold">พิมพ์ใบเคลม</button>';
+                if(bill.status === 'พร้อมส่งเคลม') actions += '<button data-action="claim-bill-edit" data-bill-id="'+attr(bill.billId)+'" aria-label="'+attr('แก้จำนวนใบเคลม '+bill.billId)+'" class="min-h-11 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">แก้จำนวน</button><button data-action="claim-bill-cancel" data-bill-id="'+attr(bill.billId)+'" aria-label="'+attr('ยกเลิกใบเคลม '+bill.billId)+'" class="min-h-11 px-3 py-2 rounded-lg bg-rose-50 text-rose-600 text-xs font-bold">ยกเลิก</button><button data-action="claim-bill-notify" data-bill-id="'+attr(bill.billId)+'" aria-label="'+attr('แจ้ง Vendor แล้วสำหรับใบเคลม '+bill.billId)+'" class="min-h-11 px-3 py-2 rounded-lg bg-[#171C8F] text-white text-xs font-bold">แจ้ง Vendor แล้ว</button>';
+                if(bill.status === 'แจ้งเคลมแล้ว') actions += '<button data-action="claim-bill-resolve" data-bill-id="'+attr(bill.billId)+'" aria-label="'+attr('บันทึกผลใบเคลม '+bill.billId)+'" class="min-h-11 px-3 py-2 rounded-lg bg-[#E35205] text-white text-xs font-bold">บันทึกผลเคลม</button>';
+                if(bill.status === 'รอรับสินค้าใหม่') actions += '<button data-action="claim-bill-receive" data-bill-id="'+attr(bill.billId)+'" aria-label="'+attr('รับสินค้าใหม่สำหรับใบเคลม '+bill.billId)+'" class="min-h-11 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold">รับสินค้าใหม่/ปิดงาน</button>';
+                return '<article class="glass-card rounded-[20px] p-5 border-l-4 '+(bill.status === 'ยกเลิก' ? 'border-l-rose-400' : bill.status === 'ปิดงานแล้ว' ? 'border-l-emerald-500' : 'border-l-[#171C8F]')+'"><div class="flex justify-between gap-3"><div class="min-w-0"><p class="font-bold text-[#171C8F] truncate">'+esc(bill.vendor)+'</p><p class="text-[10px] font-mono text-slate-400 mt-1">'+esc(bill.billId)+'</p></div><span class="text-[10px] font-bold bg-slate-100 rounded-md px-2 py-1 h-fit">'+esc(bill.status)+'</span></div><div class="mt-3 max-h-28 overflow-y-auto">'+itemHtml+'</div><p class="text-xs text-slate-500 mt-3">รวม <strong class="text-slate-800">'+esc(total)+'</strong> · '+lines.length+' รายการ</p>'+(bill.cancelReason ? '<p class="text-xs text-rose-500 mt-2">เหตุผลยกเลิก: '+esc(bill.cancelReason)+'</p>' : '')+'<div class="grid grid-cols-2 gap-2 mt-4">'+actions+'</div></article>';
+            };
+            const empty = '<div class="py-10 text-center text-xs text-slate-400">ไม่มีรายการ</div>';
+            waitEl.innerHTML = wait.length ? wait.map(card).join('') : empty;
+            processEl.innerHTML = process.length ? process.map(card).join('') : empty;
+            doneEl.innerHTML = done.length ? done.map(card).join('') : empty;
+        }
+
+        function loadMoreClaimBillHistory() {
+            if(state.claimBillHistoryLoading || !state.claimBillHistoryHasMore) return;
+            state.claimBillHistoryLoading = true;
+            renderClaimBills();
+            const offset = Math.max(0, Number(state.claimBillHistoryNextOffset || 0));
+            const cb = 'jsonp_claim_history_' + Date.now();
+            const script = document.createElement('script');
+            const cleanup = () => {
+                delete window[cb];
+                if(script.parentNode) script.parentNode.removeChild(script);
+            };
+            window[cb] = res => {
+                state.claimBillHistoryLoading = false;
+                if(res.status === 'success' && res.data) {
+                    const billMap = new Map((state.claimBills || []).map(bill => [String(bill.billId), bill]));
+                    (res.data.claimBills || []).forEach(bill => billMap.set(String(bill.billId), bill));
+                    const lineMap = new Map((state.claimBillLines || []).map(line => [String(line.lineId), line]));
+                    (res.data.claimBillLines || []).forEach(line => lineMap.set(String(line.lineId), line));
+                    state.claimBills = Array.from(billMap.values());
+                    state.claimBillLines = Array.from(lineMap.values());
+                    state.claimBillHistoryNextOffset = Number(res.data.nextOffset || offset);
+                    state.claimBillHistoryHasMore = Boolean(res.data.hasMore);
+                } else if(!handleClaimBillAuthError({ reason:res.reason, message:res.message })) {
+                    Swal.fire('โหลดประวัติไม่สำเร็จ', res.message || 'กรุณาลองใหม่อีกครั้ง', 'error');
+                }
+                cleanup();
+                renderClaimBills();
+            };
+            script.id = cb;
+            script.src = `${GAS_URL}?callback=${cb}&action=getClaimBillHistory&offset=${offset}&limit=100&token=${encodeURIComponent((appUser && appUser.token) || '')}`;
+            script.onerror = () => {
+                state.claimBillHistoryLoading = false;
+                cleanup();
+                renderClaimBills();
+                Swal.fire('โหลดประวัติไม่สำเร็จ', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', 'error');
+            };
+            document.head.appendChild(script);
         }
 
         // --- 9. RENDER DASHBOARD ---
         function renderDashboard() {
             if(document.getElementById('kpi-ret')) document.getElementById('kpi-ret').innerText = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length;
             if(document.getElementById('kpi-audit')) document.getElementById('kpi-audit').innerText = new Set(state.audits.filter(a => a.overallStatus === 'Pending' || a.overallStatus === 'Reviewing').map(a => a.taskId)).size;
-            if(document.getElementById('kpi-clm')) document.getElementById('kpi-clm').innerText = state.claims.filter(c => c.whStatus==='ยังไม่รับ' || c.status===ST_HOLDING || c.status==='รอเคลม').length;
+            if(document.getElementById('kpi-clm')) {
+                const intakeCount = state.claims.filter(c => c.whStatus==='ยังไม่รับ' || c.status===ST_HOLDING).length;
+                const stockCount = (state.claimStock || []).filter(item => Number(item.availableQty || 0) > 0).length;
+                const openBillCount = (state.claimBills || []).filter(bill => bill.status !== 'ปิดงานแล้ว' && bill.status !== 'ยกเลิก').length;
+                document.getElementById('kpi-clm').innerText = intakeCount + stockCount + openBillCount;
+            }
             if(document.getElementById('kpi-cust')) document.getElementById('kpi-cust').innerText = state.returns.filter(i => i.source === 'หน้าร้าน/ลูกค้า' && i.compensation && i.compensation !== '-' && !i.customerStatus).length;
 
             const filterStr = dashFilterText.toLowerCase();
@@ -1937,7 +2229,8 @@
             if(document.getElementById('dash-list-claims')) {
                 document.getElementById('dash-list-claims').innerHTML = clmFiltered.length ? clmFiltered.map(c => {
                     let badge = '<span class="px-2 py-1 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded text-[10px] font-bold">เคลมสำเร็จ</span>';
-                    if(c.status === 'รอคลังรับของ' || c.status === 'รอเคลม') badge = '<span class="px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded text-[10px] font-bold">รอเคลม</span>';
+                    if(c.status === 'รอคลังรับของ') badge = '<span class="px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded text-[10px] font-bold">รอคลังรับของ</span>';
+                    else if(c.status === 'รอเคลม') badge = '<span class="px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded text-[10px] font-bold">คงเหลือในคลังสินค้าชำรุด</span>';
                     else if(c.status === ST_HOLDING) badge = '<span class="px-2 py-1 bg-amber-50 text-amber-600 border border-amber-200 rounded text-[10px] font-bold">รอพิจารณา</span>';
                     else if(c.status === ST_SCRAP) badge = '<span class="px-2 py-1 bg-slate-100 text-slate-500 border border-slate-200 rounded text-[10px] font-bold">ของเสีย (ไม่เคลม)</span>';
                     else if(c.status === 'แจ้งเคลมแล้ว') badge = '<span class="px-2 py-1 bg-[#171C8F]/10 text-[#171C8F] border border-[#171C8F]/20 rounded text-[10px] font-bold">กำลังตามเรื่อง</span>';
@@ -1945,7 +2238,7 @@
                     return [
                         '<tr class="hover:bg-slate-50 transition-colors">',
                             '<td class="p-4"><p class="font-bold text-slate-800">'+c.reportDate+'</p><p class="text-[10px] text-slate-500">ปิดจ๊อบ: '+(c.returnDate || '-')+'</p></td>',
-                            '<td class="p-4"><p class="font-bold text-xs text-[#E35205] truncate max-w-[150px]">'+(c.vendor || 'ไม่ระบุ')+'</p><p class="text-[10px] text-slate-500 font-mono mt-0.5">บิล: '+(c.claimBillNo && c.claimBillNo !== '-' ? c.claimBillNo : 'ยังไม่มี')+'</p></td>',
+                            '<td class="p-4"><p class="font-bold text-xs text-[#E35205] truncate max-w-[150px]">'+(c.vendor || 'ไม่ระบุ')+'</p><p class="text-[10px] text-slate-500 font-mono mt-0.5">'+(c.status === 'รอเคลม' ? 'รอจัดสรรเข้าใบเคลมระบบใหม่' : 'บิล: '+(c.claimBillNo && c.claimBillNo !== '-' ? c.claimBillNo : 'ยังไม่มี'))+'</p></td>',
                             '<td class="p-4"><p class="font-bold text-slate-800 text-sm truncate max-w-[200px]">'+c.name+'</p><p class="text-[10px] text-slate-500 font-mono">'+c.sku+' • <span class="font-black text-[#171C8F]">'+c.qty+' '+(c.unit || 'ชิ้น')+'</span></p></td>',
                             '<td class="p-4 text-center">'+badge+'</td>',
                             '<td class="p-4 text-center"><button data-action="view-details" data-type="claim" data-id="'+c.id+'" aria-label="ดูรายละเอียดเคลม '+attr(c.sku)+'" title="ดูรายละเอียด" class="p-2 bg-[#171C8F]/10 hover:bg-[#171C8F]/20 text-[#171C8F] rounded-lg transition-all shadow-sm"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i></button></td>',
@@ -2391,6 +2684,45 @@
                 const sameVendor = (c.vendor || 'รอระบุ Vendor') === vendor;
                 return sameVendor && selectedIds.has(String(c.id)) && inVendorPipeline(c);
             });
+            return renderClaimPrintPreview(vendor, items, '');
+        };
+
+        window.executeBillPrintPreview = async function(billId) {
+            const targetId = String(billId || '').trim();
+            if(!targetId) return Swal.fire('Notice', 'ไม่พบเลขที่ใบเคลม', 'info');
+            showLoader('กำลังตรวจสอบใบเคลม...');
+            const cb = 'jsonp_claim_print_' + Date.now();
+            const script = document.createElement('script');
+            const cleanup = () => {
+                delete window[cb];
+                if(script.parentNode) script.parentNode.removeChild(script);
+            };
+            try {
+                const res = await new Promise((resolve, reject) => {
+                    window[cb] = payload => { cleanup(); resolve(payload); };
+                    script.onerror = () => { cleanup(); reject(new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')); };
+                    script.id = cb;
+                    script.src = `${GAS_URL}?callback=${cb}&action=getClaimBillForPrint&billId=${encodeURIComponent(targetId)}&includeProducts=0&token=${encodeURIComponent((appUser && appUser.token) || '')}`;
+                    document.head.appendChild(script);
+                });
+                if(res.status !== 'success' || !res.data || !res.data.claimBill || !Array.isArray(res.data.claimBillLines)) {
+                    if(handleClaimBillAuthError({ reason:res.reason, message:res.message })) return;
+                    const cancelled = res.reason === 'claim_bill_cancelled';
+                    return Swal.fire(cancelled ? 'พิมพ์ไม่ได้' : 'ไม่พบใบเคลม', res.message || (cancelled ? 'ใบเคลมนี้ถูกยกเลิกแล้ว' : 'กรุณารีเฟรชข้อมูลแล้วลองใหม่'), cancelled ? 'warning' : 'info');
+                }
+                const bill = res.data.claimBill;
+                const lines = res.data.claimBillLines;
+                state.claimBills = (state.claimBills || []).filter(item => String(item.billId) !== String(bill.billId)).concat(bill);
+                state.claimBillLines = (state.claimBillLines || []).filter(line => String(line.billId) !== String(bill.billId)).concat(lines);
+                return renderClaimPrintPreview(bill.vendor, mergeClaimBillLines(lines.filter(line => line.lineStatus === 'Active')), bill.billId);
+            } catch(error) {
+                return Swal.fire('พิมพ์ไม่สำเร็จ', error.message || 'กรุณาลองใหม่อีกครั้ง', 'error');
+            } finally {
+                hideLoader();
+            }
+        };
+
+        function renderClaimPrintPreview(vendor, items, documentRef) {
             if(!items.length) return Swal.fire('Notice', 'ไม่พบรายการในใบเคลมที่เลือก กรุณารีเฟรชข้อมูลแล้วลองใหม่', 'info');
             
             const trs = items.map((i, idx) => {
@@ -2403,13 +2735,14 @@
                         '<td class="border border-slate-400 p-3 font-mono text-xs text-slate-700">' + esc(i.sku || '-') + '</td>',
                         '<td class="border border-slate-400 p-3 font-medium text-slate-900">' + esc(i.name || '-') + '</td>',
                         '<td class="border border-slate-400 p-3 text-center font-bold text-slate-900">' + esc(i.qty || 0) + ' <span class="text-xs font-normal text-slate-600">' + esc(i.unit || 'ชิ้น') + '</span></td>',
+                        '<td class="border border-slate-400 p-3 text-xs text-center text-slate-700">' + esc(i.expDate || '-') + '</td>',
                         '<td class="border border-slate-400 p-3 text-xs text-slate-800">' + esc(rText) + '</td>',
                         '<td class="border border-slate-400 p-3 text-xs text-slate-700">' + esc(mText) + '</td>',
                     '</tr>'
                 ].join('');
             }).join('');
             
-            const totalQtySum = items.reduce((s,i) => s + Number(i.qty), 0);
+            const totalQtyText = formatClaimUnitTotals(items, 'qty');
             
             const printHTML = [
                 '<div class="flex justify-between items-start mb-8 text-black">',
@@ -2417,11 +2750,11 @@
                         '<h2 class="text-2xl font-bold mb-1 text-[#171C8F]">ใบส่งคืนสินค้าชำรุด</h2>',
                         '<p class="text-sm text-[#E35205] uppercase tracking-widest mb-4 font-bold">Damage Goods Return</p>',
                         '<p class="text-sm mb-1"><strong>ผู้จัดจำหน่าย (Vendor):</strong> ' + esc(vendor) + '</p>',
-                        '<p class="text-sm mb-1"><strong>รวมจำนวนที่ส่งคืน:</strong> <span class="font-black text-lg text-[#171C8F]">' + totalQtySum + '</span> รายการ</p>',
+                        '<p class="text-sm mb-1"><strong>รวมจำนวนที่ส่งคืน:</strong> <span class="font-black text-lg text-[#171C8F]">' + esc(totalQtyText) + '</span></p>',
                     '</div>',
                     '<div class="w-1/4 text-right text-sm">',
                         '<p class="mb-1"><strong>วันที่พิมพ์:</strong> ' + new Date().toLocaleDateString('th-TH') + '</p>',
-                        '<p class="mb-1"><strong>เอกสารอ้างอิง:</strong> CLM-' + Date.now().toString().slice(-6) + '</p>',
+                        '<p class="mb-1"><strong>เอกสารอ้างอิง:</strong> ' + esc(documentRef || ('CLM-' + Date.now().toString().slice(-6))) + '</p>',
                     '</div>',
                 '</div>',
                 '<table class="w-full border-collapse mb-16 text-sm border border-slate-400 text-black">',
@@ -2431,6 +2764,7 @@
                             '<th class="border border-slate-400 p-3 text-slate-800">SKU</th>',
                             '<th class="border border-slate-400 p-3 text-slate-800 text-left">รายการสินค้า</th>',
                             '<th class="border border-slate-400 p-3 text-slate-800">จำนวน</th>',
+                            '<th class="border border-slate-400 p-3 text-slate-800">วันหมดอายุ</th>',
                             '<th class="border border-slate-400 p-3 text-slate-800 text-left">สาเหตุ</th>',
                             '<th class="border border-slate-400 p-3 text-slate-800 text-left">หมายเหตุ</th>',
                         '</tr>',
@@ -2453,14 +2787,14 @@
 
             document.getElementById('print-document-content').innerHTML = printHTML;
             document.getElementById('print-preview-overlay').classList.remove('hidden');
-        };
+        }
 
         function renderTrackClaim() {
             const trackWaitCountEl = document.getElementById('track-wait-count'), trackProcessCountEl = document.getElementById('track-process-count'), trackDoneCountEl = document.getElementById('track-done-count');
             if(!trackWaitCountEl) return;
 
             const trackingList = state.claims.filter(c => c.whStatus !== 'ยังไม่รับ');
-            const waitList = trackingList.filter(c => c.status === 'รอเคลม');
+            const waitList = []; // `รอเคลม` is opening/current damaged stock in the new bill workflow.
             const processList = trackingList.filter(c => c.status === 'แจ้งเคลมแล้ว');
             const awaitList = trackingList.filter(c => c.status === 'รอรับสินค้าใหม่');
             const doneList = trackingList.filter(c => c.status === 'เคลมแล้ว' || c.status === 'สำเร็จแล้ว');
@@ -2480,7 +2814,7 @@
             }, {}));
 
             const genVendorCard = (vendor, items, actionType) => {
-                const totalQty = items.reduce((s, i) => s + Number(i.qty), 0);
+                const totalQty = formatClaimUnitTotals(items, 'qty');
                 const safeVendor = attr(vendor);
                 const latestClaimType = items[0].claimType || 'ทำรายการสำเร็จ';
                 const latestBillNo = items[0].claimBillNo;
@@ -2535,7 +2869,7 @@
                             '<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded-md border border-slate-200 whitespace-nowrap font-bold">' + items.length + ' รายการ</span>',
                         '</div>',
                         (actionType === 'done' ? '<p class="text-[10px] text-slate-500 mb-1">ปิดงาน: <strong class="text-slate-700">' + esc(items[0].returnDate || items[0].reportDate || '-') + '</strong></p>' : ''),
-                        '<p class="text-xs text-slate-500 mb-4">ยอดรวม: <strong class="text-slate-800 text-sm">' + totalQty + ' ชิ้น</strong></p>',
+                        '<p class="text-xs text-slate-500 mb-4">ยอดรวม: <strong class="text-slate-800 text-sm">' + esc(totalQty) + '</strong></p>',
                         actionBtn,
                     '</div>'
                 ].join('');
@@ -2786,17 +3120,118 @@
             }
         }
 
+        async function assignStockVendor(btn) {
+            const existingVendors = [...new Set(state.products.map(p => p.vendor).filter(v => v && v !== 'ไม่ระบุ Vendor' && v !== '-'))].sort();
+            const result = await Swal.fire({
+                title:'ระบุ Vendor สำหรับ '+btn.dataset.sku,
+                html:'<label for="stock-vendor-input" class="block text-left text-sm font-bold text-slate-600 mb-2">ชื่อ Vendor</label><input list="stock-vendor-list" id="stock-vendor-input" class="swal2-input w-full m-0 text-base" autocomplete="off"><datalist id="stock-vendor-list">'+existingVendors.map(v => '<option value="'+attr(v)+'"></option>').join('')+'</datalist>',
+                showCancelButton:true,
+                confirmButtonText:'บันทึก Vendor',
+                confirmButtonColor:'#171C8F',
+                preConfirm:() => {
+                    const vendor = document.getElementById('stock-vendor-input').value.trim();
+                    if(!vendor) { Swal.showValidationMessage('กรุณาระบุชื่อ Vendor'); return false; }
+                    return vendor;
+                }
+            });
+            if(result.isConfirmed) await postClaimMutation('vendor:'+btn.dataset.sku+':'+btn.dataset.unit, { action:'assignStockVendor', sku:btn.dataset.sku, unit:btn.dataset.unit, vendor:result.value, user:state.user }, 'บันทึก Vendor สำเร็จ');
+        }
+
+        async function editClaimBill(billId) {
+            const bill = (state.claimBills || []).find(item => String(item.billId) === String(billId));
+            if(!bill || bill.status !== 'พร้อมส่งเคลม') return Swal.fire('แก้ไขไม่ได้', 'แก้จำนวนได้เฉพาะก่อนแจ้ง Vendor', 'warning');
+            const grouped = billLines(billId).reduce((acc, line) => {
+                const key = line.sku+'\u0000'+line.unit;
+                if(!acc[key]) acc[key] = { sku:line.sku, name:line.name, unit:line.unit, qty:0 };
+                acc[key].qty += Number(line.qty || 0);
+                return acc;
+            }, {});
+            (state.claimStock || []).filter(item => item.vendor === bill.vendor && Number(item.availableQty || 0) > 0).forEach(item => {
+                const key = item.sku+'\u0000'+item.unit;
+                if(!grouped[key]) grouped[key] = { sku:item.sku, name:item.name, unit:item.unit, qty:0 };
+            });
+            const items = Object.values(grouped);
+            const html = '<div class="text-left space-y-3">'+items.map((item, index) => {
+                const stock = (state.claimStock || []).find(s => s.vendor === bill.vendor && s.sku === item.sku && s.unit === item.unit);
+                const max = Number(item.qty) + Number(stock ? stock.availableQty : 0);
+                return '<div><label for="bill-edit-'+index+'" class="block text-sm font-bold text-slate-700 mb-1">'+esc(item.name)+' <span class="text-xs text-slate-400">('+esc(item.sku)+')</span></label><input id="bill-edit-'+index+'" type="number" inputmode="decimal" min="0" max="'+attr(max)+'" step="any" value="'+attr(item.qty)+'" class="w-full min-h-12 rounded-xl border border-slate-300 px-3 text-base"><p class="text-[10px] text-slate-400 mt-1">แก้ได้สูงสุด '+esc(max)+' '+esc(item.unit)+'</p></div>';
+            }).join('')+'</div>';
+            const result = await Swal.fire({
+                title:'แก้จำนวนในใบเคลม', html, showCancelButton:true, confirmButtonText:'บันทึกจำนวนใหม่', confirmButtonColor:'#171C8F',
+                preConfirm:() => {
+                    const next = items.map((item,index) => ({ sku:item.sku, unit:item.unit, qty:Number(document.getElementById('bill-edit-'+index).value || 0) })).filter(item => item.qty > 0);
+                    const invalid = items.some((item,index) => { const input=document.getElementById('bill-edit-'+index), qty=Number(input.value||0); return !Number.isFinite(qty) || qty<0 || qty>Number(input.max); });
+                    if(invalid || !next.length) { Swal.showValidationMessage(invalid ? 'จำนวนเกินยอดที่แก้ได้' : 'ต้องเหลือสินค้าอย่างน้อย 1 รายการ'); return false; }
+                    return next;
+                }
+            });
+            if(result.isConfirmed) await postClaimMutation('edit:'+billId, { action:'updateClaimBillItems', billId, items:result.value, user:state.user }, 'แก้จำนวนในใบเคลมสำเร็จ');
+        }
+
+        async function resolveClaimBill(billId) {
+            const result = await Swal.fire({
+                title:'บันทึกผลการเคลม',
+                html:'<div class="text-left space-y-3"><label for="bill-resolution" class="block text-sm font-bold text-slate-700">ผลการเคลม</label><select id="bill-resolution" class="w-full min-h-12 rounded-xl border border-slate-300 px-3 text-base"><option value="คืนสินค้า-ทำCN">คืนสินค้า-ทำCN</option><option value="คืนสินค้าหักใบบิล">คืนสินค้าหักใบบิล</option><option value="เปลี่ยนสินค้า รอรับสินค้าใหม่">เปลี่ยนสินค้า รอรับสินค้าใหม่</option><option value="เซลล์ซื้อสินค้าคืน">เซลล์ซื้อสินค้าคืน</option><option value="ไม่สามารถเคลมได้">ไม่สามารถเคลมได้</option></select><div id="bill-resolution-deduction" class="hidden space-y-3"><label for="bill-resolution-ref" class="block text-sm font-bold text-slate-700">เลขที่บิลที่หัก</label><input id="bill-resolution-ref" class="w-full min-h-12 rounded-xl border border-slate-300 px-3 text-base"><label for="bill-resolution-amount" class="block text-sm font-bold text-slate-700">ยอดเงินที่หัก</label><input id="bill-resolution-amount" type="number" inputmode="decimal" min="0.01" step="0.01" class="w-full min-h-12 rounded-xl border border-slate-300 px-3 text-base"></div><div id="bill-resolution-reject" class="hidden space-y-3"><label for="bill-resolution-reject-reason" class="block text-sm font-bold text-slate-700">เหตุผลที่ไม่สามารถเคลมได้</label><textarea id="bill-resolution-reject-reason" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-base"></textarea></div></div>',
+                showCancelButton:true, confirmButtonText:'บันทึกผล', confirmButtonColor:'#E35205',
+                didOpen:() => {
+                    const resolution = document.getElementById('bill-resolution');
+                    const toggleFields = () => {
+                        const isDeduction = resolution.value === 'คืนสินค้าหักใบบิล';
+                        const isRejected = resolution.value === 'ไม่สามารถเคลมได้';
+                        document.getElementById('bill-resolution-deduction').classList.toggle('hidden', !isDeduction);
+                        document.getElementById('bill-resolution-reject').classList.toggle('hidden', !isRejected);
+                    };
+                    resolution.addEventListener('change', toggleFields);
+                    toggleFields();
+                },
+                preConfirm:() => {
+                    const claimType = document.getElementById('bill-resolution').value;
+                    let claimBillNo = '-', claimAmount = '-';
+                    if(claimType === 'คืนสินค้าหักใบบิล') {
+                        claimBillNo = document.getElementById('bill-resolution-ref').value.trim();
+                        claimAmount = document.getElementById('bill-resolution-amount').value.trim();
+                        if(!claimBillNo) { Swal.showValidationMessage('กรุณาระบุเลขที่บิลที่หัก'); return false; }
+                        if(!claimAmount || !Number.isFinite(Number(claimAmount)) || Number(claimAmount) <= 0) { Swal.showValidationMessage('กรุณาระบุยอดเงินที่หักให้ถูกต้อง'); return false; }
+                    }
+                    if(claimType === 'ไม่สามารถเคลมได้') {
+                        claimBillNo = document.getElementById('bill-resolution-reject-reason').value.trim();
+                        claimAmount = '0';
+                        if(!claimBillNo) { Swal.showValidationMessage('กรุณาระบุเหตุผลที่ไม่สามารถเคลมได้'); return false; }
+                    }
+                    return { claimType, claimBillNo, claimAmount };
+                }
+            });
+            if(!result.isConfirmed) return;
+            const status = result.value.claimType === 'เปลี่ยนสินค้า รอรับสินค้าใหม่' ? 'รอรับสินค้าใหม่' : 'ปิดงานแล้ว';
+            await postClaimMutation('resolve:'+billId, { action:'updateClaimBillStatus', billId, status, claimType:result.value.claimType, claimBillNo:result.value.claimBillNo, claimAmount:result.value.claimAmount, user:state.user }, 'บันทึกผลเคลมสำเร็จ');
+        }
+
         function handleGlobalClicks(e) {
             const btn = e.target.closest('[data-action]');
             if(!btn) return;
             const action = btn.dataset.action;
 
             // Action guard: กันการ trigger ผ่าน console/ปุ่มที่ซ่อนไว้
-            const ACTION_PERM = { 'qc':'QC_RET', 'wh-in':'WH_CLM', 'triage-claim':'WH_CLM', 'triage-scrap':'WH_CLM', 'del-clm':'WH_CLM', 'bulk-done':'MANAGE_CLM', 'print':'MANAGE_CLM', 'print-track':'TRACK_CLM', 'set-vendor':'MANAGE_CLM', 'track-notify':'TRACK_CLM', 'track-resolve':'TRACK_CLM', 'track-receive-new':'TRACK_CLM', 'close-cust':'TRACK_CUST' };
+            const ACTION_PERM = { 'qc':'QC_RET', 'wh-in':'WH_CLM', 'triage-claim':'WH_CLM', 'triage-scrap':'WH_CLM', 'del-clm':'WH_CLM', 'bulk-done':'MANAGE_CLM', 'print':'MANAGE_CLM', 'set-vendor':'MANAGE_CLM', 'assign-stock-vendor':'MANAGE_CLM', 'claim-bill-edit':'MANAGE_CLM', 'claim-bill-cancel':'MANAGE_CLM', 'close-cust':'TRACK_CUST' };
             const needPerm = ACTION_PERM[action];
             if(needPerm && !can(needPerm)) return Swal.fire('ไม่มีสิทธิ์', 'บัญชีนี้ไม่มีสิทธิ์ทำรายการนี้', 'warning');
+            if(['claim-bill-print','print-track'].includes(action) && !can('MANAGE_CLM') && !can('TRACK_CLM')) return Swal.fire('ไม่มีสิทธิ์', 'บัญชีนี้ไม่มีสิทธิ์พิมพ์ใบเคลม', 'warning');
+            if(['claim-bill-notify','claim-bill-resolve','claim-bill-receive','track-notify','track-resolve','track-receive-new'].includes(action) && !can('MANAGE_CLM') && !can('TRACK_CLM')) return Swal.fire('ไม่มีสิทธิ์', 'บัญชีนี้ไม่มีสิทธิ์ติดตามใบเคลม', 'warning');
 
             if(action === 'view-details') { showDetailsModal(btn.dataset.type, btn.dataset.id); }
+            if(action === 'assign-stock-vendor') { assignStockVendor(btn); }
+            if(action === 'claim-bill-print') { executeBillPrintPreview(btn.dataset.billId); }
+            if(action === 'claim-bill-edit') { editClaimBill(btn.dataset.billId); }
+            if(action === 'claim-bill-cancel') {
+                Swal.fire({title:'ยกเลิกใบเคลม?', input:'text', inputLabel:'เหตุผลที่ยกเลิก', inputValidator:value=>!String(value||'').trim() ? 'กรุณาระบุเหตุผล' : undefined, showCancelButton:true, confirmButtonText:'ยกเลิกใบเคลม', confirmButtonColor:'#e11d48'}).then(r=>{if(r.isConfirmed) postClaimMutation('cancel:'+btn.dataset.billId, {action:'cancelClaimBill', billId:btn.dataset.billId, reason:r.value.trim(), user:state.user}, 'ยกเลิกใบเคลมและคืนยอดแล้ว');});
+            }
+            if(action === 'claim-bill-notify') {
+                Swal.fire({title:'ยืนยันว่าแจ้ง Vendor แล้ว?', text:'หลังยืนยันจะไม่สามารถแก้จำนวนหรือยกเลิกบิลนี้ได้', icon:'warning', showCancelButton:true, confirmButtonColor:'#171C8F'}).then(r=>{if(r.isConfirmed) postClaimMutation('notify:'+btn.dataset.billId, {action:'updateClaimBillStatus', billId:btn.dataset.billId, status:'แจ้งเคลมแล้ว', user:state.user}, 'อัปเดตสถานะบิลสำเร็จ');});
+            }
+            if(action === 'claim-bill-resolve') { resolveClaimBill(btn.dataset.billId); }
+            if(action === 'claim-bill-receive') {
+                Swal.fire({title:'ยืนยันรับสินค้าใหม่และปิดงาน?', icon:'question', showCancelButton:true, confirmButtonColor:'#059669'}).then(r=>{if(r.isConfirmed) postClaimMutation('receive:'+btn.dataset.billId, {action:'updateClaimBillStatus', billId:btn.dataset.billId, status:'ปิดงานแล้ว', user:state.user}, 'ปิดงานใบเคลมสำเร็จ');});
+            }
             if(action === 'qc') {
                 const id = btn.dataset.id, grade = btn.dataset.grade;
                 let st = 'รอตัดรอบ', cond = 'สินค้าสภาพดี', gradeTitle = 'สินค้าสภาพดี'; 
