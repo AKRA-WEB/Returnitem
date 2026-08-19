@@ -189,6 +189,22 @@ const context = {
     formatDate: (value, zone, format) => format === 'HH:mm' ? '12:00' : format === 'yyyyMMdd-HHmmss' ? '20260815-120000' : format === 'yyyy-MM-dd HH:mm:ss' ? '2026-08-16 09:00:00' : '15/08/2026',
     getUuid: (() => { let next = 1; return () => `UUID-${String(next++).padStart(4, '0')}`; })()
   },
+  CacheService: {
+    getScriptCache: () => {
+      if (!context._memoryCache) context._memoryCache = new Map();
+      return {
+        get: key => context._memoryCache.get(key) || null,
+        getAll: keys => {
+          const res = {};
+          keys.forEach(k => { if (context._memoryCache.has(k)) res[k] = context._memoryCache.get(k); });
+          return res;
+        },
+        put: (key, val, ttl) => { context._memoryCache.set(key, String(val)); },
+        putAll: (map, ttl) => { Object.keys(map).forEach(k => context._memoryCache.set(k, String(map[k]))); },
+        remove: key => { context._memoryCache.delete(key); }
+      };
+    }
+  },
   LockService: {
     getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} })
   },
@@ -325,7 +341,7 @@ assert.strictEqual(post({ action: 'updateVendor', claimId: 'SRC-OLD', sku: 'SKU-
 assert.strictEqual(post({ action: 'bulkUpdateStatus', ids: ['SRC-OLD'], status: 'สำเร็จแล้ว', isFinancial: false }).status, 'error', 'legacy status changes must not mutate allocated source rows');
 
 let claimData = readClaimData();
-assert.strictEqual(claimData.claimBillRevision, '20260819.01-claim-bills');
+assert.strictEqual(claimData.claimBillRevision, '20260819.03-perf-cache');
 assert.deepStrictEqual(JSON.parse(JSON.stringify(claimData.claimStock.find(item => item.sku === 'SKU-1'))), {
   vendor: 'Vendor A', sku: 'SKU-1', name: 'แป้งดาว', unit: 'ลัง', receivedQty: 50, allocatedQty: 35, availableQty: 15
 }, 'legacy notified rows must not enter stock and available quantity must be derived');
@@ -761,5 +777,36 @@ assert.strictEqual(rowWh3[1], 'นายคลัง เดี่ยว');
 assert.strictEqual(rowWh3[2], 'W3');
 assert.strictEqual(rowWh3[8], 'รับเข้าแล้ว');
 assert.strictEqual(rowWh3[10], 'รอเคลม');
+
+// 🧪 Test Product Master Chunked Cache & Bypass
+const prodSheet = spreadsheet.getSheetByName('ProductName');
+prodSheet.readLog = [];
+context._memoryCache = new Map();
+
+function getReq(params) {
+  return JSON.parse(context.doGet({ parameter: params }).getContent());
+}
+
+// 1. First getProducts: Cache Miss -> Read Sheet & Populate Cache
+const getProdMiss = getReq({ action: 'getProducts' });
+assert.strictEqual(getProdMiss.status, 'success');
+assert.strictEqual(getProdMiss.data.fromCache, false, 'first getProducts must be cache miss');
+assert.ok(getProdMiss.data.products.length > 0);
+assert.strictEqual(prodSheet.readLog.length, 1, 'first getProducts must read sheet');
+
+// 2. Second getProducts: Cache Hit -> Return from CacheService without reading Sheet
+prodSheet.readLog = [];
+const getProdHit = getReq({ action: 'getProducts' });
+assert.strictEqual(getProdHit.status, 'success');
+assert.strictEqual(getProdHit.data.fromCache, true, 'second getProducts must be cache hit');
+assert.strictEqual(prodSheet.readLog.length, 0, 'cache hit must not read from sheet');
+assert.deepStrictEqual(getProdHit.data.products, getProdMiss.data.products);
+
+// 3. Third getProducts with bypassCache=1: Bypass Cache -> Read Sheet directly
+prodSheet.readLog = [];
+const getProdBypass = getReq({ action: 'getProducts', bypassCache: '1' });
+assert.strictEqual(getProdBypass.status, 'success');
+assert.strictEqual(getProdBypass.data.fromCache, false, 'bypassCache=1 must bypass cache');
+assert.strictEqual(prodSheet.readLog.length, 1, 'bypassCache=1 must read sheet');
 
 console.log('claim stock/bill contract passed');

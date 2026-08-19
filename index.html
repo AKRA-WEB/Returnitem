@@ -8,8 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Chart.js for Dashboard Analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
@@ -94,7 +92,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260819.02";
+        const CURRENT_VERSION = "20260819.03";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -454,7 +452,7 @@
                     <h2 class="font-bold text-lg text-[#171C8F] tracking-tight truncate" id="active-tab-title">ภาพรวมระบบ</h2>
                 </div>
                 <div class="flex items-center space-x-3 shrink-0">
-                    <button onclick="fetchData()" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" class="p-2.5 text-slate-400 hover:text-[#E35205] hover:bg-[#E35205]/10 rounded-lg transition-all"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
+                    <button onclick="fetchData(true, true)" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" class="p-2.5 text-slate-400 hover:text-[#E35205] hover:bg-[#E35205]/10 rounded-lg transition-all"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
                 </div>
             </header>
 
@@ -1138,11 +1136,15 @@
             document.head.appendChild(script);
         }
 
-        async function fetchData(loader = true) {
+        async function fetchData(loader = true, bypassCache = false) {
             const refreshIcon = document.querySelector('i[data-lucide="refresh-cw"]');
 
+            if (bypassCache) {
+                try { localStorage.removeItem(activeCacheKey()); } catch(e) {}
+            }
+
             // Cache First: ดึงข้อมูลเก่ามาแสดงผลทันที (มี TTL)
-            if (loader) {
+            if (loader && !bypassCache) {
                 const cachedActive = cacheSafeActiveData(getCache(activeCacheKey(), RETURN_CACHE_TTL));
                 const cachedProducts = getCache(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_TTL);
                 if (cachedProducts) state.products = cachedProducts;
@@ -1177,11 +1179,17 @@
 
                     state = { ...state, ...res.data };
                     renderUI(); // อัปเดต UI ด้วยข้อมูลใหม่ล่าสุด
+
+                    // Staggered background load: โหลดสินค้าตามหลังเมื่อหน้าจอแรกพร้อมแล้ว เพื่อไม่ให้ Request ชนกัน
+                    if (!state.products.length && !productsLoadInFlight) {
+                        setTimeout(() => loadProductsBackground(), 250);
+                    }
                 }
                 else { Swal.fire('Error', res.message, 'error'); }
                 delete window[cb]; document.head.removeChild(document.getElementById(cb));
             };
-            const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}&includeProducts=0&token=${encodeURIComponent((appUser && appUser.token) || '')}`;
+            const bypassParam = bypassCache ? '&bypassCache=1' : '';
+            const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}&includeProducts=0${bypassParam}&token=${encodeURIComponent((appUser && appUser.token) || '')}`;
             script.onerror = () => {
                 hideLoader(); // 🟢 [Fixed] ซ่อน Loader เมื่อเกิด Error
                 if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
@@ -1189,8 +1197,6 @@
                 delete window[cb]; document.head.removeChild(script);
             };
             document.head.appendChild(script);
-
-            if (!state.products.length && !productsLoadInFlight) loadProductsBackground();
         }
 
         async function postData(payload, successMsg, options = {}) {
@@ -2279,9 +2285,29 @@
             }
         }
 
-        function drawDashboardChart() {
+        let chartJsLoadingPromise = null;
+        function ensureChartJsLoaded() {
+            if (window.Chart) return Promise.resolve(true);
+            if (chartJsLoadingPromise) return chartJsLoadingPromise;
+            chartJsLoadingPromise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+                script.onload = () => resolve(true);
+                script.onerror = () => { chartJsLoadingPromise = null; reject(new Error('Failed to load Chart.js')); };
+                document.head.appendChild(script);
+            });
+            return chartJsLoadingPromise;
+        }
+
+        async function drawDashboardChart() {
             const ctx = document.getElementById('mainDashboardChart');
             if(!ctx) return;
+            try {
+                await ensureChartJsLoaded();
+            } catch (err) { 
+                console.error('Chart.js load error', err);
+                return;
+            }
 
             const retCount = state.returns.length;
             const clmCount = state.claims.length;

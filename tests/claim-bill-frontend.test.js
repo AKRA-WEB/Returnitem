@@ -90,6 +90,8 @@ const version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'version.j
 assert.ok(currentVersion);
 assert.strictEqual(currentVersion[1], version, 'CURRENT_VERSION and version.json must match');
 assert.match(html, /const GAS_URL = 'https:\/\/script\.google\.com\/macros\/s\/AKfycbxpCu71JGbGcBDO_v3wrAs9eT3efh1aSQK4m7VhoOU5K5EO4GTGVWFNdPA-R6icQXA\/exec';/, 'frontend must use the verified backend GAS deployment');
-assert.strictEqual(version, '20260819.02', 'damaged stock available prominence requires frontend version 20260819.02');
+assert.match(html, /ensureChartJsLoaded/, 'Chart.js must be dynamically loaded on demand');
+assert.match(html, /bypassCache/, 'fetchData must support bypassing server and client caches');
+assert.strictEqual(version, '20260819.03', 'performance optimization requires frontend version 20260819.03');
 
 console.log('claim bill frontend static contract passed');
