@@ -244,6 +244,33 @@
 
             const urlParams = new URLSearchParams(window.location.search);
             const ssoToken = urlParams.get('sso');
+            const tokenToVerify = ssoToken || (savedData && (() => { try { return JSON.parse(savedData).token; } catch(e){ return ''; } })());
+
+            // 1. Instant JWT Verification (<1ms)
+            if (tokenToVerify) {
+                const jwtUser = decodeJwtPayload(tokenToVerify);
+                if (jwtUser) {
+                    const roles = jwtUser.roles || [];
+                    const hasPermission = roles.includes("ADMIN") || roles.some(role => ALLOWED_ROLES.includes(role));
+                    if (hasPermission) {
+                        appUser = {
+                            id: jwtUser.id,
+                            name: jwtUser.name || jwtUser.id,
+                            roles: roles,
+                            token: tokenToVerify
+                        };
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser));
+                        if (ssoToken) {
+                            try {
+                                urlParams.delete('sso');
+                                const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+                                window.history.replaceState({}, document.title, cleanUrl);
+                            } catch(e) {}
+                        }
+                        return true;
+                    }
+                }
+            }
 
             // Local/preview should not get stuck on a stale SSO cache while testing.
             if (!ssoToken && isPreviewEnv) {
