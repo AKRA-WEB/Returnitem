@@ -94,7 +94,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260819.01";
+        const CURRENT_VERSION = "20260819.02";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -767,7 +767,13 @@
                 <div id="tab-MANAGE_CLM" class="tab-content space-y-6">
                     <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-slate-200 pb-4">
                         <div><h2 class="text-xl font-bold text-[#171C8F]">คลังสินค้าชำรุด</h2><p class="text-xs text-slate-500 mt-1">ดูยอดคงเหลือแยก Vendor และเลือกจำนวนเพื่อออกใบส่งเคลมเป็นบิล</p></div>
-                        <div class="flex gap-2 text-[11px] font-bold"><span class="px-3 py-2 rounded-lg bg-slate-100 text-slate-600">รับเข้า <strong id="claim-stock-received" class="text-[#171C8F]">0</strong></span><span class="px-3 py-2 rounded-lg bg-[#E35205]/10 text-[#E35205]">คงเหลือ <strong id="claim-stock-available">0</strong></span></div>
+                        <div class="flex items-center gap-3">
+                            <div class="px-3.5 py-1.5 rounded-xl bg-[#E35205]/10 border border-[#E35205]/20 text-xs font-bold text-[#E35205] flex items-center gap-1.5 shadow-sm">
+                                <span>คงเหลือพร้อมเคลม:</span>
+                                <strong id="claim-stock-available" class="text-sm font-extrabold text-[#E35205]">0</strong>
+                            </div>
+                            <span class="text-[10px] text-slate-400 font-medium">(รับเข้าสะสม <strong id="claim-stock-received" class="font-bold text-slate-500">0</strong>)</span>
+                        </div>
                     </div>
                     <div id="claim-bill-setup-warning" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700" role="status">ระบบบิลเคลมยังไม่พร้อม ระบบจะเตรียม ClaimBill, ClaimBillLine และ ClaimMutation อัตโนมัติเมื่อออกใบเคลมครั้งแรก</div>
                     <div><label for="claim-stock-search" class="block text-xs font-bold text-slate-600 mb-2">ค้นหาคลังสินค้าชำรุด</label><input id="claim-stock-search" type="search" placeholder="ค้นหา Vendor, SKU หรือชื่อสินค้า" class="w-full min-h-12 rounded-xl border border-slate-300 px-4 text-base focus:outline-none focus:ring-2 focus:ring-[#171C8F]/30"></div>
@@ -1973,11 +1979,24 @@
                     const inputId = 'claim-qty-' + vendorIndex + '-' + itemIndex;
                     return [
                         '<div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_auto] gap-3 md:items-center p-4 border-b border-slate-100 last:border-0">',
-                            '<div class="min-w-0"><p class="font-bold text-slate-800">'+esc(item.name)+'</p><p class="text-[10px] font-mono text-slate-500 mt-1">'+esc(item.sku)+' · '+esc(item.unit)+'</p></div>',
-                            '<div class="grid grid-cols-3 gap-2 text-center text-[10px] min-w-[210px]">',
-                                '<span class="rounded-lg bg-slate-50 border border-slate-200 px-2 py-2 text-slate-500">รับเข้า<br><strong class="text-slate-800 text-sm">'+esc(item.receivedQty)+'</strong></span>',
-                                '<span class="rounded-lg bg-slate-50 border border-slate-200 px-2 py-2 text-slate-500">ออกบิลแล้ว<br><strong class="text-[#171C8F] text-sm">'+esc(item.allocatedQty)+'</strong></span>',
-                                '<span class="rounded-lg bg-[#E35205]/10 border border-[#E35205]/20 px-2 py-2 text-[#E35205]">คงเหลือ<br><strong class="text-sm">'+esc(item.availableQty)+'</strong></span>',
+                            '<div class="min-w-0">',
+                                '<p class="font-bold text-slate-800 leading-snug">'+esc(item.name)+'</p>',
+                                '<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-400 mt-1 font-medium">',
+                                    '<span class="font-mono text-slate-500 font-bold">'+esc(item.sku)+'</span>',
+                                    '<span class="text-slate-300">·</span>',
+                                    '<span>รับเข้า <span class="text-slate-600 font-semibold">'+esc(item.receivedQty)+'</span> '+esc(item.unit)+'</span>',
+                                    '<span class="text-slate-300">·</span>',
+                                    '<span>ออกบิลแล้ว <span class="text-slate-600 font-semibold">'+esc(item.allocatedQty)+'</span> '+esc(item.unit)+'</span>',
+                                '</div>',
+                            '</div>',
+                            '<div class="flex items-center justify-start md:justify-center min-w-[110px]">',
+                                '<div class="w-full md:w-auto px-3.5 py-2 rounded-xl bg-[#E35205]/10 border border-[#E35205]/20 text-center">',
+                                    '<span class="block text-[10px] font-bold text-[#E35205] uppercase tracking-wider">คงเหลือ</span>',
+                                    '<div class="flex items-baseline justify-center gap-1">',
+                                        '<strong class="text-lg font-extrabold text-[#E35205] leading-none">'+esc(item.availableQty)+'</strong>',
+                                        '<span class="text-[10px] text-[#E35205] font-bold">'+esc(item.unit)+'</span>',
+                                    '</div>',
+                                '</div>',
                             '</div>',
                             (noVendor
                                 ? '<button type="button" data-action="assign-stock-vendor" data-sku="'+attr(item.sku)+'" data-unit="'+attr(item.unit)+'" class="min-h-12 px-4 py-2 rounded-xl bg-[#171C8F] text-white text-xs font-bold">ระบุ Vendor</button>'
@@ -1988,7 +2007,7 @@
                 return [
                     '<section class="glass-card rounded-[20px] overflow-hidden border border-slate-200">',
                         '<div class="p-5 bg-slate-50 flex items-center justify-between gap-3">',
-                            '<div><h3 class="font-bold text-lg '+(noVendor ? 'text-[#E35205]' : 'text-[#171C8F]')+'">'+esc(vendor)+'</h3><p class="text-xs text-slate-500 mt-1">'+items.length+' สินค้า · คงเหลือรวม '+esc(totalAvailable)+'</p></div>',
+                            '<div><h3 class="font-bold text-lg '+(noVendor ? 'text-[#E35205]' : 'text-[#171C8F]')+'">'+esc(vendor)+'</h3><p class="text-xs text-slate-500 mt-1">'+items.length+' สินค้า · คงเหลือรวม <strong class="text-[#E35205] font-bold">'+esc(totalAvailable)+'</strong></p></div>',
                             '<i data-lucide="warehouse" class="w-6 h-6 '+(noVendor ? 'text-[#E35205]' : 'text-[#171C8F]')+'"></i>',
                         '</div>',
                         (noVendor

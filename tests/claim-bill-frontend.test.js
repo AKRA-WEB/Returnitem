@@ -81,11 +81,15 @@ assert.match(html, /<option value="W4">W4<\/option>/, 'warehouse receive must of
 assert.match(html, /<option value="W5">W5<\/option>/, 'warehouse receive must offer W5 dropdown option');
 assert.match(html, /id="sw-wh-user"/, 'warehouse receive must provide receiver input with autofilled default');
 
+assert.match(html, /id="claim-stock-available"/, 'damaged stock must expose prominent available quantity element');
+assert.match(html, /id="claim-stock-received"/, 'damaged stock must expose received quantity element');
+assert.match(html, /<span>คงเหลือพร้อมเคลม:<\/span>/, 'header must highlight remaining available stock');
+
 const currentVersion = html.match(/const CURRENT_VERSION = "([^"]+)"/);
 const version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'version.json'), 'utf8')).version;
 assert.ok(currentVersion);
 assert.strictEqual(currentVersion[1], version, 'CURRENT_VERSION and version.json must match');
 assert.match(html, /const GAS_URL = 'https:\/\/script\.google\.com\/macros\/s\/AKfycbxpCu71JGbGcBDO_v3wrAs9eT3efh1aSQK4m7VhoOU5K5EO4GTGVWFNdPA-R6icQXA\/exec';/, 'frontend must use the verified backend GAS deployment');
-assert.strictEqual(version, '20260819.01', 'warehouse receive bulk streamline requires frontend version 20260819.01');
+assert.strictEqual(version, '20260819.02', 'damaged stock available prominence requires frontend version 20260819.02');
 
 console.log('claim bill frontend static contract passed');
