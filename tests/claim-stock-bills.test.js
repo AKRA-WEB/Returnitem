@@ -325,7 +325,7 @@ assert.strictEqual(post({ action: 'updateVendor', claimId: 'SRC-OLD', sku: 'SKU-
 assert.strictEqual(post({ action: 'bulkUpdateStatus', ids: ['SRC-OLD'], status: 'สำเร็จแล้ว', isFinancial: false }).status, 'error', 'legacy status changes must not mutate allocated source rows');
 
 let claimData = readClaimData();
-assert.strictEqual(claimData.claimBillRevision, '20260816.08-claim-bills');
+assert.strictEqual(claimData.claimBillRevision, '20260819.01-claim-bills');
 assert.deepStrictEqual(JSON.parse(JSON.stringify(claimData.claimStock.find(item => item.sku === 'SKU-1'))), {
   vendor: 'Vendor A', sku: 'SKU-1', name: 'แป้งดาว', unit: 'ลัง', receivedQty: 50, allocatedQty: 35, availableQty: 15
 }, 'legacy notified rows must not enter stock and available quantity must be derived');
@@ -715,4 +715,51 @@ assert.ok(secondHistoryPage.data.claimBills.length >= 3, 'closed bills beyond th
 assert.ok(secondHistoryPage.data.claimBillLines.length >= secondHistoryPage.data.claimBills.length, 'history pages must include committed lines for reprint');
 const deniedHistory = JSON.parse(context.doGet({ parameter: { action: 'getClaimBillHistory', offset: '100' } }).getContent());
 assert.strictEqual(deniedHistory.reason, 'no_token', 'history pagination must require authenticated claim access');
+
+// 🧪 Test confirmWHReceive: Bulk receiving
+const damageSheet = spreadsheet.getSheetByName('Damage Goods Report');
+damageSheet.appendRow(claimRow({ date: '04/08/2026', sku: 'SKU-WH-1', name: 'สินค้าคลัง 1', qty: 10, unit: 'ลัง', vendor: 'Vendor WH', status: 'รอคลังรับของ', id: 'SRC-WH-1', whStatus: 'ยังไม่รับ' }));
+damageSheet.appendRow(claimRow({ date: '04/08/2026', sku: 'SKU-WH-2', name: 'สินค้าคลัง 2', qty: 20, unit: 'ลัง', vendor: 'Vendor WH', status: 'รอคลังรับของ', id: 'SRC-WH-2', whStatus: 'ยังไม่รับ' }));
+damageSheet.appendRow(claimRow({ date: '04/08/2026', sku: 'SKU-WH-3', name: 'สินค้าคลัง 3', qty: 30, unit: 'ลัง', vendor: 'Vendor WH', status: 'รอคลังรับของ', id: 'SRC-WH-3', whStatus: 'ยังไม่รับ' }));
+
+const bulkWhResult = post({
+  action: 'confirmWHReceive',
+  ids: ['SRC-WH-1', 'SRC-WH-2'],
+  whLocation: 'W1',
+  whReceiver: 'นายคลัง ทดสอบ'
+});
+assert.strictEqual(bulkWhResult.status, 'success');
+assert.strictEqual(bulkWhResult.data.updated, 2);
+
+const rowWh1 = damageSheet.rows.find(r => r[21] === 'SRC-WH-1');
+const rowWh2 = damageSheet.rows.find(r => r[21] === 'SRC-WH-2');
+const rowWh3 = damageSheet.rows.find(r => r[21] === 'SRC-WH-3');
+
+assert.strictEqual(rowWh1[1], 'นายคลัง ทดสอบ', 'bulk receive must record whReceiver');
+assert.strictEqual(rowWh1[2], 'W1', 'bulk receive must record whLocation');
+assert.strictEqual(rowWh1[8], 'รับเข้าแล้ว', 'bulk receive must update whStatus');
+assert.strictEqual(rowWh1[10], 'รอเคลม', 'bulk receive must transition status directly to รอเคลม');
+
+assert.strictEqual(rowWh2[1], 'นายคลัง ทดสอบ');
+assert.strictEqual(rowWh2[2], 'W1');
+assert.strictEqual(rowWh2[8], 'รับเข้าแล้ว');
+assert.strictEqual(rowWh2[10], 'รอเคลม');
+
+assert.strictEqual(rowWh3[8], 'ยังไม่รับ', 'unselected item must remain untouched');
+assert.strictEqual(rowWh3[10], 'รอคลังรับของ');
+
+// 🧪 Test confirmWHReceive: Single receiving (backward compatibility)
+const singleWhResult = post({
+  action: 'confirmWHReceive',
+  id: 'SRC-WH-3',
+  whLocation: 'W3',
+  whReceiver: 'นายคลัง เดี่ยว'
+});
+assert.strictEqual(singleWhResult.status, 'success');
+assert.strictEqual(singleWhResult.data.updated, 1);
+assert.strictEqual(rowWh3[1], 'นายคลัง เดี่ยว');
+assert.strictEqual(rowWh3[2], 'W3');
+assert.strictEqual(rowWh3[8], 'รับเข้าแล้ว');
+assert.strictEqual(rowWh3[10], 'รอเคลม');
+
 console.log('claim stock/bill contract passed');

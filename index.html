@@ -94,7 +94,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260816.08";
+        const CURRENT_VERSION = "20260819.01";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -743,9 +743,26 @@
                 </div>
 
                 <!-- ================== TAB: WH_CLM & MANAGE & TRACK ================== -->
-                <div id="tab-WH_CLM" class="tab-content space-y-10">
-                    <div><h2 class="text-xl font-bold text-[#171C8F] mb-2 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-[#E35205]"></span> รอรับเข้าคลังพักสินค้า</h2><p class="text-xs text-slate-500 mb-6 border-b border-slate-200 pb-3">ยืนยันรับของชำรุดเข้าคลังพักสินค้าเพื่อรอพิจารณา</p><div id="wh_claim_list" class="grid md:grid-cols-2 gap-5"></div></div>
-                    <div><h2 class="text-xl font-bold text-[#171C8F] mb-2 flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> รอพิจารณา (คลังพักสินค้า)</h2><p class="text-xs text-slate-500 mb-6 border-b border-slate-200 pb-3">ตัดสินใจส่งเข้าคลังของเคลม หรือเข้าคลังของเสีย (ไม่เคลม)</p><div id="wh_triage_list" class="grid md:grid-cols-2 gap-5"></div></div>
+                <div id="tab-WH_CLM" class="tab-content space-y-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-[#171C8F] flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-[#E35205]"></span> ยืนยันรับเข้าคลังสินค้า
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-1">ตรวจสอบและยืนยันรับของชำรุดเข้าคลังเพื่อเตรียมส่งเคลม Vendor</p>
+                        </div>
+                        <div id="wh-bulk-actions" class="flex items-center gap-3">
+                            <label class="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer bg-slate-100 px-3 py-2 rounded-xl hover:bg-slate-200 transition-colors select-none">
+                                <input type="checkbox" id="wh-select-all" onchange="toggleWhSelectAll(this)" class="w-4 h-4 rounded text-[#171C8F] focus:ring-[#171C8F]">
+                                <span>เลือกทั้งหมด</span>
+                            </label>
+                            <button type="button" id="btn-wh-bulk-in" onclick="confirmBulkWHReceive()" disabled class="px-4 py-2 bg-[#171C8F] hover:bg-[#12167A] text-white rounded-xl font-bold text-xs shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2">
+                                <i data-lucide="check-check" class="w-4 h-4"></i>
+                                <span>ยืนยันรับที่เลือก (<span id="wh-selected-count">0</span>)</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="wh_claim_list" class="grid md:grid-cols-2 gap-5"></div>
                 </div>
                 <div id="tab-MANAGE_CLM" class="tab-content space-y-6">
                     <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-slate-200 pb-4">
@@ -1796,9 +1813,8 @@
             });
             const badgeWhClm = document.getElementById('badge-wh-clm');
             if(badgeWhClm) {
-                const whTabCount = pendingWHClaims + pendingTriage;
-                badgeWhClm.innerText = whTabCount;
-                badgeWhClm.classList.toggle('hidden', whTabCount === 0);
+                badgeWhClm.innerText = pendingWHClaims;
+                badgeWhClm.classList.toggle('hidden', pendingWHClaims === 0);
             }
 
             const floatingWhAlert = document.getElementById('floating-wh-alert');
@@ -1869,41 +1885,33 @@
             const whClaimListEl = document.getElementById('wh_claim_list');
             if(whClaimListEl) {
                 whClaimListEl.innerHTML = pWH.length ? pWH.map(c => {
-                    return [
-                        '<div class="glass-card p-5 rounded-[20px] relative group border-l-4 border-l-[#E35205]">',
-                            '<button data-action="del-clm" data-id="'+c.id+'" aria-label="ลบรายการเคลม '+attr(c.sku)+'" title="ลบรายการ" class="absolute top-4 right-4 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>',
-                            '<div class="pr-6">',
-                                '<span class="text-[10px] font-mono text-slate-400 block mb-1">'+esc(c.sku)+'</span>',
-                                '<h4 class="font-bold text-slate-800 text-sm leading-snug mb-3">'+esc(c.name)+'</h4>',
-                                '<div class="flex items-center text-[11px] text-slate-600 mb-4 bg-slate-50 w-fit px-2 py-1.5 rounded-md border border-slate-200 shadow-sm">',
-                                    '<span class="mr-2">ยอด: <strong class="text-[#E35205]">'+esc(c.qty)+'</strong></span> | <span class="ml-2 truncate max-w-[120px]">'+esc(c.reason)+'</span>',
-                                '</div>',
-                            '</div>',
-                            '<button data-action="wh-in" data-id="'+c.id+'" class="w-full bg-[#171C8F] hover:bg-[#12167A] text-white py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm">รับเข้าคลังพักสินค้า</button>',
-                        '</div>'
-                    ].join('');
-                }).join('') : '<div class="col-span-full py-16 text-center"><p class="text-slate-400 font-medium">ไม่มีของรอรับเข้าคลังพักสินค้า</p></div>';
-            }
-
-            const pTriage = state.claims.filter(c => c.status === ST_HOLDING);
-            const whTriageListEl = document.getElementById('wh_triage_list');
-            if(whTriageListEl) {
-                whTriageListEl.innerHTML = pTriage.length ? pTriage.map(c => {
                     const routeBadge = c.route ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#171C8F]/10 text-[#171C8F] border border-[#171C8F]/20">'+esc(c.route)+'</span>' : '';
                     return [
-                        '<div class="glass-card p-5 rounded-[20px] relative group border-l-4 border-l-amber-400">',
-                            '<div class="flex items-start justify-between mb-1"><span class="text-[10px] font-mono text-slate-400 block">'+esc(c.sku)+'</span>'+routeBadge+'</div>',
-                            '<h4 class="font-bold text-slate-800 text-sm leading-snug mb-3">'+esc(c.name)+'</h4>',
-                            '<div class="flex items-center text-[11px] text-slate-600 mb-4 bg-slate-50 w-fit px-2 py-1.5 rounded-md border border-slate-200 shadow-sm">',
-                                '<span class="mr-2">ยอด: <strong class="text-[#E35205]">'+esc(c.qty)+'</strong></span> | <span class="ml-2 truncate max-w-[120px]">'+esc(c.reason)+'</span>',
+                        '<div class="glass-card p-5 rounded-[20px] relative group border-l-4 border-l-[#E35205] flex flex-col justify-between">',
+                            '<div>',
+                                '<div class="flex items-start justify-between mb-2">',
+                                    '<label class="flex items-center gap-2 cursor-pointer">',
+                                        '<input type="checkbox" data-wh-check value="'+attr(c.id)+'" onchange="updateWhSelectCount()" class="w-4 h-4 rounded text-[#171C8F] focus:ring-[#171C8F] cursor-pointer">',
+                                        '<span class="text-[10px] font-mono text-slate-400">'+esc(c.sku)+'</span>',
+                                    '</label>',
+                                    '<div class="flex items-center gap-2">',
+                                        routeBadge,
+                                        '<button data-action="del-clm" data-id="'+c.id+'" aria-label="ลบรายการเคลม '+attr(c.sku)+'" title="ลบรายการ" class="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>',
+                                    '</div>',
+                                '</div>',
+                                '<h4 class="font-bold text-slate-800 text-sm leading-snug mb-3">'+esc(c.name)+'</h4>',
+                                '<div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 mb-4 bg-slate-50 p-2 rounded-xl border border-slate-200 shadow-sm">',
+                                    '<span>จำนวน: <strong class="text-[#E35205] text-sm">'+esc(c.qty)+'</strong> '+esc(c.unit || 'ชิ้น')+'</span>',
+                                    '<span class="text-slate-300">|</span>',
+                                    '<span class="truncate max-w-[150px]">สาเหตุ: '+esc(c.reason)+'</span>',
+                                    (c.vendor && c.vendor !== 'ไม่ระบุ Vendor' && c.vendor !== 'รอระบุ Vendor' ? '<span class="text-slate-300">|</span><span class="text-[#171C8F] font-bold">Vendor: '+esc(c.vendor)+'</span>' : ''),
+                                '</div>',
                             '</div>',
-                            '<div class="grid grid-cols-2 gap-3">',
-                                '<button data-action="triage-claim" data-id="'+c.id+'" class="bg-[#171C8F] hover:bg-[#12167A] text-white py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm">ส่งเข้าคลังของเคลม</button>',
-                                '<button data-action="triage-scrap" data-id="'+c.id+'" class="bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm">เข้าคลังของเสีย (ไม่เคลม)</button>',
-                            '</div>',
+                            '<button data-action="wh-in" data-id="'+c.id+'" class="w-full bg-[#171C8F] hover:bg-[#12167A] text-white py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center gap-1.5"><i data-lucide="check" class="w-4 h-4 pointer-events-none"></i> ยืนยันรับเข้าคลัง</button>',
                         '</div>'
                     ].join('');
-                }).join('') : '<div class="col-span-full py-16 text-center"><p class="text-slate-400 font-medium">ไม่มีของรอพิจารณา</p></div>';
+                }).join('') : '<div class="col-span-full py-16 text-center"><p class="text-slate-400 font-medium">ไม่มีของรอรับเข้าคลังสินค้า</p></div>';
+                updateWhSelectCount();
             }
 
             const manageAccEl = document.getElementById('manage_acc');
@@ -3210,6 +3218,79 @@
             await postClaimMutation('resolve:'+billId, { action:'updateClaimBillStatus', billId, status, claimType:result.value.claimType, claimBillNo:result.value.claimBillNo, claimAmount:result.value.claimAmount, user:state.user }, 'บันทึกผลเคลมสำเร็จ');
         }
 
+        
+        function updateWhSelectCount() {
+            const checks = document.querySelectorAll('#wh_claim_list input[data-wh-check]');
+            const checked = document.querySelectorAll('#wh_claim_list input[data-wh-check]:checked');
+            const countEl = document.getElementById('wh-selected-count');
+            if(countEl) countEl.innerText = checked.length;
+            const bulkBtn = document.getElementById('btn-wh-bulk-in');
+            if(bulkBtn) bulkBtn.disabled = checked.length === 0;
+            const selectAll = document.getElementById('wh-select-all');
+            if(selectAll) selectAll.checked = checks.length > 0 && checked.length === checks.length;
+        }
+
+        function toggleWhSelectAll(master) {
+            document.querySelectorAll('#wh_claim_list input[data-wh-check]').forEach(cb => cb.checked = master.checked);
+            updateWhSelectCount();
+        }
+
+        async function executeWHReceive(targetIds) {
+            if(!can('WH_CLM')) return Swal.fire('ไม่มีสิทธิ์', 'คุณไม่มีสิทธิ์รับสินค้าเข้าคลัง', 'warning');
+            const ids = Array.isArray(targetIds) ? targetIds.filter(Boolean) : [targetIds].filter(Boolean);
+            if(!ids.length) return Swal.fire('Notice', 'กรุณาเลือกรายการที่ต้องการรับเข้าคลัง', 'info');
+            const defaultReceiver = (appUser && appUser.name) || state.user || '';
+            const html = [
+                '<div class="text-left space-y-4 text-sm mt-2">',
+                    '<div>',
+                        '<label for="sw-wh-loc" class="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-1.5">เลือกคลังที่รับเข้า</label>',
+                        '<select id="sw-wh-loc" class="w-full min-h-12 p-3 input-ci rounded-xl text-base font-bold text-[#171C8F]">',
+                            '<option value="W1">W1 (TRD)</option>',
+                            '<option value="W2" selected>W2 (AKRA)</option>',
+                            '<option value="W3">W3</option>',
+                            '<option value="W4">W4</option>',
+                            '<option value="W5">W5</option>',
+                        '</select>',
+                    '</div>',
+                    '<div>',
+                        '<label for="sw-wh-user" class="block text-xs font-bold text-slate-600 uppercase tracking-widest mb-1.5">ผู้รับเข้าคลัง</label>',
+                        '<input id="sw-wh-user" type="text" class="w-full min-h-12 p-3 input-ci rounded-xl text-base font-bold" value="' + attr(defaultReceiver) + '" placeholder="ระบุชื่อผู้รับเข้า...">',
+                    '</div>',
+                '</div>'
+            ].join('');
+
+            const result = await Swal.fire({
+                title: 'ยืนยันรับเข้าคลังสินค้า (' + ids.length + ' รายการ)',
+                html: html,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'ยืนยันรับเข้าคลัง',
+                confirmButtonColor: '#171C8F',
+                preConfirm: () => {
+                    const whLocation = document.getElementById('sw-wh-loc').value.trim();
+                    const whReceiver = document.getElementById('sw-wh-user').value.trim();
+                    if(!whLocation) { Swal.showValidationMessage('กรุณาเลือกคลังที่รับเข้า'); return false; }
+                    if(!whReceiver) { Swal.showValidationMessage('กรุณาระบุชื่อผู้รับเข้า'); return false; }
+                    return { whLocation, whReceiver };
+                }
+            });
+
+            if(result.isConfirmed) {
+                await postData({
+                    action: 'confirmWHReceive',
+                    ids: ids,
+                    ...result.value,
+                    user: state.user
+                }, 'ยืนยันรับเข้าคลังสินค้า ' + ids.length + ' รายการสำเร็จ');
+            }
+        }
+
+        function confirmBulkWHReceive() {
+            const checked = Array.from(document.querySelectorAll('#wh_claim_list input[data-wh-check]:checked')).map(cb => cb.value);
+            if(!checked.length) return Swal.fire('Notice', 'กรุณาเลือกรายการที่ต้องการรับเข้าคลัง', 'info');
+            executeWHReceive(checked);
+        }
+
         function handleGlobalClicks(e) {
             const btn = e.target.closest('[data-action]');
             if(!btn) return;
@@ -3260,7 +3341,7 @@
             }
             if(action === 'del-draft') { state.drafts.splice(btn.dataset.idx, 1); renderDrafts(); }
             if(action === 'del-clm') { Swal.fire({title:'ลบรายการนี้?', showCancelButton:true, confirmButtonColor: '#e11d48' }).then(r=>{if(r.isConfirmed) postData({action:'deleteClaim', id:btn.dataset.id}, 'ลบข้อมูลสำเร็จ');}); }
-            if(action === 'wh-in') { Swal.fire({title:'รับเข้าคลังพักสินค้า', html:'<input id="sw-loc" class="swal2-input" placeholder="โลเคชั่น"><input id="sw-user" class="swal2-input" placeholder="ผู้รับเข้า">', preConfirm:()=>{ const whLocation=document.getElementById('sw-loc').value.trim(), whReceiver=document.getElementById('sw-user').value.trim(); if(!whLocation || !whReceiver){ Swal.showValidationMessage('กรุณากรอกโลเคชั่นและผู้รับเข้า'); return false; } return {whLocation, whReceiver}; }}).then(r=>{if(r.isConfirmed) postData({action:'confirmWHReceive', id:btn.dataset.id, ...r.value}, 'รับเข้าคลังพักสินค้าสำเร็จ');}); }
+            if(action === 'wh-in') { executeWHReceive([btn.dataset.id]); }
             if(action === 'triage-claim') { Swal.fire({title:'ส่งเข้าคลังของเคลม?', text:'รายการนี้จะเข้าสู่ขั้นตอนส่งเคลม Vendor', icon:'question', showCancelButton:true, confirmButtonColor:'#171C8F'}).then(r=>{if(r.isConfirmed) postData({action:'triageClaim', id:btn.dataset.id, decision:'claim', user:state.user}, 'ส่งเข้าคลังของเคลมสำเร็จ');}); }
             if(action === 'triage-scrap') { Swal.fire({title:'เข้าคลังของเสีย (ไม่เคลม)?', text:'รายการนี้จะถูกปิดเป็นของเสียที่ไม่เคลม', icon:'warning', showCancelButton:true, confirmButtonColor:'#e11d48'}).then(r=>{if(r.isConfirmed) postData({action:'triageClaim', id:btn.dataset.id, decision:'scrap', user:state.user}, 'บันทึกเข้าคลังของเสียสำเร็จ');}); }
             if(action === 'bulk-done') { const vendor = btn.dataset.vendor; const ids = state.claims.filter(c => (c.vendor || 'รอระบุ Vendor') === vendor && c.status !== 'สำเร็จแล้ว' && c.status !== 'รอรับสินค้าใหม่' && inVendorPipeline(c)).map(i=>i.id); if(ids.length) Swal.fire({title:'จบงาน ' + vendor + '?', showCancelButton:true, confirmButtonColor: '#E35205'}).then(r=>{if(r.isConfirmed) postData({action:'bulkUpdateStatus', ids, status:'สำเร็จแล้ว', isFinancial:false});}); }
