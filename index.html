@@ -90,10 +90,9 @@
     </style>
 
     <!-- 🔐 SSO Access Control -->
-    <script src="js/supabase-returnitem-client.js"></script>
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260820.02";
+        const CURRENT_VERSION = "20260820.03";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
