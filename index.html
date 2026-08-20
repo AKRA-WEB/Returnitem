@@ -93,7 +93,7 @@
     <script src="js/supabase-returnitem-client.js"></script>
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260819.10";
+        const CURRENT_VERSION = "20260820.02";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -1171,7 +1171,6 @@
                 try { localStorage.removeItem(activeCacheKey()); } catch(e) {}
             }
 
-            // Cache First: ดึงข้อมูลเก่ามาแสดงผลทันที (มี TTL)
             if (loader && !bypassCache) {
                 const cachedActive = cacheSafeActiveData(getCache(activeCacheKey(), RETURN_CACHE_TTL));
                 const cachedProducts = getCache(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_TTL);
@@ -1179,8 +1178,8 @@
                 if (cachedActive) {
                     try {
                         state = { ...state, ...cachedActive, products: state.products };
-                        renderUI(); // นำข้อมูลจาก Cache ขึ้นจอทันที
-                        hideLoader(); // 🟢 [Fixed] ปิด Loader ตัวใหญ่ตรงกลางจอทันที
+                        renderUI();
+                        hideLoader();
                         loader = false;
                     } catch (e) {
                         console.error("Cache parsing error", e);
@@ -1188,10 +1187,39 @@
                 }
             }
 
-            // ถ้าไม่มี Cache ค่อยโชว์ Loader ใหญ่ / ถ้ามี Cache แล้วให้ปุ่ม Refresh หมุนเบาๆ แทน
             if(loader) showLoader('กำลังซิงค์ข้อมูล...');
             else if(refreshIcon) refreshIcon.classList.add('animate-spin', 'text-[#E35205]');
 
+            if (typeof window !== 'undefined' && window.AkraSupabaseReturnitem) {
+                try {
+                    const [stocksRes, claimsRes] = await Promise.all([
+                        AkraSupabaseReturnitem.getDamagedStocks(),
+                        AkraSupabaseReturnitem.getClaimBills()
+                    ]);
+                    if (stocksRes.status === 'success' && claimsRes.status === 'success') {
+                        const data = {
+                            claimStock: stocksRes.stocks || [],
+                            claimBills: claimsRes.bills || [],
+                            claims: claimsRes.bills || [],
+                            returns: [],
+                            audits: []
+                        };
+                        setCache(activeCacheKey(), cacheSafeActiveData(data));
+                        state = { ...state, ...data };
+                        renderUI();
+                        hideLoader();
+                        if (refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
+                        if (!state.products.length && !productsLoadInFlight) {
+                            setTimeout(() => loadProductsBackground(), 200);
+                        }
+                        return;
+                    }
+                } catch (supaErr) {
+                    console.warn('Supabase Returnitem read failed, falling back to GAS:', supaErr);
+                }
+            }
+
+            // GAS Fallback
             const cb = 'jsonp_' + Date.now();
             window[cb] = (res) => {
                 hideLoader(); // 🟢 [Fixed] ซ่อน Loader ทุกกรณีเมื่อข้อมูลเสร็จสิ้น
@@ -1228,6 +1256,38 @@
         }
 
         async function postData(payload, successMsg, options = {}) {
+            if (await AppVersionGuard.blockIfStale()) return false;
+            showLoader('กำลังบันทึก...');
+            postData.lastFailureAmbiguous = false;
+
+            if (typeof window !== 'undefined' && window.AkraSupabaseReturnitem) {
+                try {
+                    if (payload.action === 'submitClaimBill' || payload.action === 'createClaimBill') {
+                        const res = await AkraSupabaseReturnitem.createClaimBill({
+                            vendor: payload.vendor,
+                            warehouse: payload.warehouse,
+                            creator: (appUser && appUser.name) || 'Supervisor',
+                            remark: payload.remark || '',
+                            items: payload.items || []
+                        });
+                        hideLoader();
+                        if (successMsg) showToast('success', successMsg, 'ข้อมูลถูกซิงค์แล้ว');
+                        if (options.refresh !== false) setTimeout(() => fetchData(false), 300);
+                        return { status: 'success', ...res };
+                    } else if (payload.action === 'recordDamagedIntake' || payload.action === 'bulkIntakeDamaged') {
+                        const items = payload.items || [payload];
+                        for (const item of items) {
+                            await AkraSupabaseReturnitem.recordDamagedIntake(item);
+                        }
+                        hideLoader();
+                        if (successMsg) showToast('success', successMsg, 'ข้อมูลถูกซิงค์แล้ว');
+                        if (options.refresh !== false) setTimeout(() => fetchData(false), 300);
+                        return { status: 'success' };
+                    }
+                } catch (supaErr) {
+                    console.warn('Supabase Returnitem mutation fallback to GAS:', supaErr);
+                }
+            }
             if (await AppVersionGuard.blockIfStale()) return false;
             showLoader('กำลังบันทึก...');
             postData.lastFailureAmbiguous = false;
