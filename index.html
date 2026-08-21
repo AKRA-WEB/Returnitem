@@ -92,7 +92,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260820.03";
+        const CURRENT_VERSION = "20260820.04";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -225,6 +225,38 @@
         const STORAGE_KEY = "akra_returnitem_session";
         let appUser = null;
 
+        function decodeJwtPayload(token) {
+            try {
+                if (!token || typeof token !== 'string') return null;
+                const parts = token.split('.');
+                if (parts.length !== 3) return null;
+                let payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                while (payloadBase64.length % 4) {
+                    payloadBase64 += '=';
+                }
+                let json;
+                if (typeof TextDecoder !== 'undefined' && typeof atob === 'function') {
+                    const binaryStr = atob(payloadBase64);
+                    const bytes = new Uint8Array(binaryStr.length);
+                    for (let i = 0; i < binaryStr.length; i++) {
+                        bytes[i] = binaryStr.charCodeAt(i);
+                    }
+                    json = new TextDecoder('utf-8').decode(bytes);
+                } else if (typeof Buffer !== 'undefined') {
+                    json = Buffer.from(payloadBase64, 'base64').toString('utf8');
+                } else if (typeof atob === 'function') {
+                    json = decodeURIComponent(atob(payloadBase64).split('').map(function(c) {
+                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                    }).join(''));
+                } else {
+                    return null;
+                }
+                const parsed = JSON.parse(json);
+                if (parsed && parsed.exp && parsed.exp * 1000 < Date.now()) return null;
+                return parsed;
+            } catch (e) { return null; }
+        }
+
         function buildVerifiedSessionUser(user, token) {
             const verifiedUser = {
                 id: user.id || user.name,
@@ -254,11 +286,14 @@
                     const hasPermission = roles.includes("ADMIN") || roles.some(role => ALLOWED_ROLES.includes(role));
                     if (hasPermission) {
                         appUser = {
-                            id: jwtUser.id,
+                            id: jwtUser.id || jwtUser.name,
                             name: jwtUser.name || jwtUser.id,
                             roles: roles,
                             token: tokenToVerify
                         };
+                        if (jwtUser.perms && typeof jwtUser.perms === 'object') {
+                            appUser.perms = jwtUser.perms;
+                        }
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser));
                         if (ssoToken) {
                             try {
