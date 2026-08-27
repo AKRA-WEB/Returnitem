@@ -93,7 +93,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260827.01";
+        const CURRENT_VERSION = "20260827.02";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -2180,11 +2180,6 @@
             const confirmed = await Swal.fire({ title:'ออกใบส่งเคลมให้ '+vendor+'?', html:'เลือกแล้ว <strong>'+items.length+'</strong> รายการ ระบบจะตัดยอดจากคลังตามล็อตเก่าสุด', icon:'question', showCancelButton:true, confirmButtonText:'ออกใบเคลม', confirmButtonColor:'#E35205' });
             if(!confirmed.isConfirmed) { submit.disabled = false; return; }
             try {
-                if(!state.claimBillReady) {
-                    const setupResult = await postData({ action:'initClaimBillSheets', user:state.user }, '', { refresh:false });
-                    if(!setupResult) return;
-                    state.claimBillReady = true;
-                }
                 const result = await postClaimMutation('create:'+vendor, { action:'createClaimBill', vendor, items, user:state.user }, 'สร้างใบเคลมสำเร็จ');
                 if(result && result.billId) {
                     form.reset();
