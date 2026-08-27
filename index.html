@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/supabase-returnitem-client.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
@@ -92,7 +93,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = "20260820.04";
+        const CURRENT_VERSION = "20260827.01";
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -1168,36 +1169,6 @@
             return false;
         }
 
-        let productsLoadInFlight = false;
-        function loadProductsBackground(force = false) {
-            if (productsLoadInFlight) return;
-            if (!force) {
-                const cached = getCache(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_TTL);
-                if (cached) { state.products = cached; return; }
-            }
-            productsLoadInFlight = true;
-            setAutocompleteLoading(true);
-            const cb = 'jsonp_products_' + Date.now();
-            window[cb] = (res) => {
-                productsLoadInFlight = false;
-                setAutocompleteLoading(false);
-                if (res.status === 'success' && res.data && res.data.products) {
-                    state.products = res.data.products;
-                    setCache(PRODUCTS_CACHE_KEY, state.products);
-                } else if (res.status !== 'success') {
-                    console.error('loadProductsBackground failed', res.message);
-                }
-                delete window[cb]; const el = document.getElementById(cb); if (el) document.head.removeChild(el);
-            };
-            const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}&action=getProducts`;
-            script.onerror = () => {
-                productsLoadInFlight = false;
-                setAutocompleteLoading(false);
-                delete window[cb]; if (document.getElementById(cb)) document.head.removeChild(script);
-            };
-            document.head.appendChild(script);
-        }
-
         async function fetchData(loader = true, bypassCache = false) {
             const refreshIcon = document.querySelector('i[data-lucide="refresh-cw"]');
 
@@ -1207,11 +1178,9 @@
 
             if (loader && !bypassCache) {
                 const cachedActive = cacheSafeActiveData(getCache(activeCacheKey(), RETURN_CACHE_TTL));
-                const cachedProducts = getCache(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_TTL);
-                if (cachedProducts) state.products = cachedProducts;
                 if (cachedActive) {
                     try {
-                        state = { ...state, ...cachedActive, products: state.products };
+                        state = { ...state, ...cachedActive };
                         renderUI();
                         hideLoader();
                         loader = false;
@@ -1221,128 +1190,95 @@
                 }
             }
 
-            if(loader) showLoader('กำลังซิงค์ข้อมูล...');
-            else if(refreshIcon) refreshIcon.classList.add('animate-spin', 'text-[#E35205]');
+            if (loader) showLoader('กำลังโหลดข้อมูล...');
+            else if (refreshIcon) refreshIcon.classList.add('animate-spin', 'text-[#E35205]');
 
-            if (typeof window !== 'undefined' && window.AkraSupabaseReturnitem) {
-                try {
-                    const [stocksRes, claimsRes] = await Promise.all([
-                        AkraSupabaseReturnitem.getDamagedStocks(),
-                        AkraSupabaseReturnitem.getClaimBills()
-                    ]);
-                    if (stocksRes.status === 'success' && claimsRes.status === 'success') {
-                        const data = {
-                            claimStock: stocksRes.stocks || [],
-                            claimBills: claimsRes.bills || [],
-                            claims: claimsRes.bills || [],
-                            returns: [],
-                            audits: []
-                        };
-                        setCache(activeCacheKey(), cacheSafeActiveData(data));
-                        state = { ...state, ...data };
-                        renderUI();
-                        hideLoader();
-                        if (refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
-                        if (!state.products.length && !productsLoadInFlight) {
-                            setTimeout(() => loadProductsBackground(), 200);
-                        }
-                        return;
-                    }
-                } catch (supaErr) {
-                    console.warn('Supabase Returnitem read failed, falling back to GAS:', supaErr);
-                }
-            }
+            try {
+                const res = await AkraSupabaseReturnitem.getInitialData((appUser && appUser.token) || '', 300);
+                hideLoader();
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
 
-            // GAS Fallback
-            const cb = 'jsonp_' + Date.now();
-            window[cb] = (res) => {
-                hideLoader(); // 🟢 [Fixed] ซ่อน Loader ทุกกรณีเมื่อข้อมูลเสร็จสิ้น
-                if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
-
-                if(res.status === 'success') {
-                    if(res.data && res.data.claimBillAuthError && handleClaimBillAuthError(res.data.claimBillAuthError, true)) {
-                        delete window[cb]; document.head.removeChild(document.getElementById(cb));
-                        return;
-                    }
-                    // 🟢 [Added] อัปเดตข้อมูลใหม่ลง Cache (active data only; products handled separately)
+                if (res && res.status === 'success' && res.data) {
                     setCache(activeCacheKey(), cacheSafeActiveData(res.data));
-
                     state = { ...state, ...res.data };
-                    renderUI(); // อัปเดต UI ด้วยข้อมูลใหม่ล่าสุด
-
-                    // Staggered background load: โหลดสินค้าตามหลังเมื่อหน้าจอแรกพร้อมแล้ว เพื่อไม่ให้ Request ชนกัน
-                    if (!state.products.length && !productsLoadInFlight) {
-                        setTimeout(() => loadProductsBackground(), 250);
-                    }
+                    renderUI();
+                } else {
+                    Swal.fire('ข้อผิดพลาด', (res && res.message) || 'โหลดข้อมูลไม่สำเร็จ', 'error');
                 }
-                else { Swal.fire('Error', res.message, 'error'); }
-                delete window[cb]; document.head.removeChild(document.getElementById(cb));
-            };
-            const bypassParam = bypassCache ? '&bypassCache=1' : '';
-            const script = document.createElement('script'); script.id = cb; script.src = `${GAS_URL}?callback=${cb}&includeProducts=0${bypassParam}&token=${encodeURIComponent((appUser && appUser.token) || '')}`;
-            script.onerror = () => {
-                hideLoader(); // 🟢 [Fixed] ซ่อน Loader เมื่อเกิด Error
-                if(refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
-                Swal.fire('Error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', 'error');
-                delete window[cb]; document.head.removeChild(script);
-            };
-            document.head.appendChild(script);
+            } catch (err) {
+                hideLoader();
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
+                console.error('Fetch data error:', err);
+                Swal.fire('การเชื่อมต่อขัดข้อง', err.message || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+            }
         }
 
         async function postData(payload, successMsg, options = {}) {
-            if (await AppVersionGuard.blockIfStale()) return false;
             showLoader('กำลังบันทึก...');
             postData.lastFailureAmbiguous = false;
 
-            if (typeof window !== 'undefined' && window.AkraSupabaseReturnitem) {
-                try {
-                    if (payload.action === 'submitClaimBill' || payload.action === 'createClaimBill') {
-                        const res = await AkraSupabaseReturnitem.createClaimBill({
-                            vendor: payload.vendor,
-                            warehouse: payload.warehouse,
-                            creator: (appUser && appUser.name) || 'Supervisor',
-                            remark: payload.remark || '',
-                            items: payload.items || []
-                        });
-                        hideLoader();
-                        if (successMsg) showToast('success', successMsg, 'ข้อมูลถูกซิงค์แล้ว');
-                        if (options.refresh !== false) setTimeout(() => fetchData(false), 300);
-                        return { status: 'success', ...res };
-                    } else if (payload.action === 'recordDamagedIntake' || payload.action === 'bulkIntakeDamaged') {
-                        const items = payload.items || [payload];
-                        for (const item of items) {
-                            await AkraSupabaseReturnitem.recordDamagedIntake(item);
-                        }
-                        hideLoader();
-                        if (successMsg) showToast('success', successMsg, 'ข้อมูลถูกซิงค์แล้ว');
-                        if (options.refresh !== false) setTimeout(() => fetchData(false), 300);
-                        return { status: 'success' };
-                    }
-                } catch (supaErr) {
-                    console.warn('Supabase Returnitem mutation fallback to GAS:', supaErr);
-                }
-            }
-            if (await AppVersionGuard.blockIfStale()) return false;
-            showLoader('กำลังบันทึก...');
-            postData.lastFailureAmbiguous = false;
             try {
-                const securedPayload = { ...payload, token: (appUser && appUser.token) || '' };
-                const response = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(securedPayload) });
-                const result = await response.json();
-                hideLoader();
-                if(result.status === 'success') {
-                    if(successMsg) showToast('success', successMsg, 'ข้อมูลถูกซิงค์แล้ว');
-                    if(options.refresh !== false) setTimeout(() => fetchData(false), 800);
-                    return result.data || true;
+                const token = (appUser && appUser.token) || '';
+                const action = payload.action;
+                let res;
+
+                if (action === 'submitClaimBill' || action === 'createClaimBill') {
+                    res = await AkraSupabaseReturnitem.createClaimBill({
+                        vendor: payload.vendor,
+                        warehouse: payload.warehouse || 'W1',
+                        remark: payload.remark || '',
+                        items: payload.items || []
+                    }, token);
+                } else if (action === 'updateClaimBillStatus') {
+                    res = await AkraSupabaseReturnitem.updateClaimBillStatus(payload, token);
+                } else if (action === 'cancelClaimBill') {
+                    res = await AkraSupabaseReturnitem.cancelClaimBill(payload, token);
+                } else if (action === 'addReturn') {
+                    res = await AkraSupabaseReturnitem.recordReturn(payload, token);
+                } else if (action === 'addReturnWithClaim') {
+                    res = await AkraSupabaseReturnitem.recordReturnWithClaim(payload, token);
+                } else if (action === 'updateReturnQC') {
+                    res = await AkraSupabaseReturnitem.updateReturnQC(payload, token);
+                } else if (action === 'updateReturnBatch') {
+                    res = await AkraSupabaseReturnitem.updateReturnBatch(payload, token);
+                } else if (action === 'closeCustomerReturn') {
+                    res = await AkraSupabaseReturnitem.closeCustomerReturn(payload, token);
+                } else if (action === 'recordDamagedIntake' || action === 'bulkIntakeDamaged') {
+                    res = await AkraSupabaseReturnitem.bulkIntakeDamaged(payload, token);
+                } else if (action === 'confirmWHReceive') {
+                    res = await AkraSupabaseReturnitem.confirmWHReceive(payload, token);
+                } else if (action === 'triageClaim') {
+                    res = await AkraSupabaseReturnitem.triageClaim(payload, token);
+                } else if (action === 'deleteClaim') {
+                    res = await AkraSupabaseReturnitem.deleteClaim(payload, token);
+                } else if (action === 'updateVendor') {
+                    res = await AkraSupabaseReturnitem.updateVendor(payload, token);
+                } else if (action === 'createAudit') {
+                    res = await AkraSupabaseReturnitem.createAudit(payload, token);
+                } else if (action === 'submitAuditCount') {
+                    res = await AkraSupabaseReturnitem.submitAuditCount(payload, token);
+                } else if (action === 'finalizeAudit') {
+                    res = await AkraSupabaseReturnitem.finalizeAudit(payload, token);
+                } else if (action === 'saveDraft') {
+                    res = await AkraSupabaseReturnitem.saveDraft(payload, token);
+                } else if (action === 'deleteDraft') {
+                    res = await AkraSupabaseReturnitem.deleteDraft(payload, token);
                 } else {
-                    const maybeCommitted = result.reason === 'maybe_committed';
-                    postData.lastFailureAmbiguous = maybeCommitted;
-                    throw Object.assign(new Error(result.message), { definitiveResponse: !maybeCommitted });
+                    res = await AkraSupabaseReturnitem.recordDamagedIntake(payload, token);
+                }
+
+                hideLoader();
+                if (res && res.status === 'success') {
+                    if (successMsg) showToast('success', successMsg, 'บันทึกสำเร็จ');
+                    if (options.refresh !== false) setTimeout(() => fetchData(false, true), 100);
+                    return res.data || res;
+                } else {
+                    throw new Error((res && res.message) || 'บันทึกไม่สำเร็จ');
                 }
             } catch (e) {
                 hideLoader();
-                postData.lastFailureAmbiguous = !e.definitiveResponse;
-                Swal.fire('Failed', e.message || 'เกิดข้อผิดพลาด', 'error');
+                postData.lastFailureAmbiguous = false;
+                Swal.fire('ข้อผิดพลาด', e.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
                 return false;
             }
         }
@@ -1366,9 +1302,8 @@
             document.getElementById('active-tab-title').innerText = btn.querySelector('span')?.innerText || 'WMS';
             updateRouteState({ tab: target }, replaceRoute);
 
-            if(target === 'DASHBOARD') {
-                renderDashboard();
-                drawDashboardChart();
+            if (typeof renderTabContent === 'function') {
+                renderTabContent(target);
             }
 
             if(window.closeMobileSidebar) window.closeMobileSidebar();
@@ -1631,29 +1566,44 @@
                     closeList();
                 };
 
+                let debounceTimer = null;
                 inp.oninput = () => {
                     clearFieldError(inp);
-                    const val = inp.value.trim().toLowerCase(); list.innerHTML = '';
+                    const val = inp.value.trim();
                     activeIndex = -1;
-                    if(!val) { closeList(); return; }
-                    const allMatches = state.products.filter(p => p.name.toLowerCase().includes(val) || p.sku.toLowerCase().includes(val));
-                    matches = allMatches.slice(0, 30);
-                    if(matches.length) {
-                        let html = matches.map((m, idx) => {
-                            return `<li id="${listId}-option-${idx}" role="option" aria-selected="false" data-idx="${idx}" class="combo-option p-3.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-sm text-slate-700"><strong class="text-[#171C8F] font-mono text-xs">${esc(m.sku)}</strong><br><span class="mt-1 block truncate">${esc(m.name)}</span></li>`;
-                        }).join('');
-                        if (allMatches.length > 30) {
-                            html += `<li role="presentation" class="p-2 text-center text-xs text-slate-400 bg-slate-50 italic cursor-default">พบสินค้ามากกว่า 30 รายการ กรุณาพิมพ์คำค้นหาเพิ่มเติม...</li>`;
-                        }
-                        list.innerHTML = html;
-                        list.classList.remove('hidden');
-                        inp.setAttribute('aria-expanded', 'true');
-                    } else {
-                        const emptyMsg = (state.productsLoading && !state.products.length) ? 'กำลังโหลดข้อมูลสินค้า...' : 'ไม่พบสินค้า';
-                        list.innerHTML = `<li role="presentation" class="p-3 text-center text-xs text-slate-400 bg-slate-50">${emptyMsg}</li>`;
-                        list.classList.remove('hidden');
-                        inp.setAttribute('aria-expanded', 'true');
+                    if (!val) {
+                        list.innerHTML = '';
+                        closeList();
+                        return;
                     }
+
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(async () => {
+                        try {
+                            const res = await AkraSupabaseReturnitem.searchProducts(val, 30);
+                            if (res && res.status === 'success' && Array.isArray(res.products)) {
+                                matches = res.products;
+                                if (matches.length) {
+                                    let html = matches.map((m, idx) => {
+                                        return `<li id="${listId}-option-${idx}" role="option" aria-selected="false" data-idx="${idx}" class="combo-option p-3.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-sm text-slate-700"><strong class="text-[#171C8F] font-mono text-xs">${esc(m.sku)}</strong><br><span class="mt-1 block truncate">${esc(m.name)}</span></li>`;
+                                    }).join('');
+                                    if (matches.length >= 30) {
+                                        html += `<li role="presentation" class="p-2 text-center text-xs text-slate-400 bg-slate-50 italic cursor-default">แสดงผลสูงสุด 30 รายการ กรุณาระบุคำค้นหาเพิ่มเติม...</li>`;
+                                    }
+                                    list.innerHTML = html;
+                                    list.classList.remove('hidden');
+                                    inp.setAttribute('aria-expanded', 'true');
+                                    setActive(-1);
+                                } else {
+                                    list.innerHTML = `<li role="presentation" class="p-3 text-center text-xs text-slate-400 bg-slate-50">ไม่พบสินค้าที่ตรงกับคำค้นหา</li>`;
+                                    list.classList.remove('hidden');
+                                    inp.setAttribute('aria-expanded', 'true');
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Search autocomplete error:', e);
+                        }
+                    }, 120);
                 };
 
                 inp.onkeydown = (e) => {
@@ -1916,6 +1866,108 @@
         }
 
         // --- 8. RENDER UI ---
+        function renderQCList() {
+            const pQC = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING');
+            const qcListEl = document.getElementById('qcList');
+            if(qcListEl) {
+                qcListEl.innerHTML = pQC.length ? pQC.map(r => {
+                    return [
+                        '<div class="glass-card p-5 rounded-[20px] flex flex-col justify-between hover:border-[#171C8F]/50 transition-colors group">',
+                            '<div>',
+                                '<div class="flex justify-between items-start mb-4">',
+                                    '<span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">'+esc(r.sku)+'</span>',
+                                    '<span class="text-xs font-bold text-[#171C8F] bg-[#171C8F]/10 px-2 py-1 rounded-md">จำนวน '+esc(r.qty)+'</span>',
+                                '</div>',
+                                '<h4 class="font-bold text-slate-800 mb-2 leading-snug line-clamp-2">'+esc(r.name)+'</h4>',
+                                '<div class="mb-2"><input type="text" id="qc-remark-'+r.id+'" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:border-[#171C8F] outline-none transition-colors" placeholder="ระบุหมายเหตุ (ถ้ามี)..."></div>',
+                            '</div>',
+                            '<div class="grid grid-cols-2 gap-3 mt-2 pt-4 border-t border-slate-100">',
+                                '<button data-action="qc" data-id="'+r.id+'" data-grade="A" data-sku="'+attr(r.sku)+'" data-name="'+attr(r.name)+'" data-qty="'+attr(r.qty)+'" data-unit="'+attr(r.unit)+'" data-source="'+attr(r.source)+'" data-reason="'+attr(r.reason)+'" class="bg-emerald-50 text-emerald-600 border border-emerald-200 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all flex items-center justify-center shadow-sm"><i data-lucide="check-circle-2" class="w-4 h-4 mr-2 pointer-events-none"></i> สินค้าสภาพดี</button>',
+                                '<button data-action="qc" data-id="'+r.id+'" data-grade="C" data-sku="'+attr(r.sku)+'" data-name="'+attr(r.name)+'" data-qty="'+attr(r.qty)+'" data-unit="'+attr(r.unit)+'" data-source="'+attr(r.source)+'" data-reason="'+attr(r.reason)+'" class="bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all flex items-center justify-center shadow-sm"><i data-lucide="x-circle" class="w-4 h-4 mr-2 pointer-events-none"></i> สินค้าเสียหาย</button>',
+                            '</div>',
+                        '</div>'
+                    ].join('');
+                }).join('') : '<div class="col-span-full py-16 text-center"><p class="text-slate-400 font-medium">ไม่มีรายการค้างตรวจสภาพ</p></div>';
+            }
+        }
+
+        function renderBatchList() {
+            const pBatchReturns = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED');
+            const batchListEl = document.getElementById('batchList');
+            if(batchListEl) {
+                batchListEl.innerHTML = pBatchReturns.length ? pBatchReturns.map(r => {
+                    return [
+                        '<tr class="hover:bg-slate-50 transition-colors group">',
+                            '<td class="p-4"><p class="font-bold text-sm text-slate-800">'+esc(r.name)+'</p><p class="text-[10px] text-slate-500 font-mono mt-0.5">'+esc(r.sku)+'</p></td>',
+                            '<td class="p-4 text-center font-black text-[#171C8F]">'+esc(r.qty)+'</td>',
+                            '<td class="p-4"><span class="text-[10px] font-bold px-2 py-1 rounded bg-emerald-50 text-emerald-600 border border-emerald-200 block w-fit max-w-[200px] whitespace-normal break-words leading-tight">'+esc(r.qcCondition && r.qcCondition !== '-' ? r.qcCondition : 'สินค้าสภาพดี')+'</span></td>',
+                            '<td class="p-4 text-right"><button aria-label="นำเข้าระบบ POS รายการ '+attr(r.sku)+'" title="นำเข้าระบบ POS" onclick="postData({action:\'updateReturnBatch\', items:[{id:\''+r.id+'\'}]}, \'นำเข้าระบบสำเร็จ\')" class="text-slate-400 hover:text-emerald-500 p-2 transition-colors"><i data-lucide="check-square" class="w-5 h-5"></i></button></td>',
+                        '</tr>'
+                    ].join('');
+                }).join('') : '<tr><td colspan="4" class="py-16 text-center text-slate-400">ไม่มีข้อมูลรอจัดการ</td></tr>';
+            }
+        }
+
+        function renderWHClaimList() {
+            const pWH = state.claims.filter(c => c.whStatus==='ยังไม่รับ');
+            const whClaimListEl = document.getElementById('wh_claim_list');
+            if(whClaimListEl) {
+                whClaimListEl.innerHTML = pWH.length ? pWH.map(c => {
+                    const routeBadge = c.route ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#171C8F]/10 text-[#171C8F] border border-[#171C8F]/20">'+esc(c.route)+'</span>' : '';
+                    return [
+                        '<div class="glass-card p-5 rounded-[20px] relative group border-l-4 border-l-[#E35205] flex flex-col justify-between">',
+                            '<div>',
+                                '<div class="flex items-start justify-between mb-2">',
+                                    '<label class="flex items-center gap-2 cursor-pointer">',
+                                        '<input type="checkbox" data-wh-check value="'+attr(c.id)+'" onchange="updateWhSelectCount()" class="w-4 h-4 rounded text-[#171C8F] focus:ring-[#171C8F] cursor-pointer">',
+                                        '<span class="text-[10px] font-mono text-slate-400">'+esc(c.sku)+'</span>',
+                                    '</label>',
+                                    '<div class="flex items-center gap-2">',
+                                        routeBadge,
+                                        '<button data-action="del-clm" data-id="'+c.id+'" aria-label="ลบรายการเคลม '+attr(c.sku)+'" title="ลบรายการ" class="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>',
+                                    '</div>',
+                                '</div>',
+                                '<h4 class="font-bold text-slate-800 text-sm leading-snug mb-3">'+esc(c.name)+'</h4>',
+                                '<div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 mb-4 bg-slate-50 p-2 rounded-xl border border-slate-200 shadow-sm">',
+                                    '<span>จำนวน: <strong class="text-[#E35205] text-sm">'+esc(c.qty)+'</strong> '+esc(c.unit || 'ชิ้น')+'</span>',
+                                    '<span class="text-slate-300">|</span>',
+                                    '<span class="truncate max-w-[150px]">สาเหตุ: '+esc(c.reason)+'</span>',
+                                    (c.vendor && c.vendor !== 'ไม่ระบุ Vendor' && c.vendor !== 'รอระบุ Vendor' ? '<span class="text-slate-300">|</span><span class="text-[#171C8F] font-bold">Vendor: '+esc(c.vendor)+'</span>' : ''),
+                                '</div>',
+                            '</div>',
+                            '<button data-action="wh-in" data-id="'+c.id+'" class="w-full bg-[#171C8F] hover:bg-[#12167A] text-white py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center gap-1.5"><i data-lucide="check" class="w-4 h-4 pointer-events-none"></i> ยืนยันรับเข้าคลัง</button>',
+                        '</div>'
+                    ].join('');
+                }).join('') : '<div class="col-span-full py-16 text-center"><p class="text-slate-400 font-medium">ไม่มีของรอรับเข้าคลังสินค้า</p></div>';
+                updateWhSelectCount();
+            }
+        }
+
+        function renderTabContent(target) {
+            if (target === 'DASHBOARD') {
+                renderDashboard();
+                drawDashboardChart();
+            } else if (target === 'QC_RET') {
+                renderQCList();
+            } else if (target === 'BATCH_RET') {
+                renderBatchList();
+            } else if (target === 'WH_CLM') {
+                renderWHClaimList();
+            } else if (target === 'MANAGE_CLM') {
+                renderClaimStock();
+            } else if (target === 'TRACK_CLM') {
+                renderTrackClaim();
+                renderClaimBills();
+            } else if (target === 'TRACK_CUST') {
+                renderTrackCust();
+            } else if (target === 'AUDIT_TASK' || target === 'AUDIT_REVIEW' || target === 'AUDIT_CREATE') {
+                renderAuditUI();
+                renderDrafts();
+            }
+            lucide.createIcons();
+        }
+
+        // --- 8. RENDER UI ---
         function renderUI() {
             const badgeQc = document.getElementById('badge-qc'), badgeBatch = document.getElementById('badge-batch'), badgeAudit = document.getElementById('badge-audit');
             const qcCount = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length;
@@ -1925,7 +1977,6 @@
 
             // 🚨 Floating Alert System 🚨
             const pendingWHClaims = state.claims.filter(c => c.whStatus === 'ยังไม่รับ').length;
-            const pendingTriage = state.claims.filter(c => c.status === ST_HOLDING).length;
             const pendingVendorClaims = (state.claimStock || []).filter(item => Number(item.availableQty || 0) > 0).length;
             const pendingCustReturns = state.returns.filter(i => i.source === 'หน้าร้าน/ลูกค้า' && i.compensation && i.compensation !== '-' && !i.customerStatus).length;
             const queueMap = { 'queue-qc': qcCount, 'queue-wh': pendingWHClaims, 'queue-vendor': pendingVendorClaims, 'queue-cust': pendingCustReturns };
@@ -1967,93 +2018,8 @@
                 }
             }
 
-            renderDashboard();
-            if(document.getElementById('tab-DASHBOARD').classList.contains('active')) {
-                drawDashboardChart();
-            }
-            renderAuditUI();
-            renderClaimBills();
-            renderTrackClaim();
-            renderTrackCust();
-            renderDrafts();
-
-            const pQC = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING');
-            const qcListEl = document.getElementById('qcList');
-            if(qcListEl) {
-                qcListEl.innerHTML = pQC.length ? pQC.map(r => {
-                    return [
-                        '<div class="glass-card p-5 rounded-[20px] flex flex-col justify-between hover:border-[#171C8F]/50 transition-colors group">',
-                            '<div>',
-                                '<div class="flex justify-between items-start mb-4">',
-                                    '<span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">'+esc(r.sku)+'</span>',
-                                    '<span class="text-xs font-bold text-[#171C8F] bg-[#171C8F]/10 px-2 py-1 rounded-md">จำนวน '+esc(r.qty)+'</span>',
-                                '</div>',
-                                '<h4 class="font-bold text-slate-800 mb-2 leading-snug line-clamp-2">'+esc(r.name)+'</h4>',
-                                '<div class="mb-2"><input type="text" id="qc-remark-'+r.id+'" class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:border-[#171C8F] outline-none transition-colors" placeholder="ระบุหมายเหตุ (ถ้ามี)..."></div>',
-                            '</div>',
-                            '<div class="grid grid-cols-2 gap-3 mt-2 pt-4 border-t border-slate-100">',
-                                '<button data-action="qc" data-id="'+r.id+'" data-grade="A" data-sku="'+attr(r.sku)+'" data-name="'+attr(r.name)+'" data-qty="'+attr(r.qty)+'" data-unit="'+attr(r.unit)+'" data-source="'+attr(r.source)+'" data-reason="'+attr(r.reason)+'" class="bg-emerald-50 text-emerald-600 border border-emerald-200 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all flex items-center justify-center shadow-sm"><i data-lucide="check-circle-2" class="w-4 h-4 mr-2 pointer-events-none"></i> สินค้าสภาพดี</button>',
-                                '<button data-action="qc" data-id="'+r.id+'" data-grade="C" data-sku="'+attr(r.sku)+'" data-name="'+attr(r.name)+'" data-qty="'+attr(r.qty)+'" data-unit="'+attr(r.unit)+'" data-source="'+attr(r.source)+'" data-reason="'+attr(r.reason)+'" class="bg-rose-50 text-rose-600 border border-rose-200 py-2.5 rounded-xl text-sm font-bold hover:bg-rose-100 transition-all flex items-center justify-center shadow-sm"><i data-lucide="x-circle" class="w-4 h-4 mr-2 pointer-events-none"></i> สินค้าเสียหาย</button>',
-                            '</div>',
-                        '</div>'
-                    ].join('');
-                }).join('') : '<div class="col-span-full py-16 text-center"><p class="text-slate-400 font-medium">ไม่มีรายการค้างตรวจสภาพ</p></div>';
-            }
-
-            const pBatchReturns = state.returns.filter(r => r.status==='รอตัดรอบ' || r.status==='QC_PASSED');
-            const batchListEl = document.getElementById('batchList');
-            if(batchListEl) {
-                batchListEl.innerHTML = pBatchReturns.length ? pBatchReturns.map(r => {
-                    return [
-                        '<tr class="hover:bg-slate-50 transition-colors group">',
-                            '<td class="p-4"><p class="font-bold text-sm text-slate-800">'+esc(r.name)+'</p><p class="text-[10px] text-slate-500 font-mono mt-0.5">'+esc(r.sku)+'</p></td>',
-                            '<td class="p-4 text-center font-black text-[#171C8F]">'+esc(r.qty)+'</td>',
-                            '<td class="p-4"><span class="text-[10px] font-bold px-2 py-1 rounded bg-emerald-50 text-emerald-600 border border-emerald-200 block w-fit max-w-[200px] whitespace-normal break-words leading-tight">'+esc(r.qcCondition && r.qcCondition !== '-' ? r.qcCondition : 'สินค้าสภาพดี')+'</span></td>',
-                            '<td class="p-4 text-right"><button aria-label="นำเข้าระบบ POS รายการ '+attr(r.sku)+'" title="นำเข้าระบบ POS" onclick="postData({action:\'updateReturnBatch\', ids:[\''+r.id+'\']}, \'นำเข้าระบบสำเร็จ\')" class="text-slate-400 hover:text-emerald-500 p-2 transition-colors"><i data-lucide="check-square" class="w-5 h-5"></i></button></td>',
-                        '</tr>'
-                    ].join('');
-                }).join('') : '<tr><td colspan="4" class="py-16 text-center text-slate-400">ไม่มีข้อมูลรอจัดการ</td></tr>';
-            }
-
-            const pWH = state.claims.filter(c => c.whStatus==='ยังไม่รับ');
-            const whClaimListEl = document.getElementById('wh_claim_list');
-            if(whClaimListEl) {
-                whClaimListEl.innerHTML = pWH.length ? pWH.map(c => {
-                    const routeBadge = c.route ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#171C8F]/10 text-[#171C8F] border border-[#171C8F]/20">'+esc(c.route)+'</span>' : '';
-                    return [
-                        '<div class="glass-card p-5 rounded-[20px] relative group border-l-4 border-l-[#E35205] flex flex-col justify-between">',
-                            '<div>',
-                                '<div class="flex items-start justify-between mb-2">',
-                                    '<label class="flex items-center gap-2 cursor-pointer">',
-                                        '<input type="checkbox" data-wh-check value="'+attr(c.id)+'" onchange="updateWhSelectCount()" class="w-4 h-4 rounded text-[#171C8F] focus:ring-[#171C8F] cursor-pointer">',
-                                        '<span class="text-[10px] font-mono text-slate-400">'+esc(c.sku)+'</span>',
-                                    '</label>',
-                                    '<div class="flex items-center gap-2">',
-                                        routeBadge,
-                                        '<button data-action="del-clm" data-id="'+c.id+'" aria-label="ลบรายการเคลม '+attr(c.sku)+'" title="ลบรายการ" class="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>',
-                                    '</div>',
-                                '</div>',
-                                '<h4 class="font-bold text-slate-800 text-sm leading-snug mb-3">'+esc(c.name)+'</h4>',
-                                '<div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 mb-4 bg-slate-50 p-2 rounded-xl border border-slate-200 shadow-sm">',
-                                    '<span>จำนวน: <strong class="text-[#E35205] text-sm">'+esc(c.qty)+'</strong> '+esc(c.unit || 'ชิ้น')+'</span>',
-                                    '<span class="text-slate-300">|</span>',
-                                    '<span class="truncate max-w-[150px]">สาเหตุ: '+esc(c.reason)+'</span>',
-                                    (c.vendor && c.vendor !== 'ไม่ระบุ Vendor' && c.vendor !== 'รอระบุ Vendor' ? '<span class="text-slate-300">|</span><span class="text-[#171C8F] font-bold">Vendor: '+esc(c.vendor)+'</span>' : ''),
-                                '</div>',
-                            '</div>',
-                            '<button data-action="wh-in" data-id="'+c.id+'" class="w-full bg-[#171C8F] hover:bg-[#12167A] text-white py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm flex items-center justify-center gap-1.5"><i data-lucide="check" class="w-4 h-4 pointer-events-none"></i> ยืนยันรับเข้าคลัง</button>',
-                        '</div>'
-                    ].join('');
-                }).join('') : '<div class="col-span-full py-16 text-center"><p class="text-slate-400 font-medium">ไม่มีของรอรับเข้าคลังสินค้า</p></div>';
-                updateWhSelectCount();
-            }
-
-            const manageAccEl = document.getElementById('manage_acc');
-            if(manageAccEl) {
-                renderClaimStock();
-            }
-            
-            lucide.createIcons();
+            const activeTab = document.querySelector('.tab-content.active')?.id?.replace('tab-', '') || 'DASHBOARD';
+            renderTabContent(activeTab);
         }
 
         function roundClaimQty(value) {
