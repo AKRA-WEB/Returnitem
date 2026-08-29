@@ -61,6 +61,7 @@
         recordDamagedIntake: (payload, token) => apiCall('recordDamagedIntake', payload, token),
         bulkIntakeDamaged: (payload, token) => apiCall('bulkIntakeDamaged', payload, token),
         confirmWHReceive: (payload, token) => apiCall('confirmWHReceive', payload, token),
+        bulkUpdateStatus: (payload, token) => apiCall('bulkUpdateStatus', payload, token),
         triageClaim: (payload, token) => apiCall('triageClaim', payload, token),
         deleteClaim: (payload, token) => apiCall('deleteClaim', payload, token),
         updateVendor: (payload, token) => apiCall('updateVendor', payload, token),
