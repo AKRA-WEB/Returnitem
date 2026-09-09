@@ -31,7 +31,7 @@
                 'Content-Type': 'application/json',
                 'Authorization': token ? `Bearer ${token}` : ''
             },
-            body: JSON.stringify({ action, ...payload, token })
+            body: JSON.stringify({ ...payload, action, token })
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({ message: res.statusText }));
@@ -43,6 +43,8 @@
     return {
         // Core reads
         getInitialData: (token, limit = 300) => apiCall('getInitialData', { limit }, token),
+        getClaimBillForPrint: (payload, token) => apiCall('getClaimBillForPrint', payload, token),
+        getClaimBillHistory: (payload, token) => apiCall('getClaimBillHistory', payload, token),
         searchProducts: async (q, limit = 25) => {
             const url = `${SUPABASE_CONFIG.FUNCTION_URL}?action=searchProducts&q=${encodeURIComponent(q || '')}&limit=${limit}`;
             const res = await fetch(url);
@@ -61,7 +63,6 @@
         recordDamagedIntake: (payload, token) => apiCall('recordDamagedIntake', payload, token),
         bulkIntakeDamaged: (payload, token) => apiCall('bulkIntakeDamaged', payload, token),
         confirmWHReceive: (payload, token) => apiCall('confirmWHReceive', payload, token),
-        bulkUpdateStatus: (payload, token) => apiCall('bulkUpdateStatus', payload, token),
         triageClaim: (payload, token) => apiCall('triageClaim', payload, token),
         deleteClaim: (payload, token) => apiCall('deleteClaim', payload, token),
         updateVendor: (payload, token) => apiCall('updateVendor', payload, token),
@@ -69,14 +70,8 @@
         // Claim Bills
         createClaimBill: (payload, token) => apiCall('createClaimBill', payload, token),
         submitClaimBill: (payload, token) => apiCall('submitClaimBill', payload, token),
+        updateClaimBillItems: (payload, token) => apiCall('updateClaimBillItems', payload, token),
         updateClaimBillStatus: (payload, token) => apiCall('updateClaimBillStatus', payload, token),
-        cancelClaimBill: (payload, token) => apiCall('cancelClaimBill', payload, token),
-
-        // Audits
-        createAudit: (payload, token) => apiCall('createAudit', payload, token),
-        submitAuditCount: (payload, token) => apiCall('submitAuditCount', payload, token),
-        finalizeAudit: (payload, token) => apiCall('finalizeAudit', payload, token),
-        saveDraft: (payload, token) => apiCall('saveDraft', payload, token),
-        deleteDraft: (payload, token) => apiCall('deleteDraft', payload, token)
+        cancelClaimBill: (payload, token) => apiCall('cancelClaimBill', payload, token)
     };
 }));
