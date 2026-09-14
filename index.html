@@ -11,7 +11,7 @@
     <script src="js/supabase-returnitem-client.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');
         
         :root {
             /* CI Colors */
@@ -74,6 +74,199 @@
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
 
+        /* Cross-app UI baseline: presentation-only overrides; workflow and hooks remain unchanged. */
+        :root {
+            --app-bg: #FFFFFF;
+            --sidebar-bg: #0A1428;
+            --card-bg: #FFFFFF;
+            --border-color: #DCE5EF;
+            --return-ink: #10203A;
+            --return-muted: #6D7B91;
+            --return-line: #DCE5EF;
+            --return-navy: #0A1428;
+            --return-orange: #FF7854;
+            --return-orange-soft: rgba(255, 120, 84, 0.12);
+        }
+
+        body.returnitem-shell {
+            background: #FFFFFF;
+            color: var(--return-ink);
+            font-family: 'Inter', 'Noto Sans Thai', 'Noto Sans', Arial, sans-serif;
+            letter-spacing: 0;
+        }
+
+        body.returnitem-shell #app-shell { background: #FFFFFF; }
+        body.returnitem-shell #main-sidebar {
+            width: 264px;
+            background: var(--return-navy) !important;
+            border-color: rgba(193, 209, 229, 0.18) !important;
+            box-shadow: none;
+        }
+        body.returnitem-shell #main-sidebar .bg-\[\#171C8F\] { background: var(--return-navy) !important; }
+        body.returnitem-shell #main-sidebar .bg-\[\#E35205\] { background: var(--return-orange) !important; }
+        body.returnitem-shell #desktop-nav { padding-left: 14px; padding-right: 14px; }
+        body.returnitem-shell #desktop-nav .nav-link {
+            min-height: 42px;
+            border-color: transparent !important;
+            border-radius: 10px !important;
+            color: #AEB9C8 !important;
+            font-family: inherit;
+        }
+        body.returnitem-shell #desktop-nav .nav-link:hover {
+            color: #F4F7FB !important;
+            background: rgba(255, 255, 255, 0.07) !important;
+        }
+        body.returnitem-shell #desktop-nav .nav-link.bg-white\/10 {
+            color: #F4F7FB !important;
+            background: var(--return-orange-soft) !important;
+            border-color: rgba(255, 120, 84, 0.34) !important;
+            box-shadow: inset 1px 0 0 var(--return-orange), 0 8px 18px rgba(0, 0, 0, 0.12);
+        }
+        body.returnitem-shell #desktop-nav .nav-link.text-\[\#E35205\] { color: #FF9678 !important; }
+        body.returnitem-shell #main-sidebar .text-white\/50 { color: rgba(174, 185, 200, 0.58) !important; }
+        body.returnitem-shell #main-sidebar .text-white\/60 { color: rgba(174, 185, 200, 0.68) !important; }
+
+        body.returnitem-shell .returnitem-topbar {
+            min-height: 72px;
+            height: 72px !important;
+            padding: 0 !important;
+            background: var(--return-navy) !important;
+            border-bottom: 1px solid rgba(193, 209, 229, 0.18) !important;
+            box-shadow: 0 10px 24px rgba(25, 35, 48, 0.16) !important;
+            color: #F4F7FB !important;
+        }
+        body.returnitem-shell .returnitem-topbar::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -1px;
+            height: 1px;
+            background: var(--return-orange);
+            opacity: 0.72;
+        }
+        body.returnitem-shell .returnitem-topbar__inner {
+            width: min(1440px, calc(100% - 44px));
+            height: 72px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        body.returnitem-shell .returnitem-topbar__leading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        body.returnitem-shell .returnitem-topbar__app-icon {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            flex: 0 0 auto;
+            place-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.26);
+            border-radius: 11px;
+            background: #E45534;
+            box-shadow: 0 4px 12px rgba(10, 20, 40, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+        }
+        body.returnitem-shell .returnitem-topbar__app-icon svg { width: 20px; height: 20px; }
+        body.returnitem-shell .returnitem-brand-lockup { display: grid; gap: 1px; min-width: 0; }
+        body.returnitem-shell .returnitem-brand-lockup h2 {
+            color: #F4F7FB !important;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        body.returnitem-shell .returnitem-brand-lockup span {
+            color: #AEB9C8;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            line-height: 1.2;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        body.returnitem-shell #mobile-menu-btn {
+            width: 34px;
+            height: 34px;
+            margin-left: 0;
+            padding: 0;
+            display: none;
+            place-items: center;
+            border: 1px solid rgba(193, 209, 229, 0.24);
+            border-radius: 9px;
+            color: #AEB9C8;
+            background: rgba(255, 255, 255, 0.06);
+        }
+        body.returnitem-shell #mobile-menu-btn:hover { color: #F4F7FB; background: rgba(255, 120, 84, 0.13); }
+        body.returnitem-shell .returnitem-topbar__actions { display: flex; align-items: center; gap: 16px; }
+        body.returnitem-shell .returnitem-topbar__actions > button {
+            width: 36px;
+            height: 36px;
+            padding: 0 !important;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(193, 209, 229, 0.24);
+            border-radius: 9px;
+            color: #AEB9C8;
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
+        body.returnitem-shell .returnitem-topbar__actions > button:hover { color: #F4F7FB; background: var(--return-orange-soft) !important; border-color: var(--return-orange); }
+        body.returnitem-shell #tab-container {
+            background: #FFFFFF !important;
+            padding: 32px clamp(16px, 4vw, 52px) 72px !important;
+        }
+        body.returnitem-shell #tab-container > .tab-content { width: 100%; max-width: 1440px; margin: 0 auto; }
+        body.returnitem-shell .glass-card {
+            background: #FFFFFF !important;
+            border-color: var(--return-line) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 8px 22px rgba(25, 35, 48, 0.06) !important;
+        }
+        body.returnitem-shell .border-l-4 { border-left-width: 1px !important; }
+        body.returnitem-shell #tab-container .text-\[\#171C8F\] { color: var(--return-ink) !important; }
+        body.returnitem-shell #tab-container .text-\[\#E35205\] { color: #E45534 !important; }
+        body.returnitem-shell #tab-container .bg-\[\#171C8F\] { background: var(--return-navy) !important; }
+        body.returnitem-shell #tab-container .bg-\[\#E35205\] { background: var(--return-orange) !important; }
+        body.returnitem-shell #tab-container .input-ci,
+        body.returnitem-shell #tab-container input:not([type="checkbox"]):not([type="radio"]),
+        body.returnitem-shell #tab-container select,
+        body.returnitem-shell #tab-container textarea {
+            background: #FFFFFF;
+            border-color: #CBD7E5;
+            color: var(--return-ink);
+            font-family: inherit;
+        }
+        body.returnitem-shell #tab-container .input-ci:focus,
+        body.returnitem-shell #tab-container input:not([type="checkbox"]):not([type="radio"]):focus,
+        body.returnitem-shell #tab-container select:focus,
+        body.returnitem-shell #tab-container textarea:focus {
+            border-color: #536FD8;
+            box-shadow: 0 0 0 3px rgba(83, 111, 216, 0.16);
+            outline: none;
+        }
+        body.returnitem-shell #sidebar-overlay { background: rgba(10, 20, 40, 0.48) !important; }
+
+        @media (max-width: 767px) {
+            body.returnitem-shell #main-sidebar { width: 280px; }
+            body.returnitem-shell .returnitem-topbar { min-height: 64px; height: 64px !important; }
+            body.returnitem-shell .returnitem-topbar__inner { width: calc(100% - 24px); height: 64px; gap: 8px; }
+            body.returnitem-shell .returnitem-topbar__leading { gap: 8px; }
+            body.returnitem-shell #mobile-menu-btn { display: grid; }
+            body.returnitem-shell .returnitem-topbar__app-icon { width: 34px; height: 34px; border-radius: 9px; }
+            body.returnitem-shell .returnitem-topbar__app-icon svg { width: 18px; height: 18px; }
+            body.returnitem-shell .returnitem-brand-lockup h2 { font-size: 14px; }
+            body.returnitem-shell .returnitem-brand-lockup span { font-size: 9px; }
+            body.returnitem-shell .returnitem-topbar__actions { gap: 4px; }
+            body.returnitem-shell .returnitem-topbar__actions > button { width: 34px; height: 34px; }
+            body.returnitem-shell #tab-container { padding: 22px 24px 48px !important; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
         }
@@ -93,7 +286,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = '20260909.01';
+        const CURRENT_VERSION = '20260914.01';
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -375,7 +568,7 @@
         }
     </script>
 </head>
-<body class="overflow-hidden selection:bg-[#171C8F]/20 relative">
+<body class="returnitem-shell overflow-hidden selection:bg-[#171C8F]/20 relative">
 
     <!-- 🚨 Floating Alert (แสดงทุกหน้า) -->
     <div id="floating-wh-alert" class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-[80] hidden flex-col items-end gap-2 transition-all duration-300 hover:-translate-y-1">
@@ -494,16 +687,22 @@
 
         <!-- 🖥️ Main Space & Header -->
         <main class="flex-1 flex flex-col overflow-hidden bg-[var(--app-bg)] relative w-full">
-            <header class="bg-white/90 backdrop-blur-xl h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-40 border-b border-slate-200 sticky top-0 w-full shadow-sm">
-                <div class="flex items-center gap-3 w-3/4">
+            <header class="returnitem-topbar bg-white/90 backdrop-blur-xl h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-40 border-b border-slate-200 sticky top-0 w-full shadow-sm">
+                <div class="returnitem-topbar__inner">
+                    <div class="returnitem-topbar__leading">
                     <!-- Hamburger Menu Button -->
                     <button id="mobile-menu-btn" aria-label="เปิดเมนู" class="md:hidden p-2 -ml-2 text-slate-500 hover:text-[#171C8F] hover:bg-slate-100 rounded-lg transition-colors">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
-                    <h2 class="font-bold text-lg text-[#171C8F] tracking-tight truncate" id="active-tab-title">ภาพรวมระบบ</h2>
-                </div>
-                <div class="flex items-center space-x-3 shrink-0">
-                    <button onclick="fetchData(true, true)" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" class="p-2.5 text-slate-400 hover:text-[#E35205] hover:bg-[#E35205]/10 rounded-lg transition-all"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
+                    <div class="returnitem-topbar__app-icon" aria-hidden="true"><i data-lucide="package-search" class="w-5 h-5 text-white"></i></div>
+                    <div class="returnitem-brand-lockup">
+                        <h2 class="font-bold text-lg text-[#171C8F] tracking-tight truncate" id="active-tab-title">ภาพรวมระบบ</h2>
+                        <span>Returns &amp; Claims</span>
+                    </div>
+                    </div>
+                    <div class="returnitem-topbar__actions flex items-center space-x-3 shrink-0">
+                        <button onclick="fetchData(true, true)" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" class="p-2.5 text-slate-400 hover:text-[#E35205] hover:bg-[#E35205]/10 rounded-lg transition-all"><i data-lucide="refresh-cw" class="w-5 h-5"></i></button>
+                    </div>
                 </div>
             </header>
 
