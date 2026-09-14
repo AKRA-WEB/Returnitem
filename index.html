@@ -298,7 +298,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = '20260914.02';
+        const CURRENT_VERSION = '20260914.03';
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -1034,7 +1034,7 @@
     <!-- 🧠 JavaScript Logic -->
     <script>
         // --- 1. CONFIG & STATE ---
-        let state = { products: [], claims: [], claimStock: [], claimBills: [], claimBillLines: [], claimBillReady: false, claimBillHistoryNextOffset: 0, claimBillHistoryHasMore: false, claimBillHistoryLoading: false, returns: [], drafts: [], user: 'Admin', productsLoading: false };
+        let state = { products: [], claims: [], claimStock: [], claimBills: [], claimBillLines: [], claimBillReady: false, claimDetailsRequested: false, claimDetailsLoaded: false, claimDetailsLoading: false, claimDetailsError: false, workflowReady: false, claimBillHistoryNextOffset: 0, claimBillHistoryHasMore: false, claimBillHistoryLoading: false, returns: [], drafts: [], user: 'Admin', productsLoading: false };
         let dashFilterText = '';
         let dashboardChartInstance = null; 
 
@@ -1291,7 +1291,7 @@
         function cacheSafeActiveData(data) {
             if(!data || typeof data !== 'object') return null;
             const safe = { ...data };
-            ['claimStock', 'claimBills', 'claimBillLines', 'claimBillReady', 'claimBillHistoryNextOffset', 'claimBillHistoryHasMore', 'claimBillAccess', 'claimBillAuthError', 'claimBillRevision'].forEach(key => delete safe[key]);
+            ['claimDetailsLoaded', 'claimStockCount', 'claimStock', 'claimBills', 'claimBillLines', 'claimBillReady', 'claimBillHistoryNextOffset', 'claimBillHistoryHasMore', 'claimBillAccess', 'claimBillAuthError', 'claimBillRevision'].forEach(key => delete safe[key]);
             return safe;
         }
         function getCache(key, ttlMs) { try { const raw = localStorage.getItem(key); if (!raw) return null; const w = JSON.parse(raw); if (Date.now() - (w._ts||0) > ttlMs) { localStorage.removeItem(key); return null; } return w._d; } catch(e) { localStorage.removeItem(key); return null; } }
@@ -1331,50 +1331,80 @@
             return false;
         }
 
-        async function fetchData(loader = true, bypassCache = false) {
+        let workflowRequest = null;
+        let workflowGeneration = 0;
+        let workflowToken = '';
+        function needsClaimDetails(tab) {
+            return ['MANAGE_CLM', 'TRACK_CLM', 'DASHBOARD'].includes(tab);
+        }
+        function currentWorkflowTab() {
+            return document.querySelector('.tab-content.active')?.id?.replace('tab-', '') || getFirstVisibleTab();
+        }
+        function pendingVendorClaimCount() {
+            return state.claimDetailsLoaded === false
+                ? Number(state.claimStockCount || 0)
+                : (state.claimStock || []).filter(item => Number(item.availableQty || 0) > 0).length;
+        }
+        function renderClaimDetailsPending(target) {
+            if (state.claimDetailsRequested !== false || !needsClaimDetails(target)) return false;
+            const ids = target === 'MANAGE_CLM' ? ['manage_acc', 'manage_ready_bills']
+                : target === 'TRACK_CLM' ? ['bill_wait_list', 'bill_process_list', 'bill_done_list'] : ['dash-list-overview'];
+            const message = state.claimDetailsError
+                ? '<p role="status">โหลดข้อมูลเคลมไม่สำเร็จ</p><button type="button" onclick="fetchData(false,true,true)" class="mt-3 px-4 py-2 rounded-lg border">ลองอีกครั้ง</button>'
+                : '<p role="status">กำลังโหลดข้อมูลเคลม...</p>';
+            ids.forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="p-6 text-center text-slate-500">' + message + '</div>'; });
+            document.getElementById('claim-bill-setup-warning')?.classList.add('hidden');
+            const historyButton = document.getElementById('claim-history-load-more');
+            if (historyButton) { historyButton.disabled = true; historyButton.classList.add('hidden'); }
+            return true;
+        }
+        async function fetchData(loader = true, bypassCache = false, includeClaimDetails = needsClaimDetails(currentWorkflowTab())) {
+            const token = (appUser && appUser.token) || '';
+            if (!token) { handleClaimBillAuthError({ reason: 'no_token' }); return; }
+            if (!bypassCache && workflowRequest && workflowRequest.token === token && (workflowRequest.includeClaimDetails || !includeClaimDetails)) return workflowRequest.promise;
+            const generation = ++workflowGeneration;
+            if (workflowToken !== token) {
+                state = { ...state, returns: [], claims: [], claimStock: [], claimBills: [], claimBillLines: [], claimBillReady: false, claimStockCount: 0, claimBillHistoryHasMore: false, claimBillHistoryNextOffset: 0, claimBillHistoryLoading: false, workflowReady: false };
+                workflowToken = token;
+            }
+            state.claimDetailsRequested = false;
+            state.claimDetailsLoading = includeClaimDetails;
+            state.claimDetailsError = false;
+            renderClaimDetailsPending(currentWorkflowTab());
             const refreshIcon = document.querySelector('i[data-lucide="refresh-cw"]');
-
-            if (bypassCache) {
-                try { localStorage.removeItem(activeCacheKey()); } catch(e) {}
-            }
-
-            if (loader && !bypassCache) {
-                const cachedActive = null; // Fetch current authorized workflow data before displaying queues.
-                if (cachedActive) {
-                    try {
-                        state = { ...state, ...cachedActive };
-                        renderUI();
-                        hideLoader();
-                        loader = false;
-                    } catch (e) {
-                        console.error("Cache parsing error", e);
-                    }
-                }
-            }
-
+            if (bypassCache) { try { localStorage.removeItem(activeCacheKey()); } catch(e) {} }
             if (loader) showLoader('กำลังโหลดข้อมูล...');
             else if (refreshIcon) refreshIcon.classList.add('animate-spin', 'text-[#E35205]');
-
-            try {
-                const res = await AkraSupabaseReturnitem.getInitialData((appUser && appUser.token) || '', 300);
-                hideLoader();
-                if (refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
-
-                if (res && res.status === 'success' && res.data) {
+            const current = () => generation === workflowGeneration && token === ((appUser && appUser.token) || '');
+            const promise = (async () => {
+                try {
+                    const res = await AkraSupabaseReturnitem.getInitialData(token, 300, { includeClaimDetails });
+                    if (!current()) return;
+                    if (!res || res.status !== 'success' || !res.data) throw new Error((res && res.message) || 'โหลดข้อมูลไม่สำเร็จ');
                     setCache(activeCacheKey(), cacheSafeActiveData(res.data));
                     const { drafts: retiredDrafts, audits: retiredAudits, ...workflowData } = res.data;
-                    state = { ...state, ...workflowData };
+                    state = { ...state, ...workflowData, workflowReady: true, claimDetailsLoading: false, claimBillHistoryLoading: false,
+                        claimDetailsRequested: includeClaimDetails || workflowData.claimDetailsLoaded !== false,
+                        claimDetailsLoaded: workflowData.claimDetailsLoaded !== false };
                     renderUI();
-                } else {
-                    Swal.fire('ข้อผิดพลาด', (res && res.message) || 'โหลดข้อมูลไม่สำเร็จ', 'error');
+                } catch (err) {
+                    if (!current()) return;
+                    state.claimDetailsError = true;
+                    state.claimDetailsLoading = false;
+                    if(handleClaimBillAuthError(err)) return;
+                    console.error('Fetch data error:', err);
+                    renderClaimDetailsPending(currentWorkflowTab());
+                    Swal.fire('การเชื่อมต่อขัดข้อง', err.message || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                } finally {
+                    if (current()) {
+                        hideLoader();
+                        if (refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
+                    }
+                    if (workflowRequest && workflowRequest.generation === generation) workflowRequest = null;
                 }
-            } catch (err) {
-                hideLoader();
-                if (refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
-                if(handleClaimBillAuthError(err)) return;
-                console.error('Fetch data error:', err);
-                Swal.fire('การเชื่อมต่อขัดข้อง', err.message || 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
-            }
+            })();
+            workflowRequest = { token, includeClaimDetails, generation, promise };
+            return promise;
         }
 
         async function postData(payload, successMsg, options = {}) {
@@ -1908,6 +1938,10 @@
         }
 
         function renderTabContent(target) {
+            if (renderClaimDetailsPending(target)) {
+                if (state.workflowReady && !state.claimDetailsLoading && !state.claimDetailsError) fetchData(false, false, true);
+                return;
+            }
             if (target === 'DASHBOARD') {
                 renderDashboard();
                 drawDashboardChart();
@@ -1937,7 +1971,7 @@
 
             // 🚨 Floating Alert System 🚨
             const pendingWHClaims = state.claims.filter(c => c.whStatus === 'ยังไม่รับ').length;
-            const pendingVendorClaims = (state.claimStock || []).filter(item => Number(item.availableQty || 0) > 0).length;
+            const pendingVendorClaims = pendingVendorClaimCount();
             const pendingCustReturns = state.returns.filter(i => i.source === 'หน้าร้าน/ลูกค้า' && i.compensation && i.compensation !== '-' && !i.customerStatus).length;
             const queueMap = { 'queue-qc': qcCount, 'queue-wh': pendingWHClaims, 'queue-vendor': pendingVendorClaims, 'queue-cust': pendingCustReturns };
             Object.entries(queueMap).forEach(([id, count]) => {
@@ -2000,6 +2034,7 @@
         }
 
         function renderClaimStock() {
+            if (renderClaimDetailsPending('MANAGE_CLM')) return;
             const container = document.getElementById('manage_acc');
             if(!container) return;
             const stock = Object.values((state.claimStock || []).reduce((groups,item)=>{
@@ -2175,6 +2210,7 @@
         }
 
         function renderClaimBills() {
+            if (renderClaimDetailsPending('TRACK_CLM')) return;
             const waitEl = document.getElementById('bill_wait_list'), processEl = document.getElementById('bill_process_list'), doneEl = document.getElementById('bill_done_list');
             if(!waitEl || !processEl || !doneEl) return;
             const historyButton = document.getElementById('claim-history-load-more');
@@ -2224,7 +2260,7 @@
             if(document.getElementById('kpi-ret')) document.getElementById('kpi-ret').innerText = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length;
             if(document.getElementById('kpi-clm')) {
                 const intakeCount = state.claims.filter(c => c.whStatus==='ยังไม่รับ' || c.status===ST_HOLDING).length;
-                const stockCount = (state.claimStock || []).filter(item => Number(item.availableQty || 0) > 0).length;
+                const stockCount = pendingVendorClaimCount();
                 const openBillCount = (state.claimBills || []).filter(bill => bill.status !== 'ปิดงานแล้ว' && bill.status !== 'ยกเลิก').length;
                 document.getElementById('kpi-clm').innerText = intakeCount + stockCount + openBillCount;
             }

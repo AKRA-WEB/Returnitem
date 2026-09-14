@@ -42,7 +42,7 @@
 
     return {
         // Core reads
-        getInitialData: (token, limit = 300) => apiCall('getInitialData', { limit }, token),
+        getInitialData: (token, limit = 300, options = {}) => apiCall('getInitialData', { limit, ...(typeof options.includeClaimDetails === 'boolean' ? { includeClaimDetails: options.includeClaimDetails } : {}) }, token),
         getClaimBillForPrint: (payload, token) => apiCall('getClaimBillForPrint', payload, token),
         getClaimBillHistory: (payload, token) => apiCall('getClaimBillHistory', payload, token),
         searchProducts: async (q, limit = 25) => {
