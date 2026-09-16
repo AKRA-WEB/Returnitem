@@ -212,7 +212,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = '20260916.01';
+        const CURRENT_VERSION = '20260916.02';
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -966,7 +966,9 @@
             const isAdmin = roles.includes("ADMIN");
             const hasPermissionContract = appUser.perms && typeof appUser.perms === 'object';
 
-            let allowedTabs = new Set();
+            // Dashboard is the shared landing page after verifyAccess succeeds.
+            // Data scope and mutation permissions remain enforced independently.
+            let allowedTabs = new Set(['DASHBOARD']);
             if (isAdmin && !hasPermissionContract && Number(appUser.tokenVersion || decodeJwtPayload(appUser.token)?.tokenVersion)!==2) return;
 
             returnitemPermissionsForUser().forEach(permission => allowedTabs.add(permission));
