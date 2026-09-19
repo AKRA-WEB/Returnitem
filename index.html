@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+    <script src="js/akra-shell-bridge.js?v=20260919.01"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WMS Returns & Claims Pro</title>
@@ -8,7 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="js/supabase-returnitem-client.js"></script>
+    <script src="js/supabase-returnitem-client.js?v=20260919.01"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
@@ -211,8 +212,8 @@
 
     <!-- 🔐 SSO Access Control -->
     <script>
-        const MAIN_PORTAL_URL = "https://akra-web.github.io/MainPortal/"; 
-        const CURRENT_VERSION = '20260916.02';
+        const MAIN_PORTAL_URL = "https://akra-web.github.io/Main/";
+        const CURRENT_VERSION = '20260919.01';
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -379,6 +380,7 @@
 
         function buildVerifiedSessionUser(user, token) {
             const verifiedUser = {
+                ...user,
                 id: user.id || user.name,
                 name: user.name,
                 roles: user.roles,
@@ -390,111 +392,91 @@
         }
 
         async function verifyAccess() {
-            // Check preview environment
-            const isPreviewEnv = window.self !== window.top || window.location.hostname === "" || ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname) || window.location.hostname.includes("googleusercontent");
-            
-            let savedData = localStorage.getItem(STORAGE_KEY);
-
+            appUser = null;
+            if (window.AkraModule?.embedded) {
+                try {
+                    const user = await window.AkraModule.verifySession('app-damage');
+                    appUser = { ...user, tokenVersion: 2, token: window.AkraModule.getToken() };
+                    return true;
+                } catch (_) {
+                    invalidateReturnitemSession('เซสชันหมดอายุ กรุณาเข้าสู่ระบบผ่าน Main อีกครั้ง');
+                    window.AkraModule.authRequired(MAIN_PORTAL_URL);
+                    return false;
+                }
+            }
+            let savedData = null;
+            try { savedData = localStorage.getItem(STORAGE_KEY); } catch (_) {}
             const urlParams = new URLSearchParams(window.location.search);
-            const ssoToken = urlParams.get('sso');
+            const ssoToken = window.AkraModule?.getToken() || urlParams.get('sso');
             const tokenToVerify = ssoToken || (savedData && (() => { try { return JSON.parse(savedData).token; } catch(e){ return ''; } })());
-
-            // 1. Instant JWT Verification (<1ms)
-            if (tokenToVerify) {
-                const jwtUser = decodeJwtPayload(tokenToVerify);
-                if (jwtUser) {
-                    const roles = jwtUser.roles || [];
-                    const hasPermission = roles.includes("ADMIN") || roles.some(role => ALLOWED_ROLES.includes(role));
-                    if (hasPermission) {
-                        appUser = {
-                            id: jwtUser.id || jwtUser.name,
-                            name: jwtUser.name || jwtUser.id,
-                            roles: roles,
-                            token: tokenToVerify
-                        };
-                        if (jwtUser.perms && typeof jwtUser.perms === 'object') {
-                            appUser.perms = jwtUser.perms;
-                        }
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser));
-                        if (ssoToken) {
-                            try {
-                                urlParams.delete('sso');
-                                const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
-                                window.history.replaceState({}, document.title, cleanUrl);
-                            } catch(e) {}
-                        }
-                        return true;
-                    }
-                }
-            }
-
-            // Local/preview should not get stuck on a stale SSO cache while testing.
-            if (!ssoToken && isPreviewEnv) {
-                console.warn("⚠️ MOCK MODE: ไม่พบข้อมูล SSO กำลังจำลอง User เพื่อทดสอบ");
-                const mockUser = { id: "preview-admin", name: "Admin (Demo)", roles: ["ADMIN"], token: "" };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(mockUser));
-                savedData = JSON.stringify(mockUser);
-            }
-
             if (ssoToken) {
-                try {
-                    const fixedSsoToken = ssoToken.replace(/ /g, '+');
-                    urlParams.delete('sso');
-                    const cleanUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
-                    window.history.replaceState({}, document.title, cleanUrl);
-                    const rolesParam = ALLOWED_ROLES.length ? '&roles=' + ALLOWED_ROLES.join(',') : '';
-                    const verifyURL = `${API_URL}?action=verifyToken&token=${encodeURIComponent(fixedSsoToken)}${rolesParam}`;
-                    
-                    const response = await fetch(verifyURL);
-                    if (!response.ok) throw new Error("API_ERROR");
-                    const result = await response.json();
-
-                    if (!result.valid) {
-                        localStorage.removeItem(STORAGE_KEY);
-                        alert('เกิดข้อผิดพลาดในการยืนยันตัวตน หรือคุณไม่มีสิทธิ์เข้าใช้งานระบบนี้');
-                        window.location.replace(MAIN_PORTAL_URL);
-                        return false;
-                    }
-                    appUser = buildVerifiedSessionUser(result.user, fixedSsoToken);
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser));
-                    return true;
-                } catch (error) {
-                    console.error("Auth Error:", error);
-                    alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อตรวจสอบสิทธิ์ได้");
-                    window.location.replace(MAIN_PORTAL_URL);
-                    return false;
-                }
-            } else {
-                if (!savedData) {
-                    alert("❌ กรุณาเข้าสู่ระบบผ่านหน้า Main Portal ก่อนใช้งาน");
-                    window.location.replace(MAIN_PORTAL_URL);
-                    return false;
-                }
-                try {
-                    appUser = JSON.parse(savedData);
-                    if(!isPreviewEnv && !appUser.token) {
-                        localStorage.removeItem(STORAGE_KEY);
-                        window.location.replace(MAIN_PORTAL_URL);
-                        return false;
-                    }
-                    const hasPermission = appUser.roles.some(role => ALLOWED_ROLES.includes(role));
-                    const isAdmin = appUser.roles.includes("ADMIN");
-                    if (!hasPermission && !isAdmin) {
-                        alert("⛔ คุณไม่มีสิทธิ์เข้าใช้งานระบบนี้");
-                        window.location.replace(MAIN_PORTAL_URL);
-                        return false;
-                    }
-                    return true;
-                } catch (error) {
-                    localStorage.removeItem(STORAGE_KEY);
-                    window.location.replace(MAIN_PORTAL_URL);
-                    return false;
-                }
+                urlParams.delete('sso');
+                window.history.replaceState({}, document.title, window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : ''));
             }
+            if (!tokenToVerify && window.AkraModule?.isLocalPreview() === true) {
+                appUser = { id:'preview-admin', name:'Admin (Demo)', roles:['ADMIN'], token:'', preview:true };
+                return true;
+            }
+            try {
+                if (!tokenToVerify) throw new Error('no_token');
+                const token = tokenToVerify.replace(/ /g, '+');
+                const user = await window.AkraModule.verifySession('app-damage', token);
+                if (localStorage.getItem(STORAGE_KEY) !== savedData) throw new Error('session_changed');
+                appUser = buildVerifiedSessionUser(user, token);
+                try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser)); } catch (_) {}
+                return true;
+            } catch (_) {
+                invalidateReturnitemSession('ตรวจสอบสิทธิ์ไม่สำเร็จ กรุณาเข้าสู่ระบบผ่าน Main อีกครั้ง');
+                window.AkraModule.authRequired(MAIN_PORTAL_URL);
+                return false;
+            }
+        }
+
+        function returnitemIdentityId() {
+            const id = String(appUser?.identityId || '').toLowerCase();
+            return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id) ? id : '';
+        }
+        function getReturnitemToken() {
+            try { return appUser && (window.AkraModule?.embedded ? window.AkraModule.getToken() : appUser.token) || ''; } catch (_) { return ''; }
+        }
+        function isCurrentReturnitemSession(owner, token) {
+            return Boolean(owner && owner === appUser && token && token === getReturnitemToken());
+        }
+        function invalidateReturnitemSession(message) {
+            appUser = null;
+            ++workflowGeneration;
+            workflowRequest = null;
+            workflowToken = '';
+            state = { ...state, user:'', products:[], returns:[], claims:[], claimStock:[], claimBills:[], claimBillLines:[], drafts:[], workflowReady:false };
+            ['app-shell','print-preview-overlay','floating-wh-alert','sidebar-overlay'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.hidden = true;
+            });
+            const status = document.getElementById('session-status');
+            if (status) status.hidden = false;
+            const text = document.getElementById('session-status-text');
+            if (text) text.textContent = message;
+            if (typeof Swal !== 'undefined') Swal.close();
+            hideLoader();
+        }
+        function bindReturnitemSessionEvents() {
+            window.AkraModule?.watchSession?.({appId:'app-damage', user:appUser, token:getReturnitemToken(),
+                invalidated:() => invalidateReturnitemSession('เซสชัน Main เปลี่ยนแล้ว กรุณาเปิดแอปจาก Main ใหม่'),
+                refreshed:token => { if (appUser) appUser.token = token; }
+            });
+            window.addEventListener('storage', event => {
+                if (window.AkraModule?.embedded || (event.key !== null && event.key !== STORAGE_KEY)) return;
+                if (event.key !== null && event.oldValue === event.newValue) return;
+                invalidateReturnitemSession('บัญชีหรือเซสชันเปลี่ยนแล้ว กรุณาเปิดแอปจาก Main ใหม่');
+            });
         }
     </script>
 </head>
 <body class="returnitem-shell overflow-hidden selection:bg-[#171C8F]/20 relative">
+    <style>[hidden] { display: none !important; }</style>
+    <section id="session-status" hidden class="p-8 text-center">
+        <p id="session-status-text" role="status">กรุณาเข้าสู่ระบบผ่าน Main</p>
+        <button type="button" class="mt-4 px-5 py-3 rounded-xl bg-[#171C8F] text-white" onclick="window.AkraModule.home(MAIN_PORTAL_URL)">กลับ Main</button>
+    </section>
 
     <!-- 🚨 Floating Alert (แสดงทุกหน้า) -->
     <div id="floating-wh-alert" class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-[80] hidden flex-col items-end gap-2 transition-all duration-300 hover:-translate-y-1">
@@ -540,7 +522,7 @@
     </div>
 
     <!-- 📱 App Shell -->
-    <div id="app-shell" class="flex flex-col md:flex-row h-screen">
+    <div id="app-shell" hidden class="flex flex-col md:flex-row h-screen">
         
         <!-- 🧭 Sidebar (Desktop & Mobile Drawer) -->
         <aside id="main-sidebar" class="fixed inset-y-0 left-0 z-[60] w-64 bg-[#171C8F] flex flex-col shrink-0 border-r border-[#171C8F] transform -translate-x-full transition-transform duration-300 md:relative md:translate-x-0 shadow-2xl md:shadow-none">
@@ -1154,6 +1136,8 @@
 
             const hasAccess = await verifyAccess();
             if (!hasAccess) return;
+            document.getElementById('app-shell').hidden = false;
+            bindReturnitemSessionEvents();
 
             if (appUser && appUser.name) {
                 state.user = appUser.name;
@@ -1180,9 +1164,9 @@
         const PRODUCTS_CACHE_TTL = 2 * 60 * 60 * 1000;
         const ACTIVE_CACHE_KEY = 'wms_ret_active_v1';
         function activeCacheKey() {
-            const identity = String((appUser && (appUser.id || appUser.name)) || 'anonymous');
-            const authorization = Array.from(returnitemPermissionsForUser()).sort().join(',');
-            return ACTIVE_CACHE_KEY + ':' + encodeURIComponent(identity) + ':' + encodeURIComponent(authorization);
+            const identity = returnitemIdentityId();
+            if (!identity || !Number.isSafeInteger(appUser.sessionVersion) || appUser.sessionVersion < 1 || !appUser.authorizationRevision) return '';
+            return ACTIVE_CACHE_KEY + ':identity:' + identity + ':' + appUser.sessionVersion + ':' + encodeURIComponent(appUser.authorizationRevision);
         }
         function cacheSafeActiveData(data) {
             if(!data || typeof data !== 'object') return null;
@@ -1190,9 +1174,8 @@
             ['claimDetailsLoaded', 'claimStockCount', 'claimStock', 'claimBills', 'claimBillLines', 'claimBillReady', 'claimBillHistoryNextOffset', 'claimBillHistoryHasMore', 'claimBillAccess', 'claimBillAuthError', 'claimBillRevision'].forEach(key => delete safe[key]);
             return safe;
         }
-        function getCache(key, ttlMs) { try { const raw = localStorage.getItem(key); if (!raw) return null; const w = JSON.parse(raw); if (Date.now() - (w._ts||0) > ttlMs) { localStorage.removeItem(key); return null; } return w._d; } catch(e) { localStorage.removeItem(key); return null; } }
-        function setCache(key, data) { try { localStorage.setItem(key, JSON.stringify({ _ts: Date.now(), _d: data })); } catch(e) { console.error('setCache failed', key, e); } }
-        try { localStorage.removeItem('wms_app_cache'); localStorage.removeItem(ACTIVE_CACHE_KEY); } catch(e) {}
+        function getCache(key, ttlMs) { if (!key || key !== activeCacheKey()) return null; try { const raw = localStorage.getItem(key); if (!raw) return null; const w = JSON.parse(raw); if (Date.now() - (w._ts||0) > ttlMs) { localStorage.removeItem(key); return null; } return w._d; } catch(e) { return null; } }
+        function setCache(key, data) { if (!key || key !== activeCacheKey()) return false; try { localStorage.setItem(key, JSON.stringify({ _ts: Date.now(), _d: data })); return true; } catch(e) { return false; } }
 
         function setAutocompleteLoading(isLoading) {
             state.productsLoading = isLoading;
@@ -1204,6 +1187,7 @@
 
         function handleClaimBillAuthError(error, allowOrdinaryData = false) {
             if(!error) return false;
+            if(error.reason === 'session_changed') return true;
             const terminalReasons = ['no_token', 'invalid_or_expired_token', 'mandatory_password_change_required'];
             if(!terminalReasons.includes(error.reason) && !['permission_denied','verify_failed'].includes(error.reason)) return false;
             state.claimBillReady = false;
@@ -1212,8 +1196,9 @@
             state.claimStock = [];
             try { localStorage.removeItem(activeCacheKey()); } catch(e) {}
             if(terminalReasons.includes(error.reason)) {
-                localStorage.removeItem(STORAGE_KEY);
-                Swal.fire('เซสชันหมดอายุ', error.message || 'กรุณาเข้าสู่ระบบใหม่', 'warning').then(() => window.location.replace(MAIN_PORTAL_URL));
+                const token = getReturnitemToken();
+                try { if (!window.AkraModule?.embedded && JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}').token === token) localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+                invalidateReturnitemSession(error.message || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
                 return true;
             }
             if(error.reason === 'permission_denied') {
@@ -1255,7 +1240,8 @@
             return true;
         }
         async function fetchData(loader = true, bypassCache = false, includeClaimDetails = needsClaimDetails(currentWorkflowTab())) {
-            const token = (appUser && appUser.token) || '';
+            if (appUser?.preview) { hideLoader(); return; }
+            const owner = appUser, token = getReturnitemToken();
             if (!token) { handleClaimBillAuthError({ reason: 'no_token' }); return; }
             if (!bypassCache && workflowRequest && workflowRequest.token === token && (workflowRequest.includeClaimDetails || !includeClaimDetails)) return workflowRequest.promise;
             const generation = ++workflowGeneration;
@@ -1271,7 +1257,7 @@
             if (bypassCache) { try { localStorage.removeItem(activeCacheKey()); } catch(e) {} }
             if (loader) showLoader('กำลังโหลดข้อมูล...');
             else if (refreshIcon) refreshIcon.classList.add('animate-spin', 'text-[#E35205]');
-            const current = () => generation === workflowGeneration && token === ((appUser && appUser.token) || '');
+            const current = () => generation === workflowGeneration && isCurrentReturnitemSession(owner, token);
             const promise = (async () => {
                 try {
                     const res = await AkraSupabaseReturnitem.getInitialData(token, 300, { includeClaimDetails });
@@ -1305,10 +1291,11 @@
 
         async function postData(payload, successMsg, options = {}) {
             if(!payload.mutationId) return postClaimMutation('direct:'+payload.action+':'+JSON.stringify(payload), payload, successMsg);
+            const owner = appUser, token = getReturnitemToken();
+            if (!owner || !token || !returnitemIdentityId()) return false;
             showLoader('กำลังบันทึก...');
             postData.lastFailureAmbiguous = false;
             try {
-                const token = (appUser && appUser.token) || '';
                 let request = { ...payload };
                 if(request.action === 'addDrafts') {
                     request = { ...request, action:'bulkIntakeDamaged', items:request.drafts.map(d => ({
@@ -1327,19 +1314,26 @@
                 const method = methods[request.action];
                 if(!method) throw Object.assign(new Error('คำสั่งนี้เลิกใช้งานแล้ว กรุณารีเฟรชหน้าเว็บ'),{status:400});
                 const res = await AkraSupabaseReturnitem[method](request, token);
+                if (!isCurrentReturnitemSession(owner, token)) {
+                    if (options.outcome) options.outcome.ambiguous = true;
+                    return false;
+                }
                 if(!res || res.status !== 'success') throw Object.assign(new Error(res?.message || 'บันทึกไม่สำเร็จ'),{status:409});
                 if(successMsg) showToast('success',successMsg,'บันทึกสำเร็จ');
-                if(options.refresh !== false) setTimeout(()=>fetchData(false,true),100);
+                window.AkraModule?.markSaved();
+                if(options.refresh !== false) setTimeout(()=>{ if (isCurrentReturnitemSession(owner, token)) fetchData(false,true); },100);
                 return res.data || res;
             } catch(error) {
                 postData.lastFailureAmbiguous = !error.status || error.status >= 500;
+                if (options.outcome) options.outcome.ambiguous = postData.lastFailureAmbiguous;
+                if (!isCurrentReturnitemSession(owner, token)) return false;
                 if(!handleClaimBillAuthError(error)) {
                     const message = error.status===409 ? 'ข้อมูลเปลี่ยนไปหรือไม่ตรงเงื่อนไข กรุณารีเฟรชแล้วตรวจจำนวนและสถานะอีกครั้ง' :
                         postData.lastFailureAmbiguous ? 'ยังยืนยันผลบันทึกไม่ได้ กรุณาลองรายการเดิมอีกครั้ง ระบบจะตรวจไม่ให้บันทึกซ้ำ' : error.message;
                     Swal.fire('บันทึกไม่สำเร็จ',message,'error');
                 }
                 return false;
-            } finally { hideLoader(); }
+            } finally { if (isCurrentReturnitemSession(owner, token)) hideLoader(); }
         }
         function dateToISO(value) {
             if(!value || value==='-') return null;
@@ -2027,34 +2021,56 @@
         }
 
         const PENDING_CLAIM_MUTATIONS_KEY = 'returnitem_pending_claim_mutations_v1';
-        const pendingClaimMutations = (() => {
-            try {
-                const saved = JSON.parse(sessionStorage.getItem(PENDING_CLAIM_MUTATIONS_KEY) || '{}');
-                return new Map(Object.entries(saved));
-            } catch (e) {
-                return new Map();
-            }
-        })();
-        function persistPendingClaimMutations() {
-            try { sessionStorage.setItem(PENDING_CLAIM_MUTATIONS_KEY, JSON.stringify(Object.fromEntries(pendingClaimMutations))); } catch (e) { console.warn('Pending mutation session cache skipped', e); }
+        const claimMutationsInFlight = new Set();
+        function readPendingClaimMutations(storageKey) {
+            const saved = JSON.parse(sessionStorage.getItem(storageKey) || '{}');
+            if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw new Error('ข้อมูลรายการค้างไม่ถูกต้อง กรุณาให้ผู้ดูแลตรวจสอบก่อนส่งใหม่');
+            return new Map(Object.entries(saved));
+        }
+        function persistPendingClaimMutations(storageKey, pending) {
+            const json = JSON.stringify(Object.fromEntries(pending));
+            sessionStorage.setItem(storageKey, json);
+            if (sessionStorage.getItem(storageKey) !== json) throw new Error('ไม่สามารถเก็บเลขคำขอได้ จึงยังไม่ส่งรายการ กรุณาตรวจพื้นที่เก็บข้อมูลของเบราว์เซอร์');
         }
         async function postClaimMutation(key, payload, successMsg, requestIdentity = payload) {
-            const requestJson = JSON.stringify(requestIdentity);
-            const cacheKey = JSON.stringify([key,requestJson]);
-            const saved = pendingClaimMutations.get(cacheKey) || pendingClaimMutations.get(key);
-            const reuseSaved = saved && saved.requestJson === requestJson;
-            const mutationId = reuseSaved ? saved.mutationId : makeMutationId();
-            const bill=(state.claimBills || []).find(b=>b.billId===payload.billId);
-            const requestPayload = reuseSaved && saved.payload ? saved.payload : { ...payload, ...(bill ? {expectedRevision:bill.revision} : {}) };
-            pendingClaimMutations.set(cacheKey, { mutationId, requestJson, payload:requestPayload });
-            if(reuseSaved && pendingClaimMutations.get(key) === saved) pendingClaimMutations.delete(key);
-            persistPendingClaimMutations();
-            const result = await postData({ ...requestPayload, mutationId }, successMsg);
-            if(result || !postData.lastFailureAmbiguous) {
-                pendingClaimMutations.delete(cacheKey);
-                persistPendingClaimMutations();
+            const owner = appUser, token = getReturnitemToken(), identity = returnitemIdentityId();
+            let flightKey, ownsFlight = false;
+            try {
+                if (!identity || !token) throw new Error('กรุณาเข้าสู่ระบบผ่าน Main ใหม่ก่อนส่งรายการ');
+                if (readPendingClaimMutations(PENDING_CLAIM_MUTATIONS_KEY).size) throw new Error('พบรายการส่งค้างจากระบบเดิมที่ยังยืนยันเจ้าของไม่ได้ กรุณาให้ผู้ดูแลตรวจสอบก่อนส่งใหม่');
+                const storageKey = PENDING_CLAIM_MUTATIONS_KEY + ':identity:' + identity;
+                const requestJson = JSON.stringify(requestIdentity), cacheKey = JSON.stringify([key,requestJson]);
+                flightKey = storageKey + ':' + cacheKey;
+                if (claimMutationsInFlight.has(flightKey)) return false;
+                const pending = readPendingClaimMutations(storageKey), saved = pending.get(cacheKey);
+                if (saved && (saved.requestJson !== requestJson || !saved.mutationId || !saved.payload)) throw new Error('ข้อมูลรายการค้างไม่ครบ กรุณาให้ผู้ดูแลตรวจสอบก่อนส่งใหม่');
+                const mutationId = saved ? saved.mutationId : makeMutationId();
+                const bill = (state.claimBills || []).find(b=>b.billId===payload.billId);
+                const requestPayload = saved ? saved.payload : { ...payload, ...(bill ? {expectedRevision:bill.revision} : {}) };
+                pending.set(cacheKey, { mutationId, requestJson, payload:requestPayload });
+                persistPendingClaimMutations(storageKey, pending);
+                claimMutationsInFlight.add(flightKey);
+                ownsFlight = true;
+                const outcome = { ambiguous:false };
+                const result = await postData({ ...requestPayload, mutationId }, successMsg, { outcome });
+                if (!isCurrentReturnitemSession(owner, token)) return false;
+                if (result || !outcome.ambiguous) {
+                    // A confirmed server result stays successful if optional cleanup fails.
+                    try {
+                        const latest = readPendingClaimMutations(storageKey);
+                        if (latest.get(cacheKey)?.mutationId === mutationId) {
+                            latest.delete(cacheKey);
+                            persistPendingClaimMutations(storageKey, latest);
+                        }
+                    } catch (_) {}
+                }
+                return result;
+            } catch (error) {
+                if (isCurrentReturnitemSession(owner, token) || !owner) Swal.fire('ยังไม่ส่งรายการ', error.message, 'warning');
+                return false;
+            } finally {
+                if (ownsFlight) claimMutationsInFlight.delete(flightKey);
             }
-            return result;
         }
 
         async function handleClaimBillSubmit(e) {
@@ -2139,17 +2155,20 @@
         }
 
         async function loadMoreClaimBillHistory() {
+            const owner = appUser, token = getReturnitemToken();
+            if (!owner || !token) return;
             if(state.claimBillHistoryLoading || !state.claimBillHistoryHasMore) return;
             state.claimBillHistoryLoading=true; renderClaimBills();
             try {
-                const res=await AkraSupabaseReturnitem.getClaimBillHistory({offset:state.claimBillHistoryNextOffset,limit:100},appUser.token);
+                const res=await AkraSupabaseReturnitem.getClaimBillHistory({offset:state.claimBillHistoryNextOffset,limit:100},token);
+                if (!isCurrentReturnitemSession(owner, token)) return;
                 const bills=new Map(state.claimBills.map(b=>[b.billId,b]));
                 res.data.claimBills.forEach(b=>bills.set(b.billId,b)); state.claimBills=[...bills.values()];
                 const lines=new Map(state.claimBillLines.map(l=>[l.lineId,l]));
                 res.data.claimBillLines.forEach(l=>lines.set(l.lineId,l)); state.claimBillLines=[...lines.values()];
                 state.claimBillHistoryNextOffset=res.data.nextOffset; state.claimBillHistoryHasMore=res.data.hasMore;
-            } catch(error) { if(!handleClaimBillAuthError(error)) Swal.fire('โหลดประวัติไม่สำเร็จ',error.message,'error'); }
-            finally { state.claimBillHistoryLoading=false; renderClaimBills(); }
+            } catch(error) { if(isCurrentReturnitemSession(owner, token) && !handleClaimBillAuthError(error)) Swal.fire('โหลดประวัติไม่สำเร็จ',error.message,'error'); }
+            finally { if (isCurrentReturnitemSession(owner, token)) { state.claimBillHistoryLoading=false; renderClaimBills(); } }
         }
 
         function renderDashboard() {
@@ -2332,14 +2351,17 @@
         };
 
         window.executeBillPrintPreview = async function(billId) {
+            const owner = appUser, token = getReturnitemToken();
+            if (!owner || !token) return;
             showLoader('กำลังตรวจสอบใบเคลม...');
             try {
-                const res=await AkraSupabaseReturnitem.getClaimBillForPrint({billId},appUser.token);
+                const res=await AkraSupabaseReturnitem.getClaimBillForPrint({billId},token);
+                if (!isCurrentReturnitemSession(owner, token)) return;
                 const bill=res.data.claimBills[0], lines=res.data.claimBillLines;
                 if(!bill || bill.status==='ยกเลิก') return Swal.fire('พิมพ์ไม่ได้','ไม่พบใบเคลมหรือใบเคลมถูกยกเลิกแล้ว','warning');
                 return renderClaimPrintPreview(bill.vendor,mergeClaimBillLines(lines.filter(l=>l.lineStatus==='Active')),bill.billId);
-            } catch(error) { if(!handleClaimBillAuthError(error)) Swal.fire('พิมพ์ไม่สำเร็จ',error.message,'error'); }
-            finally { hideLoader(); }
+            } catch(error) { if(isCurrentReturnitemSession(owner, token) && !handleClaimBillAuthError(error)) Swal.fire('พิมพ์ไม่สำเร็จ',error.message,'error'); }
+            finally { if (isCurrentReturnitemSession(owner, token)) hideLoader(); }
         };
 
         function renderClaimPrintPreview(vendor, items, documentRef) {

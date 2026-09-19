@@ -18,13 +18,32 @@
     };
 
     function getToken() {
+        if (typeof window !== 'undefined' && window.AkraModule?.embedded) return window.AkraModule.getToken();
         if (typeof appUser !== 'undefined' && appUser && appUser.token) return appUser.token;
         if (typeof window !== 'undefined' && window.appUser && window.appUser.token) return window.appUser.token;
         return '';
     }
 
+    function getOwner() {
+        if (typeof appUser !== 'undefined') return appUser;
+        return typeof window !== 'undefined' ? window.appUser : null;
+    }
+    function assertCurrentSession(owner, token) {
+        if (!owner || owner !== getOwner() || !token || token !== getToken()) {
+            throw Object.assign(new Error('บัญชีหรือเซสชันเปลี่ยนแล้ว กรุณาเปิดแอปจาก Main ใหม่'), { reason:'session_changed' });
+        }
+    }
+
     async function apiCall(action, payload = {}, explicitToken = '') {
-        const token = explicitToken || getToken();
+        const operation = () => transportRequest(action, payload, explicitToken);
+        const bridge = typeof window !== 'undefined' && window.AkraModule?.embedded ? window.AkraModule : null;
+        return bridge && !action.startsWith('get') ? bridge.runMutation(operation) : operation();
+    }
+
+    async function transportRequest(action, payload, explicitToken) {
+        const token = typeof window !== 'undefined' && window.AkraModule?.embedded ? getToken() : explicitToken || getToken();
+        const owner = getOwner();
+        assertCurrentSession(owner, token);
         const res = await fetch(SUPABASE_CONFIG.FUNCTION_URL, {
             method: 'POST',
             headers: {
@@ -33,11 +52,13 @@
             },
             body: JSON.stringify({ ...payload, action, token })
         });
+        const result = res.ok ? await res.json() : await res.json().catch(() => ({ message: res.statusText }));
+        assertCurrentSession(owner, token);
         if (!res.ok) {
-            const err = await res.json().catch(() => ({ message: res.statusText }));
+            const err = result;
             throw Object.assign(new Error(err.message || 'API request failed'), { status: res.status, reason: err.reason });
         }
-        return await res.json();
+        return result;
     }
 
     return {
@@ -47,9 +68,14 @@
         getClaimBillHistory: (payload, token) => apiCall('getClaimBillHistory', payload, token),
         searchProducts: async (q, limit = 25) => {
             const url = `${SUPABASE_CONFIG.FUNCTION_URL}?action=searchProducts&q=${encodeURIComponent(q || '')}&limit=${limit}`;
-            const res = await fetch(url);
+            const token = getToken();
+            const owner = getOwner();
+            assertCurrentSession(owner, token);
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            const result = await res.json();
+            assertCurrentSession(owner, token);
             if (!res.ok) throw new Error('Search failed');
-            return await res.json();
+            return result;
         },
 
         // Customer Returns

@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 async function run(adapter = fs.readFileSync(path.join(__dirname, '../js/supabase-returnitem-client.js'), 'utf8')) {
   const sent = [];
-  const adapterCtx = { module: { exports: {} }, fetch: async (url, options) => { sent.push(JSON.parse(options.body)); return { ok: true, json: async () => ({ status: 'success' }) }; } };
+  const adapterCtx = { appUser:{token:'fixture'}, module: { exports: {} }, fetch: async (url, options) => { sent.push(JSON.parse(options.body)); return { ok: true, json: async () => ({ status: 'success' }) }; } };
   vm.createContext(adapterCtx); new vm.Script(adapter).runInContext(adapterCtx);
   await adapterCtx.module.exports.getInitialData('fixture', 300);
   await adapterCtx.module.exports.getInitialData('fixture', 300, { includeClaimDetails: false });
@@ -26,6 +26,8 @@ async function run(adapter = fs.readFileSync(path.join(__dirname, '../js/supabas
     AkraSupabaseReturnitem: { getInitialData: (token, limit, options) => { calls.push({ token, ...options }); return new Promise((resolve, reject) => pending.push({ resolve, reject })); } }
   };
   vm.createContext(ctx);
+  ctx.window = {};
+  new vm.Script(section('        function getReturnitemToken()', '        function invalidateReturnitemSession(')).runInContext(ctx);
   new vm.Script(section('        let workflowRequest =', '        async function postData(') + '\n' + section('        function renderTabContent(', '        // --- 8. RENDER UI ---')).runInContext(ctx);
   ctx.renderUI = () => { renders.push('ui'); ctx.renderTabContent(tab); };
   const result = (name, full) => ({ status: 'success', data: { returns: [{ id: name }], claims: [{ id: 'claim-' + name }], claimStock: full ? [{ id: name, availableQty: 2 }] : [], claimBills: [], claimBillLines: [], claimBillReady: full, claimDetailsLoaded: full, claimStockCount: 7 } });

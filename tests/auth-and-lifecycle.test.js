@@ -12,10 +12,10 @@ const versionJson = JSON.parse(fs.readFileSync(versionPath, "utf8"));
 
 // Test 1: Version parity check
 console.log("[Test 1] Version Parity Check...");
-const versionMatch = html.match(/const CURRENT_VERSION = "(.*?)";/);
+const versionMatch = html.match(/const CURRENT_VERSION = ['"](.*?)['"];/);
 assert.ok(versionMatch, "CURRENT_VERSION must exist in index.html");
 assert.strictEqual(versionMatch[1], versionJson.version, "CURRENT_VERSION in index.html must match version.json");
-assert.strictEqual(versionJson.version, "20260820.04", "Version must be 20260820.04");
+assert.strictEqual(versionJson.version, "20260918.01", "Version must be 20260918.01");
 console.log("  -> PASS: Version is " + versionJson.version);
 
 // Test 2: Parse and compile all script blocks
@@ -73,6 +73,7 @@ function createSandbox(overrides = {}) {
         alert: (msg) => { sandbox.lastAlert = msg; },
         fetch: overrides.fetch || (async () => ({ ok: true, json: async () => ({ valid: true, user: { id: "admin-1", name: "Admin", roles: ["ADMIN"] } }) })),
         lastAlert: null,
+        state:{}, workflowGeneration:0, workflowRequest:null, workflowToken:'', hideLoader(){},
         setTimeout,
         clearTimeout,
         setInterval,
@@ -80,6 +81,17 @@ function createSandbox(overrides = {}) {
     };
     sandbox.window.self = sandbox.window;
     sandbox.window.top = sandbox.window;
+    // Synthetic Main verification result, not local decoding as authorization.
+    sandbox.window.AkraModule = {
+        embedded:false, getToken:()=>'',
+        isLocalPreview:()=>sandbox.window.location.hostname==='localhost' && sandbox.window.location.search==='?demo=1',
+        verifySession:async(id,token)=>{
+            assert.equal(id,'app-damage'); assert(token);
+            if(overrides.denied) throw new Error('permission_denied');
+            return overrides.verifiedUser || {id:'admin-01',name:'Super Admin',roles:['ADMIN'],identityId:'10000000-0000-4000-8000-000000000011',sessionVersion:1,authorizationRevision:'fixture'};
+        },
+        authRequired:url=>sandbox.window.location.replace?.(url)
+    };
     return sandbox;
 }
 
@@ -115,6 +127,7 @@ async function runAsyncTests() {
     console.log("\n[Test 4] verifyAccess() with valid SSO URL parameter...");
     const ssoTokenAdmin = makeJwt({ id: "admin-01", name: "Super Admin", roles: ["ADMIN"], perms: { "app-ret": ["ADD_CLM", "WH_CLM", "MANAGE_CLM"] }, exp: Math.floor(Date.now() / 1000) + 86400 });
     const sb4 = createSandbox({
+        verifiedUser:{id:'admin-01',name:'Super Admin',roles:['ADMIN'],perms:{'app-ret':['ADD_CLM','WH_CLM','MANAGE_CLM']}},
         window: { location: { search: "?sso=" + ssoTokenAdmin, pathname: "/Returnitem/", hostname: "akra-web.github.io" } }
     });
     const ctx4 = vm.createContext(sb4);
@@ -124,11 +137,12 @@ async function runAsyncTests() {
     assert.strictEqual(vm.runInContext("appUser", ctx4).name, "Super Admin");
     assert.strictEqual(JSON.stringify(vm.runInContext("appUser", ctx4).roles), JSON.stringify(["ADMIN"]));
     assert.strictEqual(JSON.stringify(vm.runInContext("appUser", ctx4).perms), JSON.stringify({ "app-ret": ["ADD_CLM", "WH_CLM", "MANAGE_CLM"] }));
-    console.log("  -> PASS: Instant SSO verification succeeded with permissions attached");
+    console.log("  -> PASS: Main-verified SSO identity and permissions retained");
 
     console.log("\n[Test 5] verifyAccess() with non-admin allowed role (Cashier)...");
     const ssoTokenCashier = makeJwt({ id: "cashier-01", name: "Cashier Staff", roles: ["Cashier"], exp: Math.floor(Date.now() / 1000) + 86400 });
     const sb5 = createSandbox({
+        verifiedUser:{id:'cashier-01',name:'Cashier Staff',roles:['Cashier']},
         window: { location: { search: "?sso=" + ssoTokenCashier, pathname: "/Returnitem/", hostname: "akra-web.github.io" } }
     });
     const ctx5 = vm.createContext(sb5);
@@ -142,12 +156,13 @@ async function runAsyncTests() {
     const ssoTokenUnauthorized = makeJwt({ id: "guest-01", name: "Guest", roles: ["GUEST"], exp: Math.floor(Date.now() / 1000) + 86400 });
     let redirectedToPortal = false;
     const sb6 = createSandbox({
+        denied:true,
         window: {
             location: {
                 search: "?sso=" + ssoTokenUnauthorized,
                 pathname: "/Returnitem/",
                 hostname: "akra-web.github.io",
-                replace: (url) => { if (url.includes("MainPortal")) redirectedToPortal = true; }
+                replace: (url) => { if (url === 'https://akra-web.github.io/Main/') redirectedToPortal = true; }
             }
         },
         fetch: async () => ({ ok: true, json: async () => ({ valid: false }) })
@@ -167,7 +182,7 @@ async function runAsyncTests() {
                 search: "",
                 pathname: "/Returnitem/",
                 hostname: "akra-web.github.io",
-                replace: (url) => { if (url.includes("MainPortal")) redirect7 = true; }
+                replace: (url) => { if (url === 'https://akra-web.github.io/Main/') redirect7 = true; }
             }
         }
     });
@@ -180,7 +195,7 @@ async function runAsyncTests() {
 
     console.log("\n[Test 8] Preview / Mock Mode...");
     const sb8 = createSandbox({
-        window: { location: { search: "", pathname: "/Returnitem/", hostname: "localhost" } }
+        window: { location: { search: "?demo=1", pathname: "/Returnitem/", hostname: "localhost" } }
     });
     const ctx8 = vm.createContext(sb8);
     vm.runInContext(ssoCode, ctx8);
@@ -211,7 +226,7 @@ async function runAsyncTests() {
     const access9 = await ctx9.verifyAccess();
     assert.strictEqual(access9, true, "Cached token in localStorage must succeed");
     assert.strictEqual(vm.runInContext("appUser", ctx9).id, "admin-01");
-    console.log("  -> PASS: Restored session from localStorage verified via JWT decode");
+    console.log("  -> PASS: Cached token verified by Main; cached profile is not authoritative");
 
     console.log("\n=== ALL 9 AUTH & LIFECYCLE TESTS PASSED! ===\n");
 }

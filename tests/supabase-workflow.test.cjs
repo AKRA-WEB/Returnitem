@@ -7,10 +7,11 @@ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8').replace(
 function section(start,end){const a=html.indexOf(start),b=html.indexOf(end,a+start.length);assert(a>=0&&b>a,'runtime extraction anchors');return html.slice(a,b);}
 function fixture(){
  const calls=[],errors=[],cache=new Map();
- const context=vm.createContext({console,appUser:{token:'fixture'},state:{claimBills:[{billId:'B',revision:2}]},window:{crypto:globalThis.crypto},
+ const context=vm.createContext({console,appUser:{token:'fixture',identityId:'10000000-0000-4000-8000-000000000011'},state:{claimBills:[{billId:'B',revision:2}]},window:{crypto:globalThis.crypto},
   sessionStorage:{getItem:k=>cache.get(k),setItem:(k,v)=>cache.set(k,v)},showLoader(){},hideLoader(){},showToast(){},setTimeout(){},
   handleClaimBillAuthError(){return false;},Swal:{fire:(...args)=>errors.push(args)},
   AkraSupabaseReturnitem:new Proxy({},{get:(_,method)=>async payload=>{calls.push({method,payload});if(context.fail)throw context.fail;return{status:'success',billId:'B'};}})});
+ new vm.Script(section('        function returnitemIdentityId()','        function invalidateReturnitemSession(')).runInContext(context);
  new vm.Script(section('        async function postData(','        // --- 4. NAVIGATION')).runInContext(context);
  new vm.Script(section('        function makeMutationId()','        async function handleClaimBillSubmit(')).runInContext(context);
  return{context,calls,errors,cache};
@@ -18,7 +19,7 @@ function fixture(){
 test('actual dispatcher routes edit with revision, token adapter preserves action and mutation identity',async()=>{
  const f=fixture();await f.context.postData({action:'updateClaimBillItems',billId:'B',items:[{sku:'A',qty:2}]},false);
  assert.equal(f.calls[0].method,'updateClaimBillItems');assert.equal(f.calls[0].payload.expectedRevision,2);assert(f.calls[0].payload.mutationId);
- let sent;const clientCtx=vm.createContext({fetch:async(url,opts)=>{sent=JSON.parse(opts.body);return{ok:true,json:async()=>({status:'success'})};}});
+ let sent;const clientCtx=vm.createContext({appUser:{token:'fixture-token'},fetch:async(url,opts)=>{sent=JSON.parse(opts.body);return{ok:true,json:async()=>({status:'success'})};}});
  new vm.Script(fs.readFileSync(path.join(__dirname,'../js/supabase-returnitem-client.js'),'utf8')).runInContext(clientCtx);
  await clientCtx.AkraSupabaseReturnitem.updateClaimBillItems({...f.calls[0].payload,action:'addReturn'},'fixture-token');
  assert.equal(sent.action,'updateClaimBillItems');assert.equal(sent.token,'fixture-token');assert.equal(sent.mutationId,f.calls[0].payload.mutationId);
