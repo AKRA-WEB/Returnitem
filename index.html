@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <script src="js/akra-shell-bridge.js?v=20260919.04"></script>
+    <script src="js/akra-shell-bridge.js?v=20261001.01"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WMS Returns & Claims Pro</title>
+    <title>BUYMORETH | รับคืนสินค้าและเคลม</title>
     <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="js/supabase-returnitem-client.js?v=20260919.01"></script>
+    <script src="js/supabase-returnitem-client.js?v=20261001.01"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap');
@@ -213,7 +213,7 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/Main/";
-        const CURRENT_VERSION = '20260919.04';
+        const CURRENT_VERSION = '20261001.01';
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -399,7 +399,7 @@
                     appUser = { ...user, tokenVersion: 2, token: window.AkraModule.getToken() };
                     return true;
                 } catch (_) {
-                    invalidateReturnitemSession('เซสชันหมดอายุ กรุณาเข้าสู่ระบบผ่าน Main อีกครั้ง');
+                    invalidateReturnitemSession('เซสชันหมดอายุ กรุณาเข้าสู่ระบบผ่าน BUYMORETH อีกครั้ง');
                     window.AkraModule.authRequired(MAIN_PORTAL_URL);
                     return false;
                 }
@@ -426,7 +426,7 @@
                 try { localStorage.setItem(STORAGE_KEY, JSON.stringify(appUser)); } catch (_) {}
                 return true;
             } catch (_) {
-                invalidateReturnitemSession('ตรวจสอบสิทธิ์ไม่สำเร็จ กรุณาเข้าสู่ระบบผ่าน Main อีกครั้ง');
+                invalidateReturnitemSession('ตรวจสอบสิทธิ์ไม่สำเร็จ กรุณาเข้าสู่ระบบผ่าน BUYMORETH อีกครั้ง');
                 window.AkraModule.authRequired(MAIN_PORTAL_URL);
                 return false;
             }
@@ -460,13 +460,13 @@
         }
         function bindReturnitemSessionEvents() {
             window.AkraModule?.watchSession?.({appId:'app-damage', user:appUser, token:getReturnitemToken(),
-                invalidated:() => invalidateReturnitemSession('เซสชัน Main เปลี่ยนแล้ว กรุณาเปิดแอปจาก Main ใหม่'),
+                invalidated:() => invalidateReturnitemSession('เซสชัน BUYMORETH เปลี่ยนแล้ว กรุณาเปิดแอปจาก BUYMORETH ใหม่'),
                 refreshed:token => { if (appUser) appUser.token = token; }
             });
             window.addEventListener('storage', event => {
                 if (window.AkraModule?.embedded || (event.key !== null && event.key !== STORAGE_KEY)) return;
                 if (event.key !== null && event.oldValue === event.newValue) return;
-                invalidateReturnitemSession('บัญชีหรือเซสชันเปลี่ยนแล้ว กรุณาเปิดแอปจาก Main ใหม่');
+                invalidateReturnitemSession('บัญชีหรือเซสชันเปลี่ยนแล้ว กรุณาเปิดแอปจาก BUYMORETH ใหม่');
             });
         }
     </script>
@@ -474,8 +474,8 @@
 <body class="returnitem-shell overflow-hidden selection:bg-[#171C8F]/20 relative">
     <style>[hidden] { display: none !important; }</style>
     <section id="session-status" hidden class="p-8 text-center">
-        <p id="session-status-text" role="status">กรุณาเข้าสู่ระบบผ่าน Main</p>
-        <button type="button" class="mt-4 px-5 py-3 rounded-xl bg-[#171C8F] text-white" onclick="window.AkraModule.home(MAIN_PORTAL_URL)">กลับ Main</button>
+        <p id="session-status-text" role="status">กรุณาเข้าสู่ระบบผ่าน BUYMORETH</p>
+        <button type="button" class="mt-4 px-5 py-3 rounded-xl bg-[#171C8F] text-white" onclick="window.AkraModule.home(MAIN_PORTAL_URL)">กลับหน้าหลัก</button>
     </section>
 
     <!-- 🚨 Floating Alert (แสดงทุกหน้า) -->
@@ -537,7 +537,7 @@
                     <i data-lucide="package-search" class="text-white w-5 h-5"></i>
                 </div>
                 <div>
-                    <h1 class="text-white font-bold text-lg leading-none tracking-tight">WMS Pro</h1>
+                    <h1 class="text-white font-bold text-lg leading-none tracking-tight">รับคืนสินค้าและเคลม</h1>
                     <p class="text-white/60 text-[10px] mt-1 uppercase tracking-widest font-semibold">Returns & Claims</p>
                 </div>
             </div>
@@ -2036,7 +2036,7 @@
             const owner = appUser, token = getReturnitemToken(), identity = returnitemIdentityId();
             let flightKey, ownsFlight = false;
             try {
-                if (!identity || !token) throw new Error('กรุณาเข้าสู่ระบบผ่าน Main ใหม่ก่อนส่งรายการ');
+                if (!identity || !token) throw new Error('กรุณาเข้าสู่ระบบผ่าน BUYMORETH ใหม่ก่อนส่งรายการ');
                 if (readPendingClaimMutations(PENDING_CLAIM_MUTATIONS_KEY).size) throw new Error('พบรายการส่งค้างจากระบบเดิมที่ยังยืนยันเจ้าของไม่ได้ กรุณาให้ผู้ดูแลตรวจสอบก่อนส่งใหม่');
                 const storageKey = PENDING_CLAIM_MUTATIONS_KEY + ':identity:' + identity;
                 const requestJson = JSON.stringify(requestIdentity), cacheKey = JSON.stringify([key,requestJson]);

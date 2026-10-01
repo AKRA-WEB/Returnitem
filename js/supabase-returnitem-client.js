@@ -30,7 +30,7 @@
     }
     function assertCurrentSession(owner, token) {
         if (!owner || owner !== getOwner() || !token || token !== getToken()) {
-            throw Object.assign(new Error('บัญชีหรือเซสชันเปลี่ยนแล้ว กรุณาเปิดแอปจาก Main ใหม่'), { reason:'session_changed' });
+            throw Object.assign(new Error('บัญชีหรือเซสชันเปลี่ยนแล้ว กรุณาเปิดแอปจาก BUYMORETH ใหม่'), { reason:'session_changed' });
         }
     }
 
