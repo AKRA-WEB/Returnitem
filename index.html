@@ -213,7 +213,38 @@
     <!-- 🔐 SSO Access Control -->
     <script>
         const MAIN_PORTAL_URL = "https://akra-web.github.io/Main/";
-        const CURRENT_VERSION = '20261002.01';
+        const CURRENT_VERSION = '20261002.02';
+
+        // Opt-in, transient aggregate timings; no records or identities.
+        window.AkraPerf = (() => {
+            if (new URLSearchParams(window.location.search).get('akra_perf') !== '1') return null;
+            const events = [], stages = new Set(['workflow_api', 'workflow_ready', 'dashboard_render', 'dashboard_enter_handler', 'dashboard_enter_ready', 'dashboard_view_handler', 'dashboard_view_ready']);
+            let sequence = 0, trial = 0, entry = null;
+            const now = () => performance.now();
+            const record = (stage, start, fields = {}) => {
+                if (!stages.has(stage) || !Number.isFinite(start)) return;
+                const result = { sequence: ++sequence, trial: Number.isSafeInteger(fields.trial) && fields.trial >= 0 ? fields.trial : trial, stage, durationMs: Math.round(Math.max(0, now() - start) * 100) / 100 };
+                for (const key of ['returns', 'claims', 'rows', 'requestCount']) if (Number.isFinite(fields[key]) && fields[key] >= 0) result[key] = fields[key];
+                if (['overview', 'returns', 'claims'].includes(fields.view)) result.view = fields.view;
+                if (['success', 'error'].includes(fields.status)) result.status = fields.status;
+                if (typeof fields.includeClaimDetails === 'boolean') result.includeClaimDetails = fields.includeClaimDetails;
+                events.push(result);
+                if (events.length > 80) events.shift();
+                let node = document.getElementById('akra-perf-diagnostics');
+                if (!node) {
+                    node = document.createElement('pre'); node.id = 'akra-perf-diagnostics'; node.hidden = true; node.setAttribute('aria-hidden', 'true'); document.body.appendChild(node);
+                }
+                node.textContent = JSON.stringify({ schema: 1, app: 'RETURN', version: CURRENT_VERSION, events });
+            };
+            const paint = (stage, start, fields, current) => {
+                requestAnimationFrame(() => requestAnimationFrame(() => { if (fields.trial === trial && current()) record(stage, start, fields); }));
+            };
+            return { now, record, paint, nextTrial: () => ++trial, currentTrial: () => trial,
+                beginEntry(start, current) { entry = { start, trial, current }; },
+                completeEntry(ready) { if (!ready || !entry) return; const pending = entry; entry = null; paint('dashboard_enter_ready', pending.start, { trial: pending.trial, status: 'success' }, pending.current); },
+                cancelEntry() { entry = null; }
+            };
+        })();
         async function checkAppVersion() {
             try {
                 const res = await fetch('version.json?t=' + Date.now());
@@ -443,6 +474,7 @@
             return Boolean(owner && owner === appUser && token && token === getReturnitemToken());
         }
         function invalidateReturnitemSession(message) {
+            window.AkraPerf?.cancelEntry();
             appUser = null;
             ++workflowGeneration;
             workflowRequest = null;
@@ -1258,10 +1290,13 @@
             if (loader) showLoader('กำลังโหลดข้อมูล...');
             else if (refreshIcon) refreshIcon.classList.add('animate-spin', 'text-[#E35205]');
             const current = () => generation === workflowGeneration && isCurrentReturnitemSession(owner, token);
+            const perfStart = window.AkraPerf?.now();
+            const perfTrial = window.AkraPerf?.currentTrial();
             const promise = (async () => {
                 try {
                     const res = await AkraSupabaseReturnitem.getInitialData(token, 300, { includeClaimDetails });
                     if (!current()) return;
+                    window.AkraPerf?.record('workflow_api', perfStart, { trial: perfTrial, status: res?.status === 'success' ? 'success' : 'error', includeClaimDetails, requestCount: 1 });
                     if (!res || res.status !== 'success' || !res.data) throw new Error((res && res.message) || 'โหลดข้อมูลไม่สำเร็จ');
                     setCache(activeCacheKey(), cacheSafeActiveData(res.data));
                     const { drafts: retiredDrafts, audits: retiredAudits, ...workflowData } = res.data;
@@ -1281,6 +1316,10 @@
                     if (current()) {
                         hideLoader();
                         if (refreshIcon) refreshIcon.classList.remove('animate-spin', 'text-[#E35205]');
+                        if (!state.claimDetailsError && state.workflowReady) {
+                            window.AkraPerf?.record('workflow_ready', perfStart, { trial: perfTrial, status: 'success', includeClaimDetails, returns: state.returns.length, claims: state.claims.length });
+                            if (window.AkraPerf) completeReturnPerfEntry();
+                        }
                     }
                     if (workflowRequest && workflowRequest.generation === generation) workflowRequest = null;
                 }
@@ -1346,6 +1385,13 @@
             const tabEl = document.getElementById(`tab-${target}`);
             const btn = document.querySelector(`#desktop-nav [data-tab="${target}"]`);
             if (!tabEl || !btn || btn.style.display === 'none') return false;
+            const perf = target === 'DASHBOARD' ? window.AkraPerf : null;
+            const perfStart = perf?.now();
+            if (perf) {
+                perf.nextTrial();
+                const owner = appUser, token = getReturnitemToken();
+                perf.beginEntry(perfStart, () => isCurrentReturnitemSession(owner, token) && tabEl.classList.contains('active') && state.workflowReady && !state.claimDetailsLoading && !state.claimDetailsError);
+            }
 
             document.querySelectorAll('[data-tab]').forEach(b => {
                 b.classList.remove('bg-white/10', 'text-[#E35205]', 'font-bold', 'shadow-sm');
@@ -1364,6 +1410,8 @@
             }
 
             if(window.closeMobileSidebar) window.closeMobileSidebar();
+            perf?.record('dashboard_enter_handler', perfStart, { status: 'success' });
+            if (perf) completeReturnPerfEntry();
             return true;
         }
 
@@ -1388,6 +1436,7 @@
             document.querySelectorAll('.dash-nav').forEach(btn => {
                 btn.onclick = () => {
                     const view = btn.dataset.dashview;
+                    const perf = window.AkraPerf, perfStart = perf?.now(), perfTrial = perf?.nextTrial();
                     document.querySelectorAll('.dash-nav').forEach(b => {
                         b.classList.remove('bg-[#171C8F]/10', 'text-[#171C8F]');
                         b.classList.add('text-slate-500');
@@ -1397,6 +1446,11 @@
                     document.querySelectorAll('.dash-view').forEach(v => v.classList.remove('active'));
                     document.getElementById(`dash-view-${view}`).classList.add('active');
                     updateRouteState({ dash: view });
+                    if (perf) {
+                        const owner = appUser, token = getReturnitemToken(), target = document.getElementById(`dash-view-${view}`);
+                        perf.record('dashboard_view_handler', perfStart, { trial: perfTrial, view, requestCount: 0, status: 'success' });
+                        perf.paint('dashboard_view_ready', perfStart, { trial: perfTrial, view, requestCount: 0, status: 'success' }, () => isCurrentReturnitemSession(owner, token) && currentWorkflowTab() === 'DASHBOARD' && target.classList.contains('active') && target.getBoundingClientRect().width > 0);
+                    }
                 };
             });
 
@@ -1414,6 +1468,10 @@
                     dashFilterText = routeSearch.toLowerCase();
                 }
             }
+        }
+
+        function completeReturnPerfEntry() {
+            window.AkraPerf?.completeEntry(currentWorkflowTab() === 'DASHBOARD' && state.workflowReady && state.claimDetailsRequested !== false && !state.claimDetailsLoading && !state.claimDetailsError);
         }
 
         window.filterDashboard = function() {
@@ -2172,6 +2230,7 @@
         }
 
         function renderDashboard() {
+            const perfStart = window.AkraPerf?.now();
             if(document.getElementById('kpi-ret')) document.getElementById('kpi-ret').innerText = state.returns.filter(r => r.status==='รอ QC' || r.status==='PENDING').length;
             if(document.getElementById('kpi-clm')) {
                 const intakeCount = state.claims.filter(c => c.whStatus==='ยังไม่รับ' || c.status===ST_HOLDING).length;
@@ -2243,6 +2302,7 @@
                     ].join('');
                 }).join('') : '<tr><td colspan="5" class="py-10 text-center text-slate-400">ไม่พบข้อมูลที่ค้นหา</td></tr>';
             }
+            window.AkraPerf?.record('dashboard_render', perfStart, { status: 'success', returns: state.returns.length, claims: state.claims.length, rows: retFiltered.length + clmFiltered.length });
         }
 
         let chartJsLoadingPromise = null;

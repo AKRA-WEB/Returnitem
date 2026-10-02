@@ -15,7 +15,7 @@ function fixture({local=new Map(),session=new Map(),verify=async()=>original}={}
     const events={},nodes=new Map(),errors=[],calls=[];
     const node=id=>{if(!nodes.has(id)){const classes=new Set();nodes.set(id,{hidden:false,textContent:'',style:{},classList:{add:c=>classes.add(c),remove:c=>classes.delete(c),contains:c=>classes.has(c)}});}return nodes.get(id);};
     const window={location:{search:'?sso='+token,pathname:'/Returnitem/'},history:{replaceState(){}},crypto:globalThis.crypto,addEventListener:(name,fn)=>events[name]=fn,
-        AkraModule:{embedded:false,getToken:()=>'',verifySession:verify,isLocalPreview:()=>false,authRequired(){},home(){}}};
+        AkraModule:{embedded:false,getToken:()=>'',verifySession:verify,isLocalPreview:()=>false,authRequired(){},home(){},markSaved(){}}};
     const ctx=vm.createContext({window,URLSearchParams,Buffer,console:{warn(){},error(){}},document:{title:'Fixture',getElementById:node,querySelectorAll:()=>[]},
         localStorage:{getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,v),removeItem:k=>local.delete(k)},
         sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,v)},
